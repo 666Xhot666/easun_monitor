@@ -1,0 +1,79 @@
+name: easun-monitor
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: eam_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-eam_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eam_password}
+      POSTGRES_DB: ${POSTGRES_DB:-eam_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - eam_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-eam_user} -d ${POSTGRES_DB:-eam_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - eam_network
+
+  server:
+    build:
+      context: ./eam_server
+      target: ${BUILD_TARGET:-development}
+    container_name: eam_server
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${SERVER_PORT:-3000}
+      # --- Database connection (points at the `db` service on the compose network) ---
+      DATABASE_HOST: db
+      DATABASE_PORT: 5432
+      DATABASE_USER: ${POSTGRES_USER:-eam_user}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-eam_password}
+      DATABASE_NAME: ${POSTGRES_DB:-eam_db}
+      # --- EASUN inverter Modbus TCP connection ---
+      INVERTER_IP: ${INVERTER_IP:?Set INVERTER_IP in your .env file to your inverter's LAN IP}
+      INVERTER_PORT: ${INVERTER_PORT:-502}
+      INVERTER_POLL_INTERVAL_MS: ${INVERTER_POLL_INTERVAL_MS:-5000}
+    ports:
+      - "${SERVER_PORT:-3000}:3000"
+    volumes:
+      - ./eam_server:/usr/src/app
+      - eam_server_node_modules:/usr/src/app/node_modules
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - eam_network
+
+  frontend:
+    build:
+      context: ./eam_front
+      target: ${BUILD_TARGET:-development}
+    container_name: eam_front
+    restart: unless-stopped
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:3000}
+    ports:
+      - "${FRONTEND_PORT:-5173}:5173"
+    volumes:
+      - ./eam_front:/usr/src/app
+      - eam_front_node_modules:/usr/src/app/node_modules
+    depends_on:
+      - server
+    networks:
+      - eam_network
+
+networks:
+  eam_network:
+    driver: bridge
+
+volumes:
+  eam_db_data:
+  eam_server_node_modules:
+  eam_front_node_modules:
