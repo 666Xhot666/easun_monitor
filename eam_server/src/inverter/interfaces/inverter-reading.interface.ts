@@ -1,12 +1,11 @@
 /**
  * Shape of one successfully decoded telemetry snapshot from the inverter.
- * Matches the required fields of the InverterLog Prisma model 1:1 (id and
- * timestamp are assigned by the database, not the reading itself).
+ *
+ * The parameter set is sourced dynamically from commands.json (~85
+ * registers) rather than a fixed list, and any individual register can be
+ * skipped on a given poll if it times out or fails to parse — so the keys
+ * present on a given reading are not guaranteed to be the same from cycle
+ * to cycle. This is persisted as-is into the InverterLog.payload Json
+ * column.
  */
-export interface InverterReading {
-  gridVoltage: number;
-  batteryVoltage: number;
-  pvPower: number;
-  outputLoadPercent: number;
-  inverterMode: string;
-}
+export type InverterReading = Record<string, number>;

@@ -106,10 +106,10 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
         this.inverterIp,
       );
 
-      await this.prisma.inverterLog.create({ data: reading });
+      await this.prisma.inverterLog.create({ data: { payload: reading } });
 
       this.logger.debug(
-        `Stored reading: mode=${reading.inverterMode} pvPower=${reading.pvPower}W`,
+        `Stored reading with ${Object.keys(reading).length} parameter(s)`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
