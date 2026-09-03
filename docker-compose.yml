@@ -36,10 +36,14 @@ services:
       DATABASE_USER: ${POSTGRES_USER:-eam_user}
       DATABASE_PASSWORD: ${POSTGRES_PASSWORD:-eam_password}
       DATABASE_NAME: ${POSTGRES_DB:-eam_db}
+      # Prisma wants a single connection string. Composed here from the same
+      # vars as `db`'s own credentials above, so there's one source of truth
+      # (root .env) instead of a second copy of the password.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-eam_user}:${POSTGRES_PASSWORD:-eam_password}@db:5432/${POSTGRES_DB:-eam_db}?schema=public
       # --- EASUN inverter Modbus TCP connection ---
       INVERTER_IP: ${INVERTER_IP:?Set INVERTER_IP in your .env file to your inverter's LAN IP}
       INVERTER_PORT: ${INVERTER_PORT:-502}
-      INVERTER_POLL_INTERVAL_MS: ${INVERTER_POLL_INTERVAL_MS:-5000}
+      POLLING_INTERVAL_MS: ${POLLING_INTERVAL_MS:?Set POLLING_INTERVAL_MS in your .env file (milliseconds between inverter polls)}
     ports:
       - "${SERVER_PORT:-3000}:3000"
     volumes:

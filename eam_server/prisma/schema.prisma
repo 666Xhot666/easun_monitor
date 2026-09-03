@@ -1,0 +1,36 @@
+// Prisma schema for eam_server.
+// Docs: https://pris.ly/d/prisma-schema
+//
+// Prisma 7: connection config lives in prisma.config.ts, not here — the
+// datasource block only declares the provider. The client generator now
+// requires an explicit `output` path (no more implicit node_modules
+// location) and we pin moduleFormat to match this project's CJS choice.
+
+generator client {
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// One polled snapshot of the inverter's live telemetry — a time-series row.
+model InverterLog {
+  id                Int      @id @default(autoincrement())
+  timestamp         DateTime @default(now())
+
+  gridVoltage       Float
+  batteryVoltage    Float
+  pvPower           Float
+  outputLoadPercent Float
+
+  /// Raw mode string as reported by the device (e.g. "Battery", "Line",
+  /// "Standby"). Kept as String rather than an enum until the full set of
+  /// values the reverse-engineered protocol can report is known.
+  inverterMode      String
+
+  @@index([timestamp])
+  @@map("inverter_logs")
+}

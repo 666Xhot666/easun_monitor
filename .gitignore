@@ -60,3 +60,9 @@ Thumbs.db
 # Local per-machine compose overrides shouldn't be shared.
 # =============================================================================
 docker-compose.override.yml
+
+# =============================================================================
+# Prisma 7 generated client (eam_server/src/generated) — regenerate with
+# `npx prisma generate`, never commit it.
+# =============================================================================
+generated/

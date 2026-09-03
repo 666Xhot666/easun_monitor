@@ -19,3 +19,6 @@ test
 *.md
 .vscode
 .idea
+
+# Prisma 7 generated client — regenerated fresh in the build stage
+src/generated

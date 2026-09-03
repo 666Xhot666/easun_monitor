@@ -27,6 +27,9 @@ FROM base AS build
 ENV NODE_ENV=production
 RUN npm ci
 COPY . .
+# Must run before `nest build`: the Prisma 7 client is generated TypeScript
+# living in src/generated/prisma, and app code imports directly from it.
+RUN npx prisma generate
 RUN npm run build
 
 # =============================================================================
