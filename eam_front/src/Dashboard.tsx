@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
+import HistoryChart from './HistoryChart';
 
 interface InverterLog {
   id: number;
@@ -178,6 +179,8 @@ export default function Dashboard() {
             );
           })}
         </section>
+
+        <HistoryChart />
 
         {/* Every other parameter in the payload */}
         <section className="mt-10">

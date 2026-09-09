@@ -22,7 +22,7 @@ export default defineConfig({
         // frontend outside Docker (`npm run dev` directly on your host)
         // needs this switched to http://localhost:3000 instead, since
         // `server` won't resolve there.
-        target: 'http://server:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
       },
     },

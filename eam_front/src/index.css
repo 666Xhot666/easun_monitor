@@ -5,6 +5,26 @@
    things that apply everywhere. */
 :root {
   color-scheme: light dark;
+
+  /* Chart series colors (validated categorical pair — see dataviz skill's
+     scripts/validate_palette.js: CVD ΔE 24.7/26.8, normal-vision ΔE
+     33.6/31.8, both well clear of the 8/15 floors) and chart chrome, kept
+     as custom properties so light/dark swap in one place and Recharts
+     (which takes plain color strings, not Tailwind classes) can still
+     reference them via var(). */
+  --chart-series-pv-power: #2a78d6;
+  --chart-series-battery-voltage: #eb6834;
+  --chart-grid: #e1e0d9;
+  --chart-axis: #898781;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --chart-series-pv-power: #3987e5;
+    --chart-series-battery-voltage: #d95926;
+    --chart-grid: #2c2c2a;
+    --chart-axis: #898781;
+  }
 }
 
 body {
