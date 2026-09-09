@@ -14,14 +14,18 @@
  *   node scripts/mock-inverter.js
  *
  * --- Pointing the backend at this instead of the real inverter ---
- * eam_server runs inside Docker, so INVERTER_IP=127.0.0.1 in .env will
- * NOT reach a script running on your host machine — from inside the
- * container, that address is the container itself. Use instead:
- *   - Docker Desktop (Mac/Windows): INVERTER_IP=host.docker.internal
- *   - Docker on Linux: INVERTER_IP=<your host machine's LAN/bridge IP>
- * INVERTER_PORT can stay at its default (8899) since that's what this
- * script listens on below. After changing .env, run `docker compose up
- * -d` to recreate the server container with the new value.
+ * There's no .env setting for this anymore — every inverter (real or
+ * mocked) is paired per-account through the in-app setup wizard, not a
+ * global address in .env with no owning user. So: register/log in, then
+ * in the wizard's "Logger IP address" field, use whichever of these
+ * resolves to your host machine from *inside* the `server` container
+ * (that's what actually opens the socket, not your browser):
+ *   - Docker Desktop (Mac/Windows): host.docker.internal
+ *   - Docker on Linux: your host machine's LAN/bridge IP, or run
+ *     `docker compose exec server getent hosts host.docker.internal`
+ *     if extra_hosts: host-gateway is configured and you want the
+ *     resolved numeric address instead
+ * Leave Port at 8899, since that's what this script listens on below.
  *
  * --- A note on register addresses ---
  * This script loads the real commands.json (the same file InverterService
@@ -134,6 +138,23 @@ function logicalValueForRegister(hexAddress, definition) {
   // with an actual negative reading instead of always-positive noise.
   if (definition.type === 'Int16BE' && /current/i.test(definition.name)) {
     return randomInRange(-80, 150);
+  }
+
+  // Battery bank voltage (the live BatteryVoltage reading, every
+  // Battery*Voltage charge/alarm setpoint, and the nominal-voltage
+  // model register) is handled before the generic /voltage/i rule
+  // below. A plain substring match on "voltage" would otherwise put
+  // these in the ~215-245V range meant for AC line/output voltage —
+  // exactly the "battery voltage displays as 243.8" bug: BatteryVoltage
+  // has rate 0.1, so a raw ~2438 (picked as if it were an AC voltage)
+  // scales to 243.8V instead of a realistic ~40-58V battery-bank
+  // reading. Dividing by the field's own rate keeps this correct
+  // whether that rate is 0.1 (BatteryVoltage), 0.2 (the E0xx charge/
+  // alarm setpoints), or unscaled (ModelBatteryVoltage).
+  if (/battery.*voltage/i.test(definition.name)) {
+    const rate =
+      typeof definition.rate === 'number' && definition.rate > 0 ? definition.rate : 1;
+    return randomInRange(40, 58) / rate;
   }
 
   const rule = NAME_RANGE_RULES.find(([pattern]) => pattern.test(definition.name));

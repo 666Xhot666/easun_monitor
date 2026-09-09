@@ -16,6 +16,90 @@ datasource db {
   provider = "postgresql"
 }
 
+enum BatteryType {
+  LIFEPO4
+  LEAD_ACID
+  GEL
+  USER_DEFINED
+}
+
+/// A registered dashboard account. One account can pair more than one
+/// inverter (InverterProfile) over time, though the current onboarding
+/// wizard only ever walks a user through configuring one.
+model User {
+  id           Int      @id @default(autoincrement())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  inverterProfiles InverterProfile[]
+  refreshTokens    RefreshToken[]
+
+  @@map("users")
+}
+
+/// An issued refresh token. Opaque (a random value, not a JWT) and
+/// stored only as a hash, so a leaked database dump alone can't be
+/// replayed as a live session. Revoked on rotation (every successful
+/// /api/auth/refresh use immediately revokes the token it was called
+/// with) or on logout; rows aren't deleted on expiry/revocation, since
+/// keeping the history is cheap and harmless.
+model RefreshToken {
+  id        Int       @id @default(autoincrement())
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
+}
+
+/// The hardware baseline for one paired inverter/battery bank, captured by
+/// the setup wizard. Dashboard calculations that need to know the specific
+/// installation — load % relative to true rated capacity, SOC-to-kWh
+/// conversion, which voltage thresholds count as "low battery" — read from
+/// here instead of assuming a fixed spec, since installs vary (a 3.6kW vs
+/// 6.2kW inverter, a 24V vs 48V bank, LiFePO4 vs lead-acid discharge
+/// curves).
+model InverterProfile {
+  id   Int    @id @default(autoincrement())
+  name String
+
+  /// Wi-Fi Plug Pro logger connection — same protocol as INVERTER_IP/PORT
+  /// previously configured only via .env; PollingService now prefers
+  /// whichever profile was most recently set up over those static vars.
+  ipAddress String
+  port      Int    @default(8899)
+
+  ratedPowerWatts       Int
+  batteryNominalVoltage Float
+  batteryCapacityAh     Float
+  batteryType           BatteryType @default(LIFEPO4)
+
+  /// Optional overrides — when omitted, the frontend/backend fall back to
+  /// sane chemistry-based defaults rather than requiring the user to know
+  /// exact charge-controller thresholds during onboarding.
+  lowBatteryCutoffVoltage Float?
+  bulkChargeVoltage       Float?
+  floatChargeVoltage      Float?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  logs InverterLog[]
+
+  @@index([userId])
+  @@map("inverter_profiles")
+}
+
 /// One polled snapshot of the inverter's live telemetry — a time-series row.
 ///
 /// The full parameter map (~85 registers, sourced dynamically from
@@ -32,6 +116,13 @@ model InverterLog {
   /// successfully read this cycle, e.g. { "LineVoltage": 230.5, "BatterySoc": 100 }.
   payload   Json
 
+  /// Nullable rather than required: a row polled before any inverter was
+  /// ever paired (legacy .env-only deployments, or the brief window before
+  /// the first setup completes) has no profile to attach to yet.
+  inverterProfileId Int?
+  inverterProfile   InverterProfile? @relation(fields: [inverterProfileId], references: [id], onDelete: SetNull)
+
   @@index([timestamp])
+  @@index([inverterProfileId])
   @@map("inverter_logs")
 }

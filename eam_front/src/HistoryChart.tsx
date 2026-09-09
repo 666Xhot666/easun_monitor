@@ -52,19 +52,29 @@ function formatTooltipTimestamp(iso: string): string {
 
 type FetchState = 'loading' | 'ok' | 'empty' | 'error';
 
-export default function HistoryChart() {
+export default function HistoryChart({ profileId }: { profileId: number }) {
   const [points, setPoints] = useState<HistoryPoint[]>([]);
   const [fetchState, setFetchState] = useState<FetchState>('loading');
 
-  // Fetched once on mount — the API already returns the last 100 readings,
-  // and re-fetching on the same 5s cadence as the live poll would just
-  // redraw an all-but-identical chart every tick for no visible benefit.
+  // Re-fetched whenever the active inverter changes (not just on mount) —
+  // switching profiles via the dashboard's switcher needs a fresh history
+  // for the newly-selected device, not the previous one's stale points.
+  // The API already returns the last 100 readings, and re-fetching on the
+  // same 5s cadence as the live poll would just redraw an all-but-identical
+  // chart every tick for no visible benefit, so this still only runs once
+  // per profileId change, not on an interval.
   useEffect(() => {
     let cancelled = false;
 
     async function fetchHistory() {
+      // Reset to a loading view for the newly-selected profile — placed
+      // here (inside the async function, not as a direct effect-body
+      // statement) so it doesn't trip react-hooks' set-state-in-effect
+      // rule.
+      if (cancelled) return;
+      setFetchState('loading');
       try {
-        const { data } = await axios.get<InverterLog[]>('/api/inverter/history');
+        const { data } = await axios.get<InverterLog[]>(`/api/inverter/${profileId}/history`);
         if (cancelled) return;
         setPoints(toHistoryPoints(data));
         setFetchState(data.length === 0 ? 'empty' : 'ok');
@@ -78,7 +88,7 @@ export default function HistoryChart() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [profileId]);
 
   return (
     <section className="mt-10">

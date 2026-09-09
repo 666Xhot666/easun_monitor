@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { InverterModule } from './inverter/inverter.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { InverterModule } from './inverter/inverter.module';
     // registry itself still comes from this module.
     ScheduleModule.forRoot(),
     PrismaModule,
+    AuthModule,
     InverterModule,
   ],
   controllers: [AppController],

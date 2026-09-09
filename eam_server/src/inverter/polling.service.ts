@@ -9,27 +9,52 @@ import { SchedulerRegistry } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { InverterService } from './inverter.service';
 
-const POLL_INTERVAL_NAME = 'inverter-poll';
+const INTERVAL_NAME_PREFIX = 'inverter-poll-';
+
+interface PollTarget {
+  ipAddress: string;
+  port: number;
+}
 
 /**
- * Drives the polling loop against the inverter and persists successful
- * reads. The interval is read from `POLLING_INTERVAL_MS` at startup, so it
- * can't be expressed with a static `@Cron`/`@Interval` decorator (those need
- * a compile-time value) — instead we register a plain `setInterval` with
- * Nest's SchedulerRegistry, which gives us the same lifecycle/inspection
- * benefits (`docs compose exec server` + Nest Devtools can see it as
- * "inverter-poll") without hardcoding the cadence.
+ * Drives one concurrent poll loop per paired inverter and persists
+ * successful reads, tagged with which InverterProfile they came from.
+ * Multiple users can each pair one or more inverters — every
+ * InverterProfile row in the database gets its own independent
+ * `setInterval`, running side by side against InverterService's
+ * per-device connection pool (see InverterService's `connections` map),
+ * so a slow or unreachable device never blocks or delays polling for any
+ * other device.
+ *
+ * Deliberately does NOT fall back to any .env-configured address when no
+ * InverterProfile exists: every reading this service ever stores is
+ * tagged with the InverterProfile (and therefore the user) it came from,
+ * with no exception — an "ownerless" reading polled straight from .env
+ * would be data nobody's account can see or manage, which directly
+ * contradicts the whole point of this being a per-user, multi-inverter
+ * system. If there are no profiles yet, polling is simply idle until
+ * someone completes the setup wizard.
+ *
+ * The interval length itself is still one global `POLLING_INTERVAL_MS`
+ * (read at startup, hence the SchedulerRegistry/setInterval approach
+ * rather than a compile-time `@Cron`/`@Interval`) — every device is
+ * polled on the same cadence, just not the same tick.
  */
 @Injectable()
 export class PollingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PollingService.name);
-  private readonly inverterIp: string;
   private readonly pollIntervalMs: number;
 
-  // Re-entrancy guard: if a poll ever takes longer than the interval (e.g.
-  // the device is timing out), this skips the next tick instead of piling
-  // up overlapping requests against the same inverter connection.
-  private isPolling = false;
+  // profileId -> the address we're currently polling for it. Mirrors
+  // exactly which SchedulerRegistry intervals are running, so
+  // syncProfiles() can diff against the database without needing to ask
+  // SchedulerRegistry what it already knows.
+  private readonly tracked = new Map<number, PollTarget>();
+  // Per-profile re-entrancy guard — a slow poll for one device must never
+  // cause another device's tick to be skipped, so this can't be a single
+  // shared boolean the way a one-inverter version of this service could
+  // get away with.
+  private readonly pollingInFlight = new Set<number>();
 
   constructor(
     private readonly configService: ConfigService,
@@ -37,19 +62,6 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     private readonly inverterService: InverterService,
     private readonly prisma: PrismaService,
   ) {
-    // Fail fast and loudly at boot if required config is missing, rather
-    // than silently polling a blank address forever. docker-compose.yml
-    // already guards INVERTER_IP with `:?`, so in the normal Docker flow
-    // this can only trip when running the compiled app outside Docker
-    // without a real .env — which is exactly when you want a clear error.
-    const ip = this.configService.get<string>('INVERTER_IP');
-    if (!ip) {
-      throw new Error(
-        'INVERTER_IP is not set. Configure it in your .env file before starting the server.',
-      );
-    }
-    this.inverterIp = ip;
-
     const rawInterval = this.configService.get<string>('POLLING_INTERVAL_MS');
     const parsedInterval = Number(rawInterval);
     const isValid =
@@ -67,56 +79,127 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     this.pollIntervalMs = parsedInterval;
   }
 
-  onModuleInit(): void {
-    const interval = setInterval(() => {
-      void this.poll();
-    }, this.pollIntervalMs);
-
-    this.schedulerRegistry.addInterval(POLL_INTERVAL_NAME, interval);
-    this.logger.log(
-      `Polling inverter at ${this.inverterIp} every ${this.pollIntervalMs}ms`,
-    );
-
-    // Run one poll immediately instead of waiting a full interval for the
-    // first reading.
-    void this.poll();
+  async onModuleInit(): Promise<void> {
+    await this.syncProfiles();
   }
 
   onModuleDestroy(): void {
-    if (this.schedulerRegistry.doesExist('interval', POLL_INTERVAL_NAME)) {
-      this.schedulerRegistry.deleteInterval(POLL_INTERVAL_NAME);
+    for (const profileId of this.tracked.keys()) {
+      this.stopPolling(profileId);
     }
   }
 
   /**
-   * One poll cycle: fetch, then persist. Never throws — any failure (a
-   * dropped Wi-Fi connection, a timeout, a DB error) is logged and
-   * swallowed here so a single bad cycle can't crash the process or stop
-   * the timer from firing again.
+   * Re-reads every InverterProfile in the database — across all users,
+   * since each paired inverter gets its own poll loop regardless of who
+   * owns it — and reconciles the running intervals against it: starts
+   * polling any newly-paired profile, stops polling any profile that no
+   * longer exists (deleted), and restarts polling for a profile whose
+   * ip/port changed (edited). Safe to call at any time; the controller
+   * calls this right after a profile is created, updated, or deleted so
+   * the change takes effect immediately instead of requiring a server
+   * restart.
    */
-  private async poll(): Promise<void> {
-    if (this.isPolling) {
-      this.logger.warn('Previous poll still in flight — skipping this tick');
+  async syncProfiles(): Promise<void> {
+    const profiles = await this.prisma.inverterProfile.findMany();
+
+    const desired = new Map<number, PollTarget>();
+    for (const profile of profiles) {
+      desired.set(profile.id, { ipAddress: profile.ipAddress, port: profile.port });
+    }
+
+    // Stop anything currently running that's no longer desired.
+    for (const profileId of this.tracked.keys()) {
+      if (!desired.has(profileId)) {
+        this.stopPolling(profileId);
+      }
+    }
+
+    // Start anything newly desired, and restart anything whose target
+    // address changed since it was last (re)started.
+    for (const [profileId, target] of desired) {
+      const current = this.tracked.get(profileId);
+      const changed =
+        !current || current.ipAddress !== target.ipAddress || current.port !== target.port;
+      if (changed) {
+        if (current) this.stopPolling(profileId);
+        this.startPolling(profileId, target);
+      }
+    }
+
+    if (desired.size === 0) {
+      this.logger.log('No inverter profiles paired yet — polling idle until someone completes setup.');
+    }
+  }
+
+  private startPolling(profileId: number, target: PollTarget): void {
+    this.tracked.set(profileId, target);
+
+    const interval = setInterval(() => {
+      void this.poll(profileId, target);
+    }, this.pollIntervalMs);
+
+    this.schedulerRegistry.addInterval(this.intervalName(profileId), interval);
+    this.logger.log(
+      `Polling inverter at ${target.ipAddress}:${target.port} every ${this.pollIntervalMs}ms (profile #${profileId})`,
+    );
+
+    // Run one poll immediately instead of waiting a full interval for the
+    // first reading.
+    void this.poll(profileId, target);
+  }
+
+  private stopPolling(profileId: number): void {
+    const name = this.intervalName(profileId);
+    if (this.schedulerRegistry.doesExist('interval', name)) {
+      this.schedulerRegistry.deleteInterval(name);
+    }
+    this.tracked.delete(profileId);
+    this.pollingInFlight.delete(profileId);
+  }
+
+  private intervalName(profileId: number): string {
+    return `${INTERVAL_NAME_PREFIX}${profileId}`;
+  }
+
+  /**
+   * One poll cycle for one device: fetch, then persist. Never throws —
+   * any failure (a dropped Wi-Fi connection, a timeout, a DB error) is
+   * logged and swallowed here so a bad cycle for one device can't crash
+   * the process or stop either its own timer or any other device's timer
+   * from firing again.
+   */
+  private async poll(profileId: number, target: PollTarget): Promise<void> {
+    if (this.pollingInFlight.has(profileId)) {
+      this.logger.warn(
+        `Previous poll for profile #${profileId} still in flight — skipping this tick`,
+      );
       return;
     }
-    this.isPolling = true;
+    this.pollingInFlight.add(profileId);
 
     try {
       const reading = await this.inverterService.fetchDeviceData(
-        this.inverterIp,
+        target.ipAddress,
+        target.port,
       );
 
-      await this.prisma.inverterLog.create({ data: { payload: reading } });
+      await this.prisma.inverterLog.create({
+        data: {
+          payload: reading,
+          inverterProfileId: profileId,
+        },
+      });
 
       this.logger.debug(
-        `Stored reading with ${Object.keys(reading).length} parameter(s)`,
+        `Profile #${profileId}: stored reading with ${Object.keys(reading).length} parameter(s)`,
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Poll cycle failed: ${message}`);
+      this.logger.error(`Poll cycle failed for profile #${profileId}: ${message}`);
       // Intentionally not rethrown — see method doc above.
     } finally {
-      this.isPolling = false;
+      this.pollingInFlight.delete(profileId);
     }
   }
 }

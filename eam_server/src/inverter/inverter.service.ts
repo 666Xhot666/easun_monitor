@@ -67,53 +67,67 @@ const PARAMETER_DEFINITIONS = loadSmxParameterDefinitions();
 export class InverterService implements OnModuleDestroy {
   private readonly logger = new Logger(InverterService.name);
 
-  // A single TCP connection is reused across polls — re-doing the UDP
-  // handshake and TCP handshake every 5 seconds would be needlessly slow.
-  private socket: net.Socket | null = null;
-  private connectedIp: string | null = null;
+  // One persistent TCP connection per *device* (keyed by "ip:port"), not
+  // a single shared connection — re-doing the UDP+TCP handshake on every
+  // poll tick would be needlessly slow, and with multiple inverters now
+  // pollable concurrently (one per InverterProfile, possibly several per
+  // user), a single shared socket field would have two devices' polls
+  // stomp on each other's connection.
+  private readonly connections = new Map<string, net.Socket>();
 
-  // Read from .env (INVERTER_PORT / INVERTER_TIMEOUT_MS) rather than
-  // hardcoded — these are operational values someone could legitimately
-  // need to change (a firmware update moving the listening port, a flaky
-  // network needing longer timeouts) without touching code. Both fail
-  // fast at boot if missing/invalid, mirroring how PollingService
-  // validates INVERTER_IP/POLLING_INTERVAL_MS.
-  private readonly tcpPort: number;
+  // Defaults sourced from .env (INVERTER_PORT / INVERTER_TIMEOUT_MS) when
+  // present, falling back to sane values otherwise (see constructor) — an
+  // explicitly-set-but-invalid value still fails fast at boot, same
+  // philosophy as PollingService's POLLING_INTERVAL_MS validation.
+  private readonly defaultTcpPort: number;
   private readonly requestTimeoutMs: number;
 
   constructor(private readonly configService: ConfigService) {
+    // Now just the *default* used when a caller doesn't pass its own port
+    // (e.g. an old .env-only setup with no InverterProfile yet) — 8899
+    // mirrors InverterProfile.port's own Prisma default, kept in sync
+    // deliberately. Previously this threw if unset; that's no longer
+    // appropriate now that a fresh install with no .env inverter config
+    // is an expected, supported state (onboarding wizard hasn't run yet).
     const rawPort = this.configService.get<string>('INVERTER_PORT');
-    const parsedPort = Number(rawPort);
-    const isValidPort =
-      rawPort !== undefined &&
-      Number.isInteger(parsedPort) &&
-      parsedPort > 0 &&
-      parsedPort <= 65535;
-    if (!isValidPort) {
-      throw new Error(
-        `INVERTER_PORT is not set to a valid TCP port (got "${rawPort}"). ` +
-          `Configure it in your .env file before starting the server.`,
-      );
+    if (rawPort !== undefined) {
+      const parsedPort = Number(rawPort);
+      const isValidPort =
+        Number.isInteger(parsedPort) && parsedPort > 0 && parsedPort <= 65535;
+      if (!isValidPort) {
+        throw new Error(
+          `INVERTER_PORT is set but is not a valid TCP port (got "${rawPort}"). ` +
+            `Fix it or remove it from your .env file.`,
+        );
+      }
+      this.defaultTcpPort = parsedPort;
+    } else {
+      this.defaultTcpPort = 8899;
     }
-    this.tcpPort = parsedPort;
 
+    // Same relaxation for the request timeout — a generic network-tuning
+    // knob, not something the onboarding wizard collects, so it shouldn't
+    // block boot just because .env wasn't customized.
     const rawTimeout = this.configService.get<string>('INVERTER_TIMEOUT_MS');
-    const parsedTimeout = Number(rawTimeout);
-    const isValidTimeout =
-      rawTimeout !== undefined &&
-      Number.isFinite(parsedTimeout) &&
-      parsedTimeout > 0;
-    if (!isValidTimeout) {
-      throw new Error(
-        `INVERTER_TIMEOUT_MS is not set to a valid positive number (got "${rawTimeout}"). ` +
-          `Configure it in your .env file before starting the server.`,
-      );
+    if (rawTimeout !== undefined) {
+      const parsedTimeout = Number(rawTimeout);
+      const isValidTimeout = Number.isFinite(parsedTimeout) && parsedTimeout > 0;
+      if (!isValidTimeout) {
+        throw new Error(
+          `INVERTER_TIMEOUT_MS is set but is not a valid positive number ` +
+            `(got "${rawTimeout}"). Fix it or remove it from your .env file.`,
+        );
+      }
+      this.requestTimeoutMs = parsedTimeout;
+    } else {
+      this.requestTimeoutMs = 3000;
     }
-    this.requestTimeoutMs = parsedTimeout;
   }
 
   async onModuleDestroy(): Promise<void> {
-    this.teardownSocket();
+    for (const key of this.connections.keys()) {
+      this.teardownConnection(key);
+    }
   }
 
   /**
@@ -137,7 +151,10 @@ export class InverterService implements OnModuleDestroy {
    * returns a partial object — callers should not assume every key from
    * commands.json is always present.
    */
-  async fetchDeviceData(ipAddress: string): Promise<InverterReading> {
+  async fetchDeviceData(
+    ipAddress: string,
+    port: number = this.defaultTcpPort,
+  ): Promise<InverterReading> {
     if (!ipAddress) {
       throw new Error('fetchDeviceData: no inverter IP address provided');
     }
@@ -146,7 +163,7 @@ export class InverterService implements OnModuleDestroy {
 
     for (const definition of PARAMETER_DEFINITIONS) {
       try {
-        const socket = await this.ensureConnected(ipAddress);
+        const socket = await this.ensureConnected(ipAddress, port);
         const request = this.buildModbusPacket(definition.address);
         const response = await this.sendAndReceive(socket, request);
         const rawValue = this.parseResponse(response);
@@ -176,6 +193,57 @@ export class InverterService implements OnModuleDestroy {
   }
 
   /**
+   * Lightweight connectivity check for the setup wizard's "Verify Logger"
+   * step — does the full protocol round trip (UDP handshake, TCP connect,
+   * one real Modbus register read + CRC validation) so a green result
+   * actually means the device speaks the expected protocol, not just that
+   * something answered on the TCP port. Deliberately uses its own
+   * short-lived socket rather than `ensureConnected`/`this.connections`,
+   * so it never disturbs a persistent connection PollingService's poll
+   * loop may already be holding open to another device while the user
+   * is testing a new one in the wizard.
+   */
+  async testConnection(
+    ipAddress: string,
+    port: number = this.defaultTcpPort,
+  ): Promise<{ success: true; latencyMs: number; sampledParameter: string }> {
+    if (!ipAddress) {
+      throw new Error('testConnection: no inverter IP address provided');
+    }
+
+    const [sample] = PARAMETER_DEFINITIONS;
+    if (!sample) {
+      throw new Error(
+        'No supported parameters are defined in commands.json — cannot verify a real Modbus response',
+      );
+    }
+
+    const startedAt = Date.now();
+    await this.performUdpHandshake(ipAddress, port);
+    // Not added to `this.connections` — this socket is opened and torn
+    // down entirely within this method (see the class-level doc comment
+    // above), so the key is only used to label log lines consistently.
+    const socket = await this.openTcpSocket(ipAddress, port, this.connectionKey(ipAddress, port));
+
+    try {
+      const request = this.buildModbusPacket(sample.address);
+      const response = await this.sendAndReceive(socket, request);
+      // Throws on a short/malformed response or a CRC mismatch — this is
+      // the actual verification, not just "the TCP handshake succeeded".
+      this.parseResponse(response);
+
+      return {
+        success: true,
+        latencyMs: Date.now() - startedAt,
+        sampledParameter: sample.name,
+      };
+    } finally {
+      socket.removeAllListeners();
+      socket.destroy();
+    }
+  }
+
+  /**
    * commands.json's `rate` values are positive multipliers, so a raw
    * register declared `Int16BE` has to be reinterpreted as signed *before*
    * that multiplication (e.g. sub-zero temperatures, or charge/discharge
@@ -187,40 +255,53 @@ export class InverterService implements OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------
-  // Connection lifecycle
+  // Connection lifecycle — one entry per "ip:port" device, so polling
+  // several inverters concurrently never shares a socket between them.
   // ---------------------------------------------------------------------
 
-  private async ensureConnected(ipAddress: string): Promise<net.Socket> {
-    if (this.socket && !this.socket.destroyed && this.connectedIp === ipAddress) {
-      return this.socket;
+  private connectionKey(ipAddress: string, port: number): string {
+    return `${ipAddress}:${port}`;
+  }
+
+  private async ensureConnected(ipAddress: string, port: number): Promise<net.Socket> {
+    const key = this.connectionKey(ipAddress, port);
+    const existing = this.connections.get(key);
+    if (existing && !existing.destroyed) {
+      return existing;
     }
 
-    // Stale socket (dead, or pointed at a different IP) — start clean.
-    this.teardownSocket();
+    // Stale socket (dead, or never connected) — start clean for this key.
+    this.teardownConnection(key);
 
-    await this.performUdpHandshake(ipAddress);
-    this.socket = await this.openTcpSocket(ipAddress);
-    this.connectedIp = ipAddress;
-    return this.socket;
+    await this.performUdpHandshake(ipAddress, port);
+    const socket = await this.openTcpSocket(ipAddress, port, key);
+    this.connections.set(key, socket);
+    return socket;
   }
 
-  private teardownSocket(): void {
-    if (this.socket) {
-      this.socket.removeAllListeners();
-      this.socket.destroy();
+  private teardownConnection(key: string): void {
+    const existing = this.connections.get(key);
+    if (existing) {
+      existing.removeAllListeners();
+      existing.destroy();
     }
-    this.socket = null;
-    this.connectedIp = null;
+    this.connections.delete(key);
   }
 
-  private handleSocketFailure(error: Error): void {
-    this.logger.warn(`Inverter TCP socket error: ${error.message}`);
-    this.teardownSocket();
+  private handleSocketFailure(key: string, socket: net.Socket, error: Error): void {
+    // Only touch the map entry if it's still *this* socket — a fresh
+    // ensureConnected() call for the same key could already have
+    // replaced it by the time this fires (a stale error/close event
+    // racing a just-established reconnect), and tearing down the *new*
+    // connection because the *old* one failed would be wrong.
+    if (this.connections.get(key) !== socket) return;
+    this.logger.warn(`Inverter TCP socket error (${key}): ${error.message}`);
+    this.teardownConnection(key);
   }
 
-  private handleSocketClose(): void {
-    this.socket = null;
-    this.connectedIp = null;
+  private handleSocketClose(key: string, socket: net.Socket): void {
+    if (this.connections.get(key) !== socket) return;
+    this.connections.delete(key);
   }
 
   // ---------------------------------------------------------------------
@@ -228,10 +309,10 @@ export class InverterService implements OnModuleDestroy {
   //    accept a TCP connection.
   // ---------------------------------------------------------------------
 
-  private performUdpHandshake(ipAddress: string): Promise<void> {
+  private performUdpHandshake(ipAddress: string, port: number): Promise<void> {
     return new Promise((resolve, reject) => {
       const socket = dgram.createSocket('udp4');
-      const request = this.buildUdpHandshakeMessage();
+      const request = this.buildUdpHandshakeMessage(port);
       let settled = false;
 
       const finish = (fn: () => void) => {
@@ -278,13 +359,13 @@ export class InverterService implements OnModuleDestroy {
     });
   }
 
-  private buildUdpHandshakeMessage(): Buffer {
+  private buildUdpHandshakeMessage(port: number): Buffer {
     // The adapter tolerates the literal placeholder host per the reverse
     // engineering notes, but sending our real local IP when we can
     // determine it is the technically correct behaviour to match what the
     // official app actually does.
     const host = this.getLocalIpAddress() ?? UDP_HANDSHAKE_FALLBACK_HOST;
-    return Buffer.from(`set>server=${host}:${this.tcpPort};`, 'utf8');
+    return Buffer.from(`set>server=${host}:${port};`, 'utf8');
   }
 
   private getLocalIpAddress(): string | null {
@@ -303,7 +384,7 @@ export class InverterService implements OnModuleDestroy {
   // TCP connect
   // ---------------------------------------------------------------------
 
-  private openTcpSocket(ipAddress: string): Promise<net.Socket> {
+  private openTcpSocket(ipAddress: string, port: number, key: string): Promise<net.Socket> {
     return new Promise((resolve, reject) => {
       const socket = new net.Socket();
       let settled = false;
@@ -317,7 +398,7 @@ export class InverterService implements OnModuleDestroy {
       const onConnectError = (error: Error) => {
         finish(() => {
           socket.destroy();
-          reject(new Error(`TCP connection to ${ipAddress}:${this.tcpPort} failed: ${error.message}`));
+          reject(new Error(`TCP connection to ${ipAddress}:${port} failed: ${error.message}`));
         });
       };
 
@@ -325,18 +406,22 @@ export class InverterService implements OnModuleDestroy {
       socket.setTimeout(this.requestTimeoutMs, () => {
         finish(() => {
           socket.destroy();
-          reject(new Error(`TCP connection to ${ipAddress}:${this.tcpPort} timed out`));
+          reject(new Error(`TCP connection to ${ipAddress}:${port} timed out`));
         });
       });
 
-      socket.connect(this.tcpPort, ipAddress, () => {
+      socket.connect(port, ipAddress, () => {
         finish(() => {
           socket.removeListener('error', onConnectError);
           socket.setTimeout(0);
           // Persistent handlers for the socket's working lifetime, distinct
           // from the one-shot handlers sendAndReceive attaches per request.
-          socket.on('error', (error) => this.handleSocketFailure(error));
-          socket.on('close', () => this.handleSocketClose());
+          // Bound to this specific socket instance (via the `socket !==`
+          // identity check inside each handler) so a late event from an
+          // already-replaced connection for the same key can't clobber
+          // the new one.
+          socket.on('error', (error) => this.handleSocketFailure(key, socket, error));
+          socket.on('close', () => this.handleSocketClose(key, socket));
           resolve(socket);
         });
       });
