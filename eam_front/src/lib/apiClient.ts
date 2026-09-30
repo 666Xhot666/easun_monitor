@@ -1,12 +1,9 @@
 import axios from 'axios';
 
-// Registered on the default axios *instance*, not a separate axios.create()
-// client — Dashboard.tsx and HistoryChart.tsx already do a plain
-// `import axios from 'axios'` and call it directly, and every import of
-// the 'axios' module resolves to the same singleton. Mutating its
-// interceptors here means those existing files automatically start
-// sending the Bearer header too, with zero changes to them, instead of
-// needing every call site migrated to a new named client.
+// The app's HTTP client: the default axios instance with interceptors that
+// attach the access token and transparently refresh it on a 401. Import
+// axios from this module, not from 'axios', so those interceptors are
+// registered before the first request.
 //
 // The access token lives only in this module's memory, never in
 // localStorage/sessionStorage, so an XSS payload can't read a stored
