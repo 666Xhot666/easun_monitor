@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Settings } from 'lucide-react';
-import axios from 'axios';
+import axios from './lib/apiClient';
 import HistoryChart from './HistoryChart';
 import { useAuth } from './auth/useAuth';
 import { extractErrorMessage } from './lib/errors';
 import type { InverterProfile } from './auth/types';
-
-interface InverterLog {
-  id: number;
-  timestamp: string;
-  payload: Record<string, number>;
-}
+import { DEFAULT_POLL_MS, useReading } from './inverter/useReading';
 
 interface KeyMetricConfig {
   key: string;
@@ -19,8 +14,6 @@ interface KeyMetricConfig {
   unit: string;
   decimals: number;
 }
-
-const POLL_INTERVAL_MS = 5000;
 
 // The four headline metrics, pulled out of the payload and shown as large
 // cards above the full parameter grid. Everything else currently in the
@@ -50,8 +43,6 @@ function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString();
 }
-
-type FetchState = 'ok' | 'no-data' | 'unreachable';
 
 function ProfileSwitcher({
   profiles,
@@ -125,68 +116,8 @@ export default function Dashboard() {
     }
   }, [activeProfile, requestedId, navigate]);
 
-  const [reading, setReading] = useState<InverterLog | null>(null);
-  // True only until the *first* request settles (success or failure) —
-  // after that we always have either data or a known error state to show,
-  // so we never need to blank the whole page again.
-  const [loading, setLoading] = useState(true);
-  const [fetchState, setFetchState] = useState<FetchState>('ok');
+  const { reading, status } = useReading(activeProfile?.id ?? 0);
   const [switcherError, setSwitcherError] = useState<string | null>(null);
-
-  // Defined inside the effect (rather than a component-scope useCallback)
-  // so the polling loop is entirely self-contained: no dependency array to
-  // keep in sync, and a `cancelled` guard means a request that resolves
-  // after the component has unmounted (e.g. the interval firing right as
-  // you navigate away) silently no-ops instead of writing to dead state.
-  useEffect(() => {
-    if (!activeProfile) return;
-    const profileId = activeProfile.id;
-    let cancelled = false;
-
-    // `isInitial` distinguishes the first fetch for this profile (which
-    // should show the "Loading inverter data…" screen) from every
-    // background poll tick after it (which should just swap `reading` in
-    // place once new data arrives). Without this distinction, every 5s
-    // tick was calling setLoading(true) unconditionally — bouncing the
-    // whole dashboard back to the loading screen and then to the real
-    // content again on every single poll, which is what read as the page
-    // "blinking".
-    async function fetchLatest(isInitial: boolean) {
-      if (cancelled) return;
-      if (isInitial) {
-        setLoading(true);
-        setReading(null);
-      }
-      try {
-        const { data } = await axios.get<InverterLog>(`/api/inverter/${profileId}/latest`);
-        if (cancelled) return;
-        setReading(data);
-        setFetchState('ok');
-      } catch (error) {
-        if (cancelled) return;
-        if (axios.isAxiosError(error) && error.response?.status === 404) {
-          // Backend is up, but the poller hasn't written a row yet (e.g.
-          // right after a fresh deploy) — different from not being able
-          // to reach the API at all, so the UI says something different.
-          setFetchState('no-data');
-        } else {
-          // Network error, timeout, 5xx, connection refused, etc. — keep
-          // whatever `reading` is already on screen (see render below)
-          // instead of blanking the dashboard on every brief hiccup.
-          setFetchState('unreachable');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-
-    fetchLatest(true);
-    const intervalId = setInterval(() => fetchLatest(false), POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      clearInterval(intervalId);
-    };
-  }, [activeProfile]);
 
   async function handleDeleteProfile(id: number) {
     if (!window.confirm('Remove this inverter? Its recorded history is kept.')) {
@@ -209,7 +140,7 @@ export default function Dashboard() {
     );
   }
 
-  if (loading) {
+  if (status === 'loading') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <p className="text-gray-500 dark:text-gray-400">Loading inverter data…</p>
@@ -217,27 +148,27 @@ export default function Dashboard() {
     );
   }
 
-  if (fetchState === 'no-data') {
+  if (status === 'no-data') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 text-center dark:bg-gray-950">
         <div>
           <p className="text-lg font-medium text-gray-700 dark:text-gray-200">No readings yet</p>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
             Waiting for the first poll from {activeProfile.name} — checking again every{' '}
-            {POLL_INTERVAL_MS / 1000}s.
+            {DEFAULT_POLL_MS / 1000}s.
           </p>
         </div>
       </div>
     );
   }
 
-  if (fetchState === 'unreachable' && !reading) {
+  if (status === 'unreachable' && !reading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 text-center dark:bg-gray-950">
         <div>
           <p className="text-lg font-medium text-red-600 dark:text-red-400">Can't reach the backend</p>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-            Retrying every {POLL_INTERVAL_MS / 1000}s…
+            Retrying every {DEFAULT_POLL_MS / 1000}s…
           </p>
         </div>
       </div>
@@ -272,9 +203,14 @@ export default function Dashboard() {
               <Settings className="h-3.5 w-3.5" />
               Settings
             </Link>
-            {fetchState === 'unreachable' && (
+            {status === 'unreachable' && (
               <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
                 Connection lost — showing last known data
+              </span>
+            )}
+            {status === 'stale' && (
+              <span className="rounded-full bg-amber-100 px-3 py-1 font-medium text-amber-800 dark:bg-amber-900/40 dark:text-amber-300">
+                No new readings from the inverter
               </span>
             )}
             {reading && (
