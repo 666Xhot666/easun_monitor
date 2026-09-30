@@ -5,8 +5,11 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import { LoggerLinks } from './link/logger-links';
 import { LoggerUnavailableError } from './link/logger-link';
+import { SettingsService } from './settings.service';
 
 const INTERVAL_NAME_PREFIX = 'inverter-poll-';
+const SETTINGS_INTERVAL_PREFIX = 'inverter-settings-';
+const DEFAULT_SETTINGS_REFRESH_MS = 5 * 60_000;
 
 interface PollTarget {
   ipAddress: string;
@@ -17,7 +20,8 @@ interface PollTarget {
  * Runs one poll cycle per paired inverter profile (all users) every
  * POLLING_INTERVAL_MS: reads the telemetry and status registers through
  * that logger's Logger link and records the reading in the Telemetry
- * store. Settings are not polled here; they change only when edited.
+ * store. Settings change only when edited, so they are re-read on a
+ * separate, slow cadence (SETTINGS_REFRESH_MS, default five minutes).
  *
  * The link serializes requests and backs off from an unreachable logger,
  * so a dead device costs one short failed attempt per backoff window
@@ -27,6 +31,7 @@ interface PollTarget {
 export class PollingService implements OnModuleInit, OnModuleDestroy {
   private readonly logger = new Logger(PollingService.name);
   private readonly pollIntervalMs: number;
+  private readonly settingsRefreshMs: number;
 
   /** profileId -> the address currently polled for it. */
   private readonly tracked = new Map<number, PollTarget>();
@@ -40,6 +45,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     private readonly links: LoggerLinks,
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryStore,
+    private readonly settings: SettingsService,
   ) {
     const rawInterval = this.configService.get<string>('POLLING_INTERVAL_MS');
     const parsedInterval = Number(rawInterval);
@@ -50,6 +56,12 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
       );
     }
     this.pollIntervalMs = parsedInterval;
+
+    const settingsRefresh = Number(this.configService.get<string>('SETTINGS_REFRESH_MS'));
+    this.settingsRefreshMs =
+      Number.isFinite(settingsRefresh) && settingsRefresh > 0
+        ? settingsRefresh
+        : DEFAULT_SETTINGS_REFRESH_MS;
   }
 
   async onModuleInit(): Promise<void> {
@@ -93,16 +105,23 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     this.tracked.set(profileId, target);
     const interval = setInterval(() => void this.poll(profileId, target), this.pollIntervalMs);
     this.schedulerRegistry.addInterval(`${INTERVAL_NAME_PREFIX}${profileId}`, interval);
+    const settingsInterval = setInterval(
+      () => void this.refreshSettings(profileId, target),
+      this.settingsRefreshMs,
+    );
+    this.schedulerRegistry.addInterval(`${SETTINGS_INTERVAL_PREFIX}${profileId}`, settingsInterval);
     this.logger.log(
       `Polling ${target.ipAddress}:${target.port} every ${this.pollIntervalMs}ms (profile #${profileId})`,
     );
-    void this.poll(profileId, target);
+    void this.poll(profileId, target).then(() => this.refreshSettings(profileId, target));
   }
 
   private stopPolling(profileId: number): void {
-    const name = `${INTERVAL_NAME_PREFIX}${profileId}`;
-    if (this.schedulerRegistry.doesExist('interval', name)) {
-      this.schedulerRegistry.deleteInterval(name);
+    for (const prefix of [INTERVAL_NAME_PREFIX, SETTINGS_INTERVAL_PREFIX]) {
+      const name = `${prefix}${profileId}`;
+      if (this.schedulerRegistry.doesExist('interval', name)) {
+        this.schedulerRegistry.deleteInterval(name);
+      }
     }
     const target = this.tracked.get(profileId);
     this.tracked.delete(profileId);
@@ -133,6 +152,17 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
       }
     } finally {
       this.pollingInFlight.delete(profileId);
+    }
+  }
+
+  /** Slow-cadence settings read; failures just wait for the next one
+   * (availability is already reported by the telemetry cycle). */
+  private async refreshSettings(profileId: number, target: PollTarget): Promise<void> {
+    if (!this.tracked.has(profileId)) return;
+    try {
+      await this.settings.refresh({ id: profileId, ...target });
+    } catch {
+      // Logger unreachable or a block refused: keep the last snapshot.
     }
   }
 
