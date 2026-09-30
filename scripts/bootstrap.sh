@@ -26,5 +26,6 @@ else
 fi
 
 echo "==> Done."
-echo "    1. cp .env.example .env   (then set INVERTER_IP to your inverter's LAN IP)"
+echo "    1. cp .env.example .env   (then set JWT_SECRET, e.g. openssl rand -base64 48)"
 echo "    2. docker compose up --build"
+echo "    3. Open the app, register, and pair your inverter in the setup wizard."

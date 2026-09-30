@@ -43,13 +43,9 @@ services:
       # --- Auth ---
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file (e.g. `openssl rand -base64 48`)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
-      # --- EASUN inverter Modbus TCP connection ---
-      # No longer required at startup: pairing normally happens through the
-      # in-app setup wizard (stored per-account in InverterProfile), which
-      # PollingService prefers over these. Leave INVERTER_IP unset unless
-      # you want polling to start immediately on boot without the wizard.
-      INVERTER_IP: ${INVERTER_IP:-}
-      # 8899 is the Wi-Fi Plug Pro adapter's actual port, not standard Modbus TCP 502.
+      # --- EASUN inverter logger connection ---
+      # Inverters are paired per account through the setup wizard, so there
+      # is no inverter address here; these are only network defaults.
       INVERTER_PORT: ${INVERTER_PORT:-8899}
       INVERTER_TIMEOUT_MS: ${INVERTER_TIMEOUT_MS:-3000}
       POLLING_INTERVAL_MS: ${POLLING_INTERVAL_MS:-5000}
