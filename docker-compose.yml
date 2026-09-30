@@ -42,7 +42,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-eam_user}:${POSTGRES_PASSWORD:-eam_password}@db:5432/${POSTGRES_DB:-eam_db}?schema=public
       # --- Auth ---
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file (e.g. `openssl rand -base64 48`)}
-      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-7d}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
+      ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
       # --- EASUN inverter logger connection ---
       # Inverters are paired per account through the setup wizard, so there
       # is no inverter address here; these are only network defaults.

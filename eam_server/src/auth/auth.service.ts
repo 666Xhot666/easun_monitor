@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -52,6 +53,7 @@ function hashRefreshToken(raw: string): string {
 @Injectable()
 export class AuthService {
   private readonly refreshTokenTtlMs: number;
+  private readonly registrationOpen: boolean;
 
   constructor(
     private readonly prisma: PrismaService,
@@ -66,9 +68,20 @@ export class AuthService {
         ? configuredDays
         : DEFAULT_REFRESH_TOKEN_TTL_DAYS;
     this.refreshTokenTtlMs = ttlDays * 24 * 60 * 60 * 1000;
+    this.registrationOpen =
+      this.configService.get<string>('ALLOW_REGISTRATION') === 'true';
   }
 
   async register(email: string, password: string): Promise<IssuedTokens> {
+    // The first account can always be created (that's how an install is
+    // set up); after that, sign-up is closed unless the operator opens it,
+    // so a dashboard reachable on the LAN can't collect strangers' accounts.
+    if (!this.registrationOpen && (await this.prisma.user.count()) > 0) {
+      throw new ForbiddenException(
+        'Registration is closed. The owner can allow new accounts with ALLOW_REGISTRATION=true.',
+      );
+    }
+
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
       throw new ConflictException('An account with this email already exists');
