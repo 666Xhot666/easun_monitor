@@ -5,13 +5,15 @@ export interface AuthContextValue {
   user: AuthUser | null;
   /** True until the initial token-verification pass has settled — route
    * guards wait on this so a logged-in user isn't flashed to /login
-   * before we've had a chance to check localStorage/GET /api/auth/me. */
+   * before the refresh cookie and GET /api/auth/me have been checked. */
   isLoading: boolean;
   isAuthenticated: boolean;
   hasInverterProfile: boolean;
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string) => Promise<void>;
   logout: () => void;
+  /** Revokes every session of this account (all browsers), then signs out here. */
+  logoutEverywhere: () => Promise<void>;
   /** Re-fetches /api/auth/me — call after the setup wizard finishes so
    * `hasInverterProfile` flips without a full page reload. */
   refreshUser: () => Promise<void>;

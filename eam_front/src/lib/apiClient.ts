@@ -7,7 +7,24 @@ import axios from 'axios';
 // interceptors here means those existing files automatically start
 // sending the Bearer header too, with zero changes to them, instead of
 // needing every call site migrated to a new named client.
-export const AUTH_TOKEN_STORAGE_KEY = 'eam_auth_token';
+//
+// The access token lives only in this module's memory, never in
+// localStorage/sessionStorage, so an XSS payload can't read a stored
+// token. A page reload starts without one and AuthProvider mints a fresh
+// one from the httpOnly refresh cookie.
+let accessToken: string | null = null;
+
+export function getAccessToken(): string | null {
+  return accessToken;
+}
+
+export function setAccessToken(token: string): void {
+  accessToken = token;
+}
+
+export function clearAccessToken(): void {
+  accessToken = null;
+}
 
 // The refresh token travels as an httpOnly cookie the browser attaches
 // automatically to same-origin requests — this only matters if the API
@@ -16,9 +33,8 @@ export const AUTH_TOKEN_STORAGE_KEY = 'eam_auth_token';
 axios.defaults.withCredentials = true;
 
 axios.interceptors.request.use((config) => {
-  const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-  if (token) {
-    config.headers.set('Authorization', `Bearer ${token}`);
+  if (accessToken) {
+    config.headers.set('Authorization', `Bearer ${accessToken}`);
   }
   return config;
 });
@@ -37,7 +53,7 @@ async function refreshAccessToken(): Promise<string> {
     refreshPromise = axios
       .post<{ accessToken: string }>('/api/auth/refresh')
       .then(({ data }) => {
-        localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, data.accessToken);
+        setAccessToken(data.accessToken);
         return data.accessToken;
       })
       .finally(() => {
@@ -48,7 +64,7 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 function redirectToLogin() {
-  localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+  clearAccessToken();
   // A hard navigation (not react-router's navigate) deliberately —
   // this runs outside any React component/router context, and a 401
   // means the whole in-memory app/auth state is stale anyway, so a

@@ -5,7 +5,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
-import axios, { AUTH_TOKEN_STORAGE_KEY } from '../lib/apiClient';
+import axios, { clearAccessToken, setAccessToken } from '../lib/apiClient';
 import { AuthContext, type AuthContextValue } from './context';
 import type { AuthResponse, AuthUser } from './types';
 
@@ -22,38 +22,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelled = false;
 
     async function bootstrap() {
-      const token = localStorage.getItem(AUTH_TOKEN_STORAGE_KEY);
-      if (token) {
-        try {
-          const me = await fetchCurrentUser();
-          if (!cancelled) setUser(me);
-        } catch {
-          // Token was present but rejected (expired/invalid/account
-          // gone) — apiClient's response interceptor already tries a
-          // silent refresh first for a 401; if we ended up here, that
-          // failed too, so treat this as logged out.
-          localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
-          if (!cancelled) setUser(null);
-        } finally {
-          if (!cancelled) setIsLoading(false);
-        }
-        return;
-      }
-
-      // No cached access token (fresh browser, or a previous tab
-      // cleared it) — the httpOnly refresh cookie may still be valid
-      // from an earlier session, so try to silently mint a new access
-      // token before deciding the user is logged out. This is what
-      // lets a session survive a page reload without re-prompting for
-      // a password every JWT_EXPIRES_IN.
+      // The access token is memory-only, so every page load starts
+      // without one: mint a fresh one from the httpOnly refresh cookie
+      // (if the browser still has a valid session) before deciding the
+      // user is logged out.
       try {
         const { data } = await axios.post<{ accessToken: string }>(
           '/api/auth/refresh',
         );
-        localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, data.accessToken);
+        setAccessToken(data.accessToken);
         const me = await fetchCurrentUser();
         if (!cancelled) setUser(me);
       } catch {
+        clearAccessToken();
         if (!cancelled) setUser(null);
       } finally {
         if (!cancelled) setIsLoading(false);
@@ -67,7 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const applyAuthResponse = useCallback(async (auth: AuthResponse) => {
-    localStorage.setItem(AUTH_TOKEN_STORAGE_KEY, auth.accessToken);
+    setAccessToken(auth.accessToken);
     const me = await fetchCurrentUser();
     setUser(me);
   }, []);
@@ -95,13 +76,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(() => {
-    localStorage.removeItem(AUTH_TOKEN_STORAGE_KEY);
+    clearAccessToken();
     setUser(null);
     // Best-effort — local session state is already cleared either way,
     // but this revokes the refresh cookie server-side too, so a
     // copied/leaked cookie can't be used to mint new access tokens
     // after the user has logged out.
     void axios.post('/api/auth/logout').catch(() => {});
+  }, []);
+
+  const logoutEverywhere = useCallback(async () => {
+    // Must run while the access token is still held: the endpoint is
+    // authenticated. Local sign-out happens even if the call fails.
+    try {
+      await axios.post('/api/auth/logout-all');
+    } finally {
+      clearAccessToken();
+      setUser(null);
+    }
   }, []);
 
   const refreshUser = useCallback(async () => {
@@ -118,9 +110,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       login,
       register,
       logout,
+      logoutEverywhere,
       refreshUser,
     }),
-    [user, isLoading, login, register, logout, refreshUser],
+    [user, isLoading, login, register, logout, logoutEverywhere, refreshUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

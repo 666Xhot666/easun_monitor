@@ -1,9 +1,14 @@
+/// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+  },
   server: {
     // Lets the dev server bind to 0.0.0.0 so it's reachable from outside
     // the `frontend` container (docker-compose already passes --host via
