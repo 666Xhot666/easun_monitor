@@ -69,7 +69,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
   }
 
   onModuleDestroy(): void {
-    for (const profileId of [...this.tracked.keys()]) {
+    for (const profileId of this.tracked.keys()) {
       this.stopPolling(profileId);
     }
   }
@@ -85,7 +85,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
       profiles.map((p) => [p.id, { ipAddress: p.ipAddress, port: p.port }]),
     );
 
-    for (const profileId of [...this.tracked.keys()]) {
+    for (const profileId of this.tracked.keys()) {
       if (!desired.has(profileId)) this.stopPolling(profileId);
     }
     for (const [profileId, target] of desired) {
