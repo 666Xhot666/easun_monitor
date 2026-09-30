@@ -15,7 +15,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { InverterService } from './inverter.service';
+import { LoggerLinks } from './link/logger-links';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
@@ -27,6 +27,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
+/** The Wi-Fi Plug Pro's TCP port, used when none is given. */
+const DEFAULT_LOGGER_PORT = 8899;
 const DEFAULT_HISTORY_POINTS = 300;
 const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
 /** Longest range one history request may cover. */
@@ -39,7 +41,7 @@ export class InverterController {
 
   constructor(
     private readonly prisma: PrismaService,
-    private readonly inverterService: InverterService,
+    private readonly links: LoggerLinks,
     private readonly pollingService: PollingService,
     private readonly addressPolicy: LoggerAddressPolicy,
     private readonly telemetry: TelemetryStore,
@@ -86,7 +88,7 @@ export class InverterController {
           userId: user.userId,
           name: dto.name,
           ipAddress: dto.ipAddress,
-          port: dto.port ?? 8899,
+          port: dto.port ?? DEFAULT_LOGGER_PORT,
           ratedPowerWatts: dto.ratedPowerWatts,
           batteryNominalVoltage: dto.batteryNominalVoltage,
           batteryCapacityAh: dto.batteryCapacityAh,
@@ -149,15 +151,16 @@ export class InverterController {
   async testPairing(@Body() dto: PairTestDto) {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
     try {
-      return await this.inverterService.testConnection(dto.ipAddress, dto.port);
+      const { latencyMs, sampledRegister } = await this.links.probe(
+        dto.ipAddress,
+        dto.port ?? DEFAULT_LOGGER_PORT,
+      );
+      return { success: true as const, latencyMs, sampledParameter: sampledRegister };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      // 400, not 500 — a failed handshake against a wrong/unreachable IP is
-      // an expected, user-actionable outcome of this endpoint, not a
-      // server fault.
-      throw new BadRequestException(
-        `Couldn't verify the logger at ${dto.ipAddress}: ${message}`,
-      );
+      // 400, not 500: a wrong or unreachable address is an expected,
+      // user-actionable outcome of this endpoint, not a server fault.
+      throw new BadRequestException(`Couldn't verify the logger at ${dto.ipAddress}: ${message}`);
     }
   }
 
@@ -185,6 +188,23 @@ export class InverterController {
     }
 
     return latest;
+  }
+
+  /** Live link state for one inverter's logger, as seen by the poller. */
+  @Get(':profileId/status')
+  async getStatus(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const status = this.links.status(profile.ipAddress, profile.port);
+    const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+    return {
+      state: status.state,
+      lastError: status.lastError,
+      lastSuccessAt: iso(status.lastSuccessAt),
+      retryAt: iso(status.retryAt),
+    };
   }
 
   /**
