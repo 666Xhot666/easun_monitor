@@ -2,8 +2,9 @@ import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule, JwtModuleOptions, JwtSignOptions } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { AuthController } from './auth.controller';
-import { AuthService } from './auth.service';
+import { AuthService, DEFAULT_ACCESS_TOKEN_TTL } from './auth.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
 
 // @Global (matching PrismaModule's own pattern) so ConfigService-backed
@@ -24,6 +25,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 @Module({
   imports: [
     PassportModule,
+    // Brute-force guard for the credential endpoints (see AuthController):
+    // 10 attempts per minute per client address.
+    ThrottlerModule.forRoot([{ ttl: 60_000, limit: 10 }]),
     // registerAsync (not a static secret) so JwtService picks up
     // JWT_SECRET from ConfigService the same way JwtStrategy does —
     // one source of truth for the signing key instead of two places
@@ -34,11 +38,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           // `expiresIn` is typed by @nestjs/jwt as `number | StringValue`
-          // (ms's template-literal union, e.g. "60s" | "7d"), not a plain
+          // (ms's template-literal union, e.g. "60s" | "15m"), not a plain
           // `string` — ConfigService.get<string>() can't satisfy that
           // statically, so we assert the shape here at the one place the
           // env value enters typed code.
-          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ?? '7d') as JwtSignOptions['expiresIn'],
+          expiresIn: (configService.get<string>('JWT_EXPIRES_IN') ??
+            DEFAULT_ACCESS_TOKEN_TTL) as JwtSignOptions['expiresIn'],
         },
       }),
     }),

@@ -23,7 +23,8 @@ const BCRYPT_SALT_ROUNDS = 12;
 // un-issued early (logout, a stolen-token report, etc).
 const REFRESH_TOKEN_BYTES = 32;
 const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
-const DEFAULT_ACCESS_TOKEN_TTL: JwtSignOptions['expiresIn'] = '15m';
+/** Access-token lifetime when JWT_EXPIRES_IN is unset; the one default. */
+export const DEFAULT_ACCESS_TOKEN_TTL: JwtSignOptions['expiresIn'] = '15m';
 
 export interface AuthResult {
   accessToken: string;
@@ -158,10 +159,9 @@ export class AuthService {
     });
   }
 
-  /** Revokes every refresh token belonging to a user — "log out
-   * everywhere". Not wired to a route yet, but here so a future
-   * "sign out of all devices" button (or a compromised-account
-   * response) doesn't need a schema change to add. */
+  /** Revokes every refresh token belonging to a user: "sign out
+   * everywhere". Access tokens already issued stay valid until they
+   * expire (at most JWT_EXPIRES_IN). */
   async logoutAll(userId: number): Promise<void> {
     await this.prisma.refreshToken.updateMany({
       where: { userId, revokedAt: null },
