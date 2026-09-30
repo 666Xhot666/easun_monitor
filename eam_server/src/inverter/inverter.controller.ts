@@ -16,6 +16,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerLinks } from './link/logger-links';
+import { RegisterMap } from './registers/register-map';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
@@ -45,7 +46,18 @@ export class InverterController {
     private readonly pollingService: PollingService,
     private readonly addressPolicy: LoggerAddressPolicy,
     private readonly telemetry: TelemetryStore,
+    private readonly registers: RegisterMap,
   ) {}
+
+  /**
+   * The Register map as metadata: every register's name, label, unit,
+   * scale, enum options, group and writability. The frontend renders
+   * readings and settings from this instead of its own copy.
+   */
+  @Get('registers')
+  listRegisters() {
+    return this.registers.list();
+  }
 
   // -----------------------------------------------------------------
   // Profile management — a user can pair more than one inverter, so
@@ -187,7 +199,14 @@ export class InverterController {
       throw new NotFoundException('No inverter readings recorded yet');
     }
 
-    return latest;
+    const payload = latest.payload as Record<string, number>;
+    return {
+      ...latest,
+      alerts: {
+        faults: this.registers.activeFlags('FaultCode', payload.FaultCode ?? 0),
+        warnings: this.registers.activeFlags('WarningCode', payload.WarningCode ?? 0),
+      },
+    };
   }
 
   /** Live link state for one inverter's logger, as seen by the poller. */
