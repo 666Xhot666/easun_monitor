@@ -16,13 +16,11 @@ export default defineConfig({
       // app can call relative paths like `/api/inverter/latest` without
       // hardcoding a host/port or running into CORS in dev.
       '/api': {
-        // `server` is the backend's service name on the compose network
-        // (see docker-compose.yml) — reachable as a hostname only from
-        // inside another container on that same network. Running the
-        // frontend outside Docker (`npm run dev` directly on your host)
-        // needs this switched to http://localhost:3000 instead, since
-        // `server` won't resolve there.
-        target: 'http://localhost:3000',
+        // Where the dev server forwards /api. Inside docker compose this is
+        // the backend's service name (VITE_PROXY_TARGET=http://server:3000,
+        // set in docker-compose.yml); running `npm run dev` on the host
+        // falls back to the locally running backend.
+        target: process.env.VITE_PROXY_TARGET ?? 'http://localhost:3000',
         changeOrigin: true,
       },
     },
