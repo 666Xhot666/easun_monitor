@@ -125,7 +125,7 @@ export default function SetupWizard() {
     ratedPowerPreset === 'custom' ? customRatedPower : ratedPowerPreset;
 
   // Accepts a dotted IPv4 address OR a hostname (e.g. host.docker.internal
-  // for pairing scripts/mock-inverter.js during local development) — kept
+  // for pairing scripts/mock-inverter.ts during local development) — kept
   // in sync with the backend's HOST_ADDRESS_PATTERN in
   // eam_server/src/common/validators/host-address.ts.
   const isIpValid =

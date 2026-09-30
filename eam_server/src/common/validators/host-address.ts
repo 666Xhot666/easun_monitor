@@ -3,7 +3,7 @@
  * (RFC 1123-ish — letters, digits, hyphens, dot-separated labels, no
  * spaces). Used anywhere a user supplies the inverter logger's network
  * address: a bare `@IsIP(4)` would reject legitimate values like
- * `host.docker.internal` (how the mock emulator in scripts/mock-inverter.js
+ * `host.docker.internal` (how the mock emulator in scripts/mock-inverter.ts
  * is reached from inside Docker) or any other name-resolvable logger —
  * Node's own net.Socket/dgram calls resolve hostnames just fine, so
  * there's no real reason to restrict input to numeric IPv4 only.
