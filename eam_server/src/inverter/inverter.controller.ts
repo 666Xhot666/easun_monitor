@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Body,
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -75,21 +76,23 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
-    const profile = await this.prisma.inverterProfile.create({
-      data: {
-        userId: user.userId,
-        name: dto.name,
-        ipAddress: dto.ipAddress,
-        port: dto.port ?? 8899,
-        ratedPowerWatts: dto.ratedPowerWatts,
-        batteryNominalVoltage: dto.batteryNominalVoltage,
-        batteryCapacityAh: dto.batteryCapacityAh,
-        batteryType: dto.batteryType,
-        lowBatteryCutoffVoltage: dto.lowBatteryCutoffVoltage ?? null,
-        bulkChargeVoltage: dto.bulkChargeVoltage ?? null,
-        floatChargeVoltage: dto.floatChargeVoltage ?? null,
-      },
-    });
+    const profile = await this.rejectDuplicateAddress(() =>
+      this.prisma.inverterProfile.create({
+        data: {
+          userId: user.userId,
+          name: dto.name,
+          ipAddress: dto.ipAddress,
+          port: dto.port ?? 8899,
+          ratedPowerWatts: dto.ratedPowerWatts,
+          batteryNominalVoltage: dto.batteryNominalVoltage,
+          batteryCapacityAh: dto.batteryCapacityAh,
+          batteryType: dto.batteryType,
+          lowBatteryCutoffVoltage: dto.lowBatteryCutoffVoltage ?? null,
+          bulkChargeVoltage: dto.bulkChargeVoltage ?? null,
+          floatChargeVoltage: dto.floatChargeVoltage ?? null,
+        },
+      }),
+    );
 
     await this.syncPollingBestEffort();
     return profile;
@@ -106,10 +109,9 @@ export class InverterController {
       await this.addressPolicy.assertAllowed(dto.ipAddress);
     }
 
-    const profile = await this.prisma.inverterProfile.update({
-      where: { id },
-      data: dto,
-    });
+    const profile = await this.rejectDuplicateAddress(() =>
+      this.prisma.inverterProfile.update({ where: { id }, data: dto }),
+    );
 
     await this.syncPollingBestEffort();
     return profile;
@@ -220,6 +222,20 @@ export class InverterController {
     return profile;
   }
 
+  /** Maps the one-profile-per-logger constraint to a user-facing 409. */
+  private async rejectDuplicateAddress<T>(write: () => Promise<T>): Promise<T> {
+    try {
+      return await write();
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002') {
+        throw new ConflictException(
+          'This logger address and port is already paired with an inverter profile',
+        );
+      }
+      throw error;
+    }
+  }
+
   /**
    * The profile write itself is already committed by the time this runs;
    * a failure here shouldn't make the write look failed to the caller
@@ -232,7 +248,9 @@ export class InverterController {
       await this.pollingService.syncProfiles();
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`Failed to sync polling after a profile change: ${message}`);
+      this.logger.error(
+        `Failed to sync polling after a profile change: ${message}`,
+      );
     }
   }
 }

@@ -70,9 +70,7 @@ model InverterProfile {
   id   Int    @id @default(autoincrement())
   name String
 
-  /// Wi-Fi Plug Pro logger connection — same protocol as INVERTER_IP/PORT
-  /// previously configured only via .env; PollingService now prefers
-  /// whichever profile was most recently set up over those static vars.
+  /// Wi-Fi Plug Pro logger address, entered in the setup wizard.
   ipAddress String
   port      Int    @default(8899)
 
@@ -96,6 +94,8 @@ model InverterProfile {
 
   logs InverterLog[]
 
+  /// One profile per physical logger, so two poll loops never share a device.
+  @@unique([ipAddress, port])
   @@index([userId])
   @@map("inverter_profiles")
 }
