@@ -29,6 +29,8 @@ export class SettingsService {
   /** Keyed by profile and address, so moving a profile to another
    * logger never serves the previous device's settings. */
   private readonly cache = new Map<string, SettingsSnapshot>();
+  /** Reads in progress, so concurrent refreshes share one device read. */
+  private readonly inFlight = new Map<string, Promise<SettingsSnapshot>>();
   private readonly maxAgeMs: number;
 
   constructor(
@@ -49,11 +51,19 @@ export class SettingsService {
   }
 
   /** Reads every settings register from the inverter now. */
-  async refresh(profile: LoggerAddress): Promise<SettingsSnapshot> {
-    const values = await this.links.get(profile.ipAddress, profile.port).read(['settings']);
-    const snapshot = { values, readAt: new Date().toISOString() };
-    this.cache.set(cacheKey(profile), snapshot);
-    return snapshot;
+  refresh(profile: LoggerAddress): Promise<SettingsSnapshot> {
+    const key = cacheKey(profile);
+    let read = this.inFlight.get(key);
+    if (!read) {
+      read = (async () => {
+        const values = await this.links.get(profile.ipAddress, profile.port).read(['settings']);
+        const snapshot = { values, readAt: new Date().toISOString() };
+        this.cache.set(key, snapshot);
+        return snapshot;
+      })().finally(() => this.inFlight.delete(key));
+      this.inFlight.set(key, read);
+    }
+    return read;
   }
 
   /**

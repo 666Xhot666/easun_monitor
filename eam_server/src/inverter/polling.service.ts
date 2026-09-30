@@ -113,7 +113,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     this.logger.log(
       `Polling ${target.ipAddress}:${target.port} every ${this.pollIntervalMs}ms (profile #${profileId})`,
     );
-    void this.poll(profileId, target).then(() => this.refreshSettings(profileId, target));
+    void this.poll(profileId, target).then(() => this.refreshSettings(profileId, target, false));
   }
 
   private stopPolling(profileId: number): void {
@@ -157,10 +157,13 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
 
   /** Slow-cadence settings read; failures just wait for the next one
    * (availability is already reported by the telemetry cycle). */
-  private async refreshSettings(profileId: number, target: PollTarget): Promise<void> {
+  private async refreshSettings(profileId: number, target: PollTarget, force = true): Promise<void> {
     if (!this.tracked.has(profileId)) return;
+    const profile = { id: profileId, ...target };
     try {
-      await this.settings.refresh({ id: profileId, ...target });
+      // The first read after pairing only fills an empty cache; the slow
+      // cadence always re-reads.
+      await (force ? this.settings.refresh(profile) : this.settings.get(profile));
     } catch {
       // Logger unreachable or a block refused: keep the last snapshot.
     }
