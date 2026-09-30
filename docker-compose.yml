@@ -48,6 +48,7 @@ services:
       # is no inverter address here; these are only network defaults.
       INVERTER_PORT: ${INVERTER_PORT:-8899}
       INVERTER_TIMEOUT_MS: ${INVERTER_TIMEOUT_MS:-3000}
+      ALLOW_PUBLIC_LOGGER_HOSTS: ${ALLOW_PUBLIC_LOGGER_HOSTS:-false}
       POLLING_INTERVAL_MS: ${POLLING_INTERVAL_MS:-5000}
     ports:
       - "${SERVER_PORT:-3000}:3000"

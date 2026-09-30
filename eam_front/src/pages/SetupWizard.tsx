@@ -142,6 +142,7 @@ export default function SetupWizard() {
     try {
       const { data } = await axios.post<PairTestResult>('/api/inverter/pair/test', {
         ipAddress: ipAddress.trim(),
+        port: Number(port) || 8899,
       });
       setTestState({ status: 'success', result: data });
     } catch (err) {

@@ -1,5 +1,5 @@
 import { INestApplication, ValidationPipe } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import { Test, TestingModuleBuilder } from '@nestjs/testing';
 import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
@@ -9,11 +9,14 @@ import { PrismaService } from '../src/prisma/prisma.service';
 
 /** Boots the full app against the test database, with the background
  * poller replaced so no test ever opens a socket to a logger. */
-export async function createTestApp(): Promise<INestApplication<App>> {
-  const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
-    .overrideProvider(PollingService)
-    .useValue({ syncProfiles: async () => {} })
-    .compile();
+export async function createTestApp(
+  customize: (builder: TestingModuleBuilder) => TestingModuleBuilder = (builder) => builder,
+): Promise<INestApplication<App>> {
+  const moduleRef = await customize(
+    Test.createTestingModule({ imports: [AppModule] })
+      .overrideProvider(PollingService)
+      .useValue({ syncProfiles: async () => {} }),
+  ).compile();
 
   const app = moduleRef.createNestApplication<INestApplication<App>>();
   app.use(cookieParser());

@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { InverterService } from './inverter.service';
+import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
 import { SetupInverterDto } from './dto/setup-inverter.dto';
@@ -36,6 +37,7 @@ export class InverterController {
     private readonly prisma: PrismaService,
     private readonly inverterService: InverterService,
     private readonly pollingService: PollingService,
+    private readonly addressPolicy: LoggerAddressPolicy,
   ) {}
 
   // -----------------------------------------------------------------
@@ -72,6 +74,7 @@ export class InverterController {
     @Body() dto: SetupInverterDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
+    await this.addressPolicy.assertAllowed(dto.ipAddress);
     const profile = await this.prisma.inverterProfile.create({
       data: {
         userId: user.userId,
@@ -99,6 +102,9 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.requireOwnedProfile(id, user.userId);
+    if (dto.ipAddress !== undefined) {
+      await this.addressPolicy.assertAllowed(dto.ipAddress);
+    }
 
     const profile = await this.prisma.inverterProfile.update({
       where: { id },
@@ -135,8 +141,9 @@ export class InverterController {
    */
   @Post('pair/test')
   async testPairing(@Body() dto: PairTestDto) {
+    await this.addressPolicy.assertAllowed(dto.ipAddress);
     try {
-      return await this.inverterService.testConnection(dto.ipAddress);
+      return await this.inverterService.testConnection(dto.ipAddress, dto.port);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // 400, not 500 — a failed handshake against a wrong/unreachable IP is
