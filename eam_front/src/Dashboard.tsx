@@ -7,6 +7,7 @@ import { useAuth } from './auth/useAuth';
 import { extractErrorMessage } from './lib/errors';
 import type { InverterProfile } from './auth/types';
 import { DEFAULT_POLL_MS, useReading } from './inverter/useReading';
+import { describeDeviceStatus, useDeviceStatus } from './inverter/useDeviceStatus';
 
 interface KeyMetricConfig {
   key: string;
@@ -117,6 +118,8 @@ export default function Dashboard() {
   }, [activeProfile, requestedId, navigate]);
 
   const { reading, status } = useReading(activeProfile?.id ?? 0);
+  const deviceStatus = useDeviceStatus(activeProfile?.id ?? 0);
+  const deviceProblem = deviceStatus ? describeDeviceStatus(deviceStatus) : null;
   const [switcherError, setSwitcherError] = useState<string | null>(null);
 
   async function handleDeleteProfile(id: number) {
@@ -157,6 +160,9 @@ export default function Dashboard() {
             Waiting for the first poll from {activeProfile.name} — checking again every{' '}
             {DEFAULT_POLL_MS / 1000}s.
           </p>
+          {deviceProblem && (
+            <p className="mt-2 text-sm text-amber-700 dark:text-amber-300">{deviceProblem}</p>
+          )}
         </div>
       </div>
     );
@@ -240,6 +246,13 @@ export default function Dashboard() {
             </button>
           </div>
         </div>
+        {deviceProblem && (
+          <p className="mx-auto mt-2 max-w-6xl text-sm text-amber-700 dark:text-amber-300">
+            {deviceProblem}
+            {deviceStatus?.lastSuccessAt &&
+              ` Last successful read ${new Date(deviceStatus.lastSuccessAt).toLocaleString()}.`}
+          </p>
+        )}
         {switcherError && (
           <p className="mx-auto mt-2 max-w-6xl text-sm text-red-600 dark:text-red-400">
             {switcherError}
