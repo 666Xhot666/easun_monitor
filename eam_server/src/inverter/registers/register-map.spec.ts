@@ -1,0 +1,134 @@
+import { RegisterMap, RegisterValueError, type RegisterDefinition } from './register-map';
+import { SMG_II_REGISTERS } from './smg-ii.registers';
+
+const defs: RegisterDefinition[] = [
+  { name: 'Mode', label: 'Mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Standby', 'Mains', 'OffGrid'] },
+  { name: 'MainsVoltage', label: 'Mains voltage', address: 202, type: 'int16', scale: 0.1, unit: 'V', group: 'telemetry' },
+  { name: 'BatteryCurrent', label: 'Battery current', address: 204, type: 'int16', scale: 0.1, unit: 'A', group: 'telemetry' },
+  { name: 'FaultCode', label: 'Fault code', address: 100, type: 'uint32', group: 'status', bits: { 1: 'Inverter over temperature', 3: 'Battery over voltage' } },
+  { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true, min: 200, max: 240 },
+  { name: 'Priority', label: 'Priority', address: 301, type: 'uint16', group: 'settings', writable: true, options: ['UTI', 'SOL', 'SBU'] },
+  { name: 'EqTime', label: 'Eq time', address: 335, type: 'uint16', unit: 'min', group: 'settings', writable: true, min: 0, max: 900 },
+  { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
+];
+const map = new RegisterMap(defs);
+
+describe('RegisterMap lookup', () => {
+  it('finds registers by name and lists them by group', () => {
+    expect(map.get('MainsVoltage')?.address).toBe(202);
+    expect(map.get('Nope')).toBeUndefined();
+    expect(map.list('telemetry').map((d) => d.name)).toEqual(['Mode', 'MainsVoltage', 'BatteryCurrent']);
+  });
+
+  it('rejects duplicate names or overlapping addresses', () => {
+    expect(() => new RegisterMap([defs[1], { ...defs[1], address: 999 }])).toThrow(/duplicate/i);
+    expect(() => new RegisterMap([defs[3], { ...defs[1], address: 101 }])).toThrow(/overlap/i);
+  });
+});
+
+describe('RegisterMap blocks', () => {
+  it('merges nearby registers of a group into one read, bridging small gaps', () => {
+    expect(map.blocks('telemetry')).toEqual([{ address: 201, count: 4 }]);
+  });
+
+  it('splits registers that are far apart', () => {
+    expect(map.blocks('settings')).toEqual([
+      { address: 301, count: 1 },
+      { address: 320, count: 1 },
+      { address: 335, count: 1 },
+      { address: 643, count: 1 },
+    ]);
+  });
+
+  it('covers both words of a 32-bit register', () => {
+    expect(map.blocks('status')).toEqual([{ address: 100, count: 2 }]);
+  });
+});
+
+describe('RegisterMap decode', () => {
+  it('turns block words into a reading keyed by register name', () => {
+    // 201 Mode=1, 202 230.5 V, 203 gap, 204 -12.3 A (two's complement)
+    const words = [1, 2305, 0, 0x10000 - 123];
+    expect(map.decodeBlock({ address: 201, count: 4 }, words)).toEqual({
+      Mode: 1,
+      MainsVoltage: 230.5,
+      BatteryCurrent: -12.3,
+    });
+  });
+
+  it('decodes a 32-bit register high word first', () => {
+    expect(map.decodeBlock({ address: 100, count: 2 }, [0x0001, 0x0002])).toEqual({
+      FaultCode: 0x00010002,
+    });
+  });
+
+  it('rounds away binary noise from scaling', () => {
+    expect(map.decodeBlock({ address: 320, count: 1 }, [2201])).toEqual({ OutputVoltageSet: 220.1 });
+  });
+});
+
+describe('RegisterMap encode', () => {
+  it('scales a value back to its raw register word', () => {
+    expect(map.encode('OutputVoltageSet', 220.1)).toEqual({ address: 320, values: [2201] });
+    expect(map.encode('Priority', 2)).toEqual({ address: 301, values: [2] });
+  });
+
+  it('rejects registers that are not writable or unknown', () => {
+    expect(() => map.encode('RatedPower', 3200)).toThrow(RegisterValueError);
+    expect(() => map.encode('MainsVoltage', 230)).toThrow(/not writable/);
+    expect(() => map.encode('Nope', 1)).toThrow(/Unknown register/);
+  });
+
+  it('rejects values outside the documented range', () => {
+    expect(() => map.encode('OutputVoltageSet', 250)).toThrow(/between 200 and 240/);
+    expect(() => map.encode('EqTime', 901)).toThrow(/between 0 and 900/);
+  });
+
+  it('rejects enum values without an option', () => {
+    expect(() => map.encode('Priority', 3)).toThrow(/not a valid option/);
+    expect(() => map.encode('Priority', 1.5)).toThrow(/not a valid option/);
+  });
+
+  it('rejects values finer than the register resolution', () => {
+    expect(() => map.encode('OutputVoltageSet', 220.15)).toThrow(/resolution/);
+  });
+});
+
+describe('RegisterMap flags', () => {
+  it('lists the labels of the bits set in a bitfield register', () => {
+    expect(map.activeFlags('FaultCode', 0b1010)).toEqual(['Inverter over temperature', 'Battery over voltage']);
+    expect(map.activeFlags('FaultCode', 0)).toEqual([]);
+  });
+
+  it('names bits it has no label for instead of hiding them', () => {
+    expect(map.activeFlags('FaultCode', 1 << 20)).toEqual(['Code 20']);
+  });
+
+  it('handles all 32 bits', () => {
+    expect(map.activeFlags('FaultCode', 0x80000000)).toEqual(['Code 31']);
+  });
+});
+
+describe('SMG-II register table', () => {
+  const smg = new RegisterMap(SMG_II_REGISTERS);
+
+  it('is a valid map with the documented telemetry and settings', () => {
+    expect(smg.get('MainsVoltage')).toMatchObject({ address: 202, scale: 0.1, unit: 'V' });
+    expect(smg.get('BatterySoc')).toMatchObject({ address: 229, unit: '%' });
+    expect(smg.get('OutputVoltageSet')).toMatchObject({ address: 320, writable: true });
+    expect(smg.get('OutputPriority')?.options).toHaveLength(3);
+    expect(smg.get('RatedPower')?.writable).toBeFalsy();
+  });
+
+  it('describes every documented fault and warning bit', () => {
+    expect(smg.activeFlags('FaultCode', 1 << 7)).toEqual(['Output overload']);
+    expect(smg.activeFlags('WarningCode', (1 << 8) | (1 << 14))).toEqual([
+      'Battery low voltage',
+      'Fan blocked',
+    ]);
+  });
+
+  it('reads all telemetry in one request', () => {
+    expect(smg.blocks('telemetry')).toHaveLength(1);
+  });
+});

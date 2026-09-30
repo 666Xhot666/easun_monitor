@@ -39,6 +39,8 @@ export interface RegisterDefinition {
   /** Documented bounds, in real (scaled) units. */
   min?: number;
   max?: number;
+  /** For bitfield registers (fault/warning codes): bit index -> meaning. */
+  bits?: Readonly<Record<number, string>>;
 }
 
 /** A contiguous run of registers fetched with one read request. */
@@ -121,6 +123,19 @@ export class RegisterMap {
       reading[definition.name] = decode(definition, words.slice(offset, offset + wordCount(definition)));
     }
     return reading;
+  }
+
+  /** Labels of the bits set in a bitfield register's value, lowest bit
+   * first; an undocumented bit is reported as "Code n". */
+  activeFlags(name: string, value: number): string[] {
+    const bits = this.byName.get(name)?.bits ?? {};
+    const flags: string[] = [];
+    for (let bit = 0; bit < 32; bit++) {
+      if (Math.floor(value / 2 ** bit) % 2 === 1) {
+        flags.push(bits[bit] ?? `Code ${bit}`);
+      }
+    }
+    return flags;
   }
 
   /**
