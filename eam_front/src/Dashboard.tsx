@@ -105,7 +105,7 @@ function ProfileSwitcher({
 }
 
 export default function Dashboard() {
-  const { user, logout, refreshUser } = useAuth();
+  const { user, logout, logoutEverywhere, refreshUser } = useAuth();
   const { profileId: profileIdParam } = useParams<{ profileId: string }>();
   const navigate = useNavigate();
 
@@ -290,6 +290,17 @@ export default function Dashboard() {
               className="rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
             >
               Sign out
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('Sign out on every device and browser?')) {
+                  void logoutEverywhere();
+                }
+              }}
+              className="text-xs text-gray-500 underline-offset-2 hover:underline dark:text-gray-400"
+            >
+              Everywhere
             </button>
           </div>
         </div>
