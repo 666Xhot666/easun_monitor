@@ -92,7 +92,8 @@ model InverterProfile {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  logs InverterLog[]
+  logs       InverterLog[]
+  hourlyLogs InverterLogHourly[]
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
@@ -102,19 +103,19 @@ model InverterProfile {
 
 /// One polled snapshot of the inverter's live telemetry — a time-series row.
 ///
-/// The full parameter map (~85 registers, sourced dynamically from
-/// commands.json) is stored as a single JSON object rather than one typed
-/// column per metric, since the set of successfully-read fields can vary
-/// from poll to poll (a register that times out is simply omitted that
-/// cycle) and the parameter list itself is data-driven, not fixed at
-/// compile time.
+/// The decoded reading (register name -> value, see the Register map) is
+/// stored as one JSON object rather than one column per metric, since the
+/// register list is data-driven and a failed block is simply absent.
+///
+/// Raw readings are kept forever for long-range analysis; charts over long
+/// ranges read InverterLogHourly instead.
 model InverterLog {
   id        Int      @id @default(autoincrement())
   timestamp DateTime @default(now())
 
   /// Aggregated { [parameterName]: value } object for everything that was
   /// successfully read this cycle, e.g. { "LineVoltage": 230.5, "BatterySoc": 100 }.
-  payload   Json
+  payload Json
 
   /// Nullable rather than required: a row polled before any inverter was
   /// ever paired (legacy .env-only deployments, or the brief window before
@@ -122,7 +123,25 @@ model InverterLog {
   inverterProfileId Int?
   inverterProfile   InverterProfile? @relation(fields: [inverterProfileId], references: [id], onDelete: SetNull)
 
+  @@index([inverterProfileId, timestamp])
   @@index([timestamp])
-  @@index([inverterProfileId])
   @@map("inverter_logs")
+}
+
+/// Hourly averages of InverterLog payloads per profile, maintained by the
+/// Telemetry store's roll-up job. Derived data: it can be rebuilt from the
+/// raw readings at any time, and raw readings are never deleted.
+model InverterLogHourly {
+  inverterProfileId Int
+  /// Start of the hour (UTC).
+  hour              DateTime
+  /// Number of raw readings averaged into this hour.
+  samples           Int
+  /// { [registerName]: average } over the numeric values in that hour.
+  averages          Json
+
+  inverterProfile InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  @@id([inverterProfileId, hour])
+  @@map("inverter_log_hourly")
 }

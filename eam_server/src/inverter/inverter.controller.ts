@@ -11,6 +11,7 @@ import {
   ParseIntPipe,
   Patch,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
@@ -20,14 +21,16 @@ import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
 import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
+import { HistoryQueryDto } from './dto/history-query.dto';
+import { TelemetryStore } from '../telemetry/telemetry.store';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 
-// Capped rather than unbounded — this backs a chart, not a full export, and
-// an unbounded `findMany` would grow linearly with how long the poller has
-// been running.
-const HISTORY_LIMIT = 100;
+const DEFAULT_HISTORY_POINTS = 300;
+const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
+/** Longest range one history request may cover. */
+const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
 
 @Controller('api/inverter')
 @UseGuards(AuthGuard('jwt'))
@@ -39,6 +42,7 @@ export class InverterController {
     private readonly inverterService: InverterService,
     private readonly pollingService: PollingService,
     private readonly addressPolicy: LoggerAddressPolicy,
+    private readonly telemetry: TelemetryStore,
   ) {}
 
   // -----------------------------------------------------------------
@@ -174,10 +178,7 @@ export class InverterController {
   ) {
     await this.requireOwnedProfile(profileId, user.userId);
 
-    const latest = await this.prisma.inverterLog.findFirst({
-      where: { inverterProfileId: profileId },
-      orderBy: { timestamp: 'desc' },
-    });
+    const latest = await this.telemetry.latest(profileId);
 
     if (!latest) {
       throw new NotFoundException('No inverter readings recorded yet');
@@ -187,24 +188,33 @@ export class InverterController {
   }
 
   /**
-   * Last `HISTORY_LIMIT` snapshots for one inverter, chronological
-   * (oldest → newest) so a chart can plot the array directly without
-   * re-sorting.
+   * Averaged history for one inverter over a time range, oldest first,
+   * downsampled to at most `points` buckets (see TelemetryStore.history).
    */
   @Get(':profileId/history')
   async getHistory(
     @Param('profileId', ParseIntPipe) profileId: number,
+    @Query() query: HistoryQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.requireOwnedProfile(profileId, user.userId);
 
-    const rows = await this.prisma.inverterLog.findMany({
-      where: { inverterProfileId: profileId },
-      orderBy: { timestamp: 'desc' },
-      take: HISTORY_LIMIT,
-    });
+    const to = query.to ?? new Date();
+    const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
+    const span = to.getTime() - from.getTime();
+    if (span <= 0) {
+      throw new BadRequestException('`from` must be before `to`');
+    }
+    if (span > MAX_HISTORY_SPAN_MS) {
+      throw new BadRequestException('A history range can cover at most 5 years');
+    }
 
-    return rows.reverse();
+    return this.telemetry.history(profileId, {
+      from,
+      to,
+      maxPoints: query.points ?? DEFAULT_HISTORY_POINTS,
+      fields: query.fields,
+    });
   }
 
   // -----------------------------------------------------------------

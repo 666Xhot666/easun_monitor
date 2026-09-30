@@ -8,6 +8,7 @@ import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { InverterService } from './inverter.service';
+import { TelemetryStore } from '../telemetry/telemetry.store';
 
 const INTERVAL_NAME_PREFIX = 'inverter-poll-';
 
@@ -61,6 +62,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     private readonly schedulerRegistry: SchedulerRegistry,
     private readonly inverterService: InverterService,
     private readonly prisma: PrismaService,
+    private readonly telemetry: TelemetryStore,
   ) {
     const rawInterval = this.configService.get<string>('POLLING_INTERVAL_MS');
     const parsedInterval = Number(rawInterval);
@@ -184,12 +186,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
         target.port,
       );
 
-      await this.prisma.inverterLog.create({
-        data: {
-          payload: reading,
-          inverterProfileId: profileId,
-        },
-      });
+      await this.telemetry.record(profileId, reading);
 
       this.logger.debug(
         `Profile #${profileId}: stored reading with ${Object.keys(reading).length} parameter(s)`,

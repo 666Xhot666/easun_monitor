@@ -4,8 +4,10 @@ import { InverterController } from './inverter.controller';
 import { InverterService } from './inverter.service';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
+import { TelemetryModule } from '../telemetry/telemetry.module';
 
 @Module({
+  imports: [TelemetryModule],
   // PrismaModule is @Global, so PollingService/InverterController can
   // inject PrismaService without InverterModule importing it explicitly.
   controllers: [InverterController],
