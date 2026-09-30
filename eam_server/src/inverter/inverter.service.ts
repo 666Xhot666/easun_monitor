@@ -9,13 +9,13 @@ import {
   UDP_DISCOVERY_PORT,
   UDP_HANDSHAKE_FALLBACK_HOST,
   UDP_HANDSHAKE_EXPECTED_REPLY,
-  TRANSACTION_ID,
-  PROTOCOL_ID,
-  OUTER_UNIT_ID,
-  OUTER_FUNCTION_CODE,
-  INNER_UNIT_ID,
-  INNER_FUNCTION_CODE,
 } from '../common/constants';
+import {
+  decodeReply,
+  encodeRequest,
+  frameLength,
+  type LoggerRequest,
+} from './protocol/logger-frame';
 
 /**
  * One entry from commands.json's `get_smg_param` definition array. The
@@ -173,9 +173,13 @@ export class InverterService implements OnModuleDestroy {
     for (const definition of PARAMETER_DEFINITIONS) {
       try {
         const socket = await this.ensureConnected(ipAddress, port);
-        const request = this.buildModbusPacket(definition.address);
-        const response = await this.sendAndReceive(socket, request);
-        const rawValue = this.parseResponse(response);
+        const request: LoggerRequest = {
+          kind: 'read',
+          address: parseInt(definition.address, 16),
+          count: 1,
+        };
+        const response = await this.sendAndReceive(socket, encodeRequest(request));
+        const [rawValue] = decodeReply(request, response);
         const signedValue =
           definition.type === 'Int16BE'
             ? this.toSigned16(rawValue)
@@ -235,11 +239,15 @@ export class InverterService implements OnModuleDestroy {
     const socket = await this.openTcpSocket(ipAddress, port, this.connectionKey(ipAddress, port));
 
     try {
-      const request = this.buildModbusPacket(sample.address);
-      const response = await this.sendAndReceive(socket, request);
+      const request: LoggerRequest = {
+        kind: 'read',
+        address: parseInt(sample.address, 16),
+        count: 1,
+      };
+      const response = await this.sendAndReceive(socket, encodeRequest(request));
       // Throws on a short/malformed response or a CRC mismatch — this is
       // the actual verification, not just "the TCP handshake succeeded".
-      this.parseResponse(response);
+      decodeReply(request, response);
 
       return {
         success: true,
@@ -438,84 +446,20 @@ export class InverterService implements OnModuleDestroy {
   }
 
   // ---------------------------------------------------------------------
-  // 2. Custom Modbus packet structure
-  // ---------------------------------------------------------------------
-
-  /**
-   * Builds one request packet: a proprietary 6-byte header (mirroring a
-   * Modbus TCP MBAP header) wrapping a real Modbus RTU "read holding
-   * registers" frame, e.g. for register `e204`:
-   *
-   *   aaaa 0001 000a ff 04 | ff 03 e204 0001 e66d
-   *   `-- header --------' `-- inner Modbus RTU frame, CRC included --'
-   *
-   * The CRC is computed only over the inner frame (unit id, function
-   * code, address, quantity) and appended low-byte-first, matching real
-   * Modbus RTU wire order.
-   */
-  private buildModbusPacket(hexAddress: string, dataLength = '0001'): Buffer {
-    if (hexAddress.length !== 4 || dataLength.length !== 4) {
-      throw new Error(
-        `buildModbusPacket: hexAddress and dataLength must each be 4 hex chars ` +
-          `(got "${hexAddress}", "${dataLength}")`,
-      );
-    }
-
-    const registerAddress = Buffer.from(hexAddress, 'hex');
-    const quantity = Buffer.from(dataLength, 'hex');
-
-    const innerFrame = Buffer.concat([
-      Buffer.from([INNER_UNIT_ID, INNER_FUNCTION_CODE]),
-      registerAddress,
-      quantity,
-    ]);
-    const crc = this.calculateCrc16(innerFrame);
-
-    const payload = Buffer.concat([
-      Buffer.from([OUTER_UNIT_ID, OUTER_FUNCTION_CODE]),
-      innerFrame,
-      crc,
-    ]);
-
-    const header = Buffer.alloc(6);
-    header.writeUInt16BE(TRANSACTION_ID, 0);
-    header.writeUInt16BE(PROTOCOL_ID, 2);
-    header.writeUInt16BE(payload.length, 4); // "Length": bytes following
-
-    return Buffer.concat([header, payload]);
-  }
-
-  /**
-   * Standard CRC-16/MODBUS (polynomial 0xA001, initial value 0xFFFF).
-   * Returns the 2-byte result already in Modbus RTU wire order (low byte
-   * first) — ready to append directly to a packet or compare directly
-   * against the trailing bytes of a response.
-   */
-  private calculateCrc16(data: Buffer): Buffer {
-    let crc = 0xffff;
-    for (const byte of data) {
-      crc ^= byte;
-      for (let i = 0; i < 8; i++) {
-        crc = crc & 1 ? (crc >> 1) ^ 0xa001 : crc >> 1;
-      }
-    }
-    return Buffer.from([crc & 0xff, (crc >> 8) & 0xff]);
-  }
-
-  // ---------------------------------------------------------------------
   // Send / receive
   // ---------------------------------------------------------------------
 
   /**
-   * Writes one request and resolves with the next `data` event's payload.
-   * Requests are never sent concurrently on the same socket — the
-   * transaction ID is a fixed constant, not a per-request identifier, so
-   * there's no way to match an out-of-order response to its request.
-   * `fetchDeviceData`'s sequential loop is what makes this safe.
+   * Writes one request and resolves with the one complete reply frame that
+   * answers it. Replies are cut from the stream with `frameLength`, since
+   * TCP may deliver a frame in pieces. Requests are never sent concurrently
+   * on the same socket: the transaction id is fixed, so an out-of-order
+   * reply could not be matched to its request.
    */
   private sendAndReceive(socket: net.Socket, request: Buffer): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       let settled = false;
+      let received = Buffer.alloc(0);
 
       const finish = (fn: () => void) => {
         if (settled) return;
@@ -543,11 +487,15 @@ export class InverterService implements OnModuleDestroy {
       };
 
       const onData = (data: Buffer) => {
-        finish(() => resolve(data));
+        received = Buffer.concat([received, data]);
+        const length = frameLength(received);
+        if (length !== null) {
+          finish(() => resolve(received.subarray(0, length)));
+        }
       };
 
-      socket.once('error', onError);
-      socket.once('data', onData);
+      socket.on('error', onError);
+      socket.on('data', onData);
 
       socket.write(request, (writeError) => {
         if (writeError) {
@@ -558,36 +506,5 @@ export class InverterService implements OnModuleDestroy {
         }
       });
     });
-  }
-
-  // ---------------------------------------------------------------------
-  // 3. Response parsing
-  // ---------------------------------------------------------------------
-
-  /**
-   * Extracts the raw register value from a response shaped like:
-   *
-   *   aaaa 0001 0009 ff 04 | 01 03 02 0001 7984
-   *                          `- inner reply -' `CRC'
-   *
-   * offsets:  0-5 header, 6-7 outer echo, 8 inner unit id, 9 inner
-   * function code, 10 byte count, 11-12 the value, 13-14 CRC.
-   */
-  private parseResponse(response: Buffer): number {
-    const MIN_LENGTH = 15;
-    if (response.length < MIN_LENGTH) {
-      throw new Error(
-        `Malformed inverter response: expected at least ${MIN_LENGTH} bytes, got ${response.length}`,
-      );
-    }
-
-    const innerFrame = response.subarray(8, 13); // unit id, func code, byte count, data
-    const expectedCrc = this.calculateCrc16(innerFrame);
-    const actualCrc = response.subarray(13, 15);
-    if (!expectedCrc.equals(actualCrc)) {
-      throw new Error('Malformed inverter response: CRC check failed');
-    }
-
-    return response.readUInt16BE(11);
   }
 }

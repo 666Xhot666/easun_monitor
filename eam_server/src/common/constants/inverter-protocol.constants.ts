@@ -1,7 +1,6 @@
 /**
  * Wire-protocol constants for the EASUN ISOLAR SMG-II's "Wi-Fi Plug Pro"
- * adapter (reverse-engineered UDP discovery + a proprietary framing
- * wrapping a real Modbus RTU "read holding registers" frame).
+ * adapter's UDP discovery handshake.
  *
  * These are NOT deployment configuration — every device of this exact
  * model speaks the identical protocol, so there is no valid alternate
@@ -28,34 +27,5 @@ export const UDP_HANDSHAKE_FALLBACK_HOST = 'PHONE_WIFI_IP';
 /** Exact reply payload that confirms the UDP handshake succeeded. */
 export const UDP_HANDSHAKE_EXPECTED_REPLY = 'rsp>server=1;';
 
-/**
- * Transaction id for the 6-byte MBAP-style wrapper header. Fixed rather
- * than per-request because requests are always sent sequentially and
- * awaited one at a time (see InverterService.sendAndReceive) — there's
- * never more than one in flight, so nothing needs it to vary.
- */
-export const TRANSACTION_ID = 0xaaaa;
-
-/**
- * Protocol id for the wrapper header. NOT the Modbus convention's usual
- * 0x0001 — the SMG-II's Wi-Fi Plug Pro adapter uses its own value here
- * (0x0102), distinct from the SMX-II's framing even though both models
- * share the same physical datalogger and app scaffolding.
- */
-export const PROTOCOL_ID = 0x0102;
-
-/** Unit id the outer wrapper frame addresses. */
-export const OUTER_UNIT_ID = 0xff;
-
-/** Function code for the outer wrapper frame (proprietary, not standard Modbus). */
-export const OUTER_FUNCTION_CODE = 0x04;
-
-/**
- * Unit id for the inner, real Modbus RTU frame. The SMG-II's inverter
- * addresses itself as unit 0x01 on this inner frame — unlike the SMX-II,
- * which reuses the outer wrapper's 0xff here.
- */
-export const INNER_UNIT_ID = 0x01;
-
-/** Modbus function code 0x03 = "Read Holding Registers". */
-export const INNER_FUNCTION_CODE = 0x03;
+// Frame-level constants (header ids, unit ids, function codes) live with the
+// codec that uses them: ../../inverter/protocol/logger-frame.ts.
