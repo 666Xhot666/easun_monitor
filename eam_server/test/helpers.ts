@@ -1,9 +1,9 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication } from '@nestjs/common';
 import { Test, TestingModuleBuilder } from '@nestjs/testing';
-import cookieParser from 'cookie-parser';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
+import { configureApp } from '../src/configure-app';
 import { PollingService } from '../src/inverter/polling.service';
 import { PrismaService } from '../src/prisma/prisma.service';
 
@@ -19,10 +19,7 @@ export async function createTestApp(
   ).compile();
 
   const app = moduleRef.createNestApplication<INestApplication<App>>();
-  app.use(cookieParser());
-  app.useGlobalPipes(
-    new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }),
-  );
+  configureApp(app);
   await app.init();
   return app;
 }
