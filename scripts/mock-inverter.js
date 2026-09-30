@@ -4,7 +4,7 @@
 /**
  * mock-inverter.js
  *
- * Standalone local simulator for the EASUN ISOLAR SMX-II's "Wi-Fi Plug
+ * Standalone local simulator for the EASUN ISOLAR SMG-II's "Wi-Fi Plug
  * Pro" adapter — the exact reverse-engineered UDP discovery + proprietary
  * Modbus TCP/RTU framing that eam_server's InverterService speaks. Zero
  * npm dependencies (native dgram/net/fs/path only), so you can run it
@@ -29,19 +29,15 @@
  *
  * --- A note on register addresses ---
  * This script loads the real commands.json (the same file InverterService
- * reads) to generate a plausible value for every one of the ~85 registers
- * actually polled each cycle, keyed off each register's real name — not
- * just the two addresses called out below. Worth knowing: in the real
- * file, e204 is actually "OutputPriority" (an enum) and e205 is
- * "MaxACChargerCurrent", not GridVoltage/Battery — the real
- * voltage/current/SoC registers live at 0213 (LineVoltage), 0101
- * (BatteryVoltage), 0100 (BatterySoc), 0109 (PVPower), etc. This script
- * still special-cases e204/e205 exactly as specified below (so a request
- * against those specific addresses is predictable for quick manual
- * testing), while every other register — including the real
- * voltage/current/SoC ones — gets a realistic value derived from its
- * actual name and type, so the full dynamic polling loop gets sensible
- * data end to end instead of random noise for the other ~83 registers.
+ * reads) to generate a plausible value for every one of the 57 SMG-II
+ * registers actually polled each cycle, keyed off each register's real
+ * name. A few landmarks if you're cross-checking against a capture:
+ * 00C9 is "OperationMode" (an enum), 00D2 is "OutputVoltage", 00D7 is
+ * "BatteryVoltage", 00E5 is "BatterySoc", and 00DF is "PVPower". Every
+ * register — these and the other 52 — gets a realistic value derived
+ * from its actual name and type via the generic NAME_RANGE_RULES /
+ * findDefinition() path below, so the full dynamic polling loop gets
+ * sensible data end to end without needing any address special-cased.
  */
 
 const dgram = require('node:dgram');
@@ -77,8 +73,8 @@ const commandsPath = path.join(__dirname, '..', 'eam_server', 'src', 'inverter',
 let parameterDefinitions = [];
 try {
   const commandsData = JSON.parse(fs.readFileSync(commandsPath, 'utf8'));
-  const getSmxParamCommand = commandsData.commands.find((c) => c.name === 'get_smx_param');
-  parameterDefinitions = (getSmxParamCommand && getSmxParamCommand.definition) || [];
+  const getSmgParamCommand = commandsData.commands.find((c) => c.name === 'get_smg_param');
+  parameterDefinitions = (getSmgParamCommand && getSmgParamCommand.definition) || [];
   console.log(`[mock-inverter] Loaded ${parameterDefinitions.length} register definitions from commands.json`);
 } catch (error) {
   console.warn(
@@ -88,7 +84,7 @@ try {
 }
 
 // Matched by substring against the register's real name (first match
-// wins). Values are realistic ballparks for an EASUN ISOLAR SMX-II, not
+// wins). Values are realistic ballparks for an EASUN ISOLAR SMG-II, not
 // a calibration reference — this is a UI-development aid.
 const NAME_RANGE_RULES = [
   [/soc/i, [40, 100]], // %
@@ -115,12 +111,6 @@ function jitterAround(baseline, spreadFraction) {
 
 function logicalValueForRegister(hexAddress, definition) {
   const normalized = hexAddress.toLowerCase();
-
-  // Requirement examples, honored literally regardless of what
-  // commands.json actually maps these two addresses to (see file header)
-  // — small live-looking jitter around 2300 / 500.
-  if (normalized === 'e204') return jitterAround(2300, 0.03);
-  if (normalized === 'e205') return jitterAround(500, 0.03);
 
   if (!definition) {
     return Math.floor(Math.random() * 1000);
@@ -242,7 +232,7 @@ function handleRequest(socket, request) {
   // Request layout (0-indexed), matching InverterService.buildModbusPacket:
   //   [0:2] transaction id   [2:4] protocol id   [4:6] length
   //   [6] outer unit id (ff) [7] outer func code (04)
-  //   [8] inner unit id (ff) [9] inner func code (03)
+  //   [8] inner unit id (01) [9] inner func code (03)
   //   [10:12] register address   [12:14] quantity (always 0001)
   //   [14:16] CRC-16/MODBUS over bytes [8:14], low-byte-first
   const transactionId = request.subarray(0, 2);
@@ -304,7 +294,7 @@ tcpServer.on('error', (error) => {
 
 tcpServer.listen(TCP_PORT, () => {
   console.log(`[mock-inverter] TCP Modbus server listening on 0.0.0.0:${TCP_PORT}`);
-  console.log('[mock-inverter] EASUN ISOLAR SMX-II / Wi-Fi Plug Pro simulator ready. Press Ctrl+C to stop.');
+  console.log('[mock-inverter] EASUN ISOLAR SMG-II / Wi-Fi Plug Pro simulator ready. Press Ctrl+C to stop.');
 });
 
 function shutdown() {

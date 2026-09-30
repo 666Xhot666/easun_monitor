@@ -18,12 +18,15 @@ import {
 } from '../common/constants';
 
 /**
- * One entry from commands.json's `get_smx_param` definition array. The
- * real file (from the suletom EASUN reverse-engineering repo) uses
- * `address` (not `hex`) and `rate` (a multiplier applied to the raw
- * register value, not a divisor).
+ * One entry from commands.json's `get_smg_param` definition array. The
+ * real file (from the EASUN SMG-II reverse-engineering effort — see
+ * EASUN's own "SMG-RS232 Communication Protocol V1.0.1" PDF, mirrored at
+ * github.com/syssi/esphome-smg-ii/blob/main/docs/, cross-checked against
+ * github.com/makstt232/EASUN-ISOLAR-SMG-II-CONTROL) uses `address` (not
+ * `hex`) and `rate` (a multiplier applied to the raw register value, not
+ * a divisor).
  */
-interface SmxParameterDefinition {
+interface SmgParameterDefinition {
   num: string;
   name: string;
   address: string;
@@ -34,18 +37,24 @@ interface SmxParameterDefinition {
 }
 
 // Registers we know how to decode with a single 16-bit read. A handful of
-// entries in commands.json use other `type` values (3 = date/time, 4 =
-// fault-code table, 20 = ASCII string spanning multiple registers) that
-// need their own multi-register parsing logic — out of scope here, so
-// they're filtered out rather than mis-decoded as a plain UInt16.
+// entries in commands.json use other `type` values that need their own
+// multi-register parsing logic — out of scope here, so they're filtered
+// out rather than mis-decoded as a plain UInt16.
+//
+// TODO: the SMG-II register map also defines Fault code (100 / 0x0064),
+// Warning code (108 / 0x006C), and Serial number (186 / 0x00BA) — a
+// ULong and a 12-register ASCII string respectively. None of the three
+// are in get_smg_param's `definition` array below (same treatment the
+// old SMX-II list gave its own type 3/4/20 entries — not a regression),
+// so add them here once this filter grows real multi-register decoding.
 const SUPPORTED_TYPES = new Set(['UInt16BE', 'Int16BE']);
 
-function loadSmxParameterDefinitions(): SmxParameterDefinition[] {
-  const getSmxParamCommand = commandsData.commands.find(
-    (command) => command.name === 'get_smx_param',
+function loadSmgParameterDefinitions(): SmgParameterDefinition[] {
+  const getSmgParamCommand = commandsData.commands.find(
+    (command) => command.name === 'get_smg_param',
   );
-  const definitions = (getSmxParamCommand?.definition ??
-    []) as SmxParameterDefinition[];
+  const definitions = (getSmgParamCommand?.definition ??
+    []) as SmgParameterDefinition[];
   return definitions.filter(
     (definition) =>
       Boolean(definition.address) &&
@@ -55,11 +64,11 @@ function loadSmxParameterDefinitions(): SmxParameterDefinition[] {
 
 // Parsed once at module load — commands.json is static data bundled with
 // the app, not something that changes at runtime.
-const PARAMETER_DEFINITIONS = loadSmxParameterDefinitions();
+const PARAMETER_DEFINITIONS = loadSmgParameterDefinitions();
 
 /**
  * Speaks the reverse-engineered UDP/Modbus TCP protocol to the EASUN
- * ISOLAR SMX-II's Wi-Fi Plug Pro adapter. This is the only place that
+ * ISOLAR SMG-II's Wi-Fi Plug Pro adapter. This is the only place that
  * knows about UDP discovery, the custom packet framing, or CRC-16 — every
  * other module only ever sees `fetchDeviceData`'s plain InverterReading.
  */
