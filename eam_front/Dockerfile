@@ -3,7 +3,7 @@
 # =============================================================================
 # base: shared layer with package manifests only.
 # =============================================================================
-FROM node:20-alpine AS base
+FROM node:24-alpine AS base
 WORKDIR /usr/src/app
 COPY package*.json ./
 
@@ -33,5 +33,5 @@ RUN npm run build
 FROM nginx:1.27-alpine AS production
 COPY --from=build /usr/src/app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-EXPOSE 80
+EXPOSE 5173
 CMD ["nginx", "-g", "daemon off;"]
