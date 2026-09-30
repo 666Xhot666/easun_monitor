@@ -8,37 +8,8 @@ import { extractErrorMessage } from './lib/errors';
 import type { InverterProfile } from './auth/types';
 import { DEFAULT_POLL_MS, useReading } from './inverter/useReading';
 import { describeDeviceStatus, useDeviceStatus } from './inverter/useDeviceStatus';
-
-interface KeyMetricConfig {
-  key: string;
-  label: string;
-  unit: string;
-  decimals: number;
-}
-
-// The four headline metrics, pulled out of the payload and shown as large
-// cards above the full parameter grid. Everything else currently in the
-// payload (~80 more fields from commands.json) renders generically below,
-// so this list doesn't need to be kept in sync with the backend's register
-// map — only these four get special treatment.
-const KEY_METRICS: KeyMetricConfig[] = [
-  { key: 'LineVoltage', label: 'Grid Voltage', unit: 'V', decimals: 1 },
-  { key: 'BatteryVoltage', label: 'Battery Voltage', unit: 'V', decimals: 1 },
-  { key: 'PVPower', label: 'PV Power', unit: 'W', decimals: 0 },
-  { key: 'BatterySoc', label: 'Battery SoC', unit: '%', decimals: 0 },
-];
-
-const KEY_METRIC_NAMES = new Set(KEY_METRICS.map((metric) => metric.key));
-
-function formatValue(value: unknown, decimals = 2): string {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
-    return String(value);
-  }
-  return value.toLocaleString(undefined, {
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  });
-}
+import { useRegisters } from './inverter/useRegisters';
+import ReadingPanel from './inverter/ReadingPanel';
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
@@ -118,6 +89,7 @@ export default function Dashboard() {
   }, [activeProfile, requestedId, navigate]);
 
   const { reading, status } = useReading(activeProfile?.id ?? 0);
+  const registers = useRegisters();
   const deviceStatus = useDeviceStatus(activeProfile?.id ?? 0);
   const deviceProblem = deviceStatus ? describeDeviceStatus(deviceStatus) : null;
   const [switcherError, setSwitcherError] = useState<string | null>(null);
@@ -143,7 +115,7 @@ export default function Dashboard() {
     );
   }
 
-  if (status === 'loading') {
+  if (status === 'loading' || !registers) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
         <p className="text-gray-500 dark:text-gray-400">Loading inverter data…</p>
@@ -180,11 +152,6 @@ export default function Dashboard() {
       </div>
     );
   }
-
-  const payload = reading?.payload ?? {};
-  const remainingEntries = Object.entries(payload)
-    .filter(([key]) => !KEY_METRIC_NAMES.has(key))
-    .sort(([a], [b]) => a.localeCompare(b));
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -261,51 +228,11 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        {/* Key metrics */}
-        <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {KEY_METRICS.map((metric) => {
-            const value = payload[metric.key];
-            const hasValue = typeof value === 'number';
-            return (
-              <div
-                key={metric.key}
-                className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900"
-              >
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{metric.label}</p>
-                <p className="mt-2 text-3xl font-bold tracking-tight text-gray-900 dark:text-gray-50">
-                  {hasValue ? formatValue(value, metric.decimals) : '—'}
-                  <span className="ml-1 text-base font-medium text-gray-400 dark:text-gray-500">
-                    {hasValue ? metric.unit : ''}
-                  </span>
-                </p>
-              </div>
-            );
-          })}
-        </section>
-
-        <HistoryChart profileId={activeProfile.id} />
-
-        {/* Every other parameter in the payload */}
-        <section className="mt-10">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-            All parameters ({remainingEntries.length})
-          </h2>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-            {remainingEntries.map(([key, value]) => (
-              <div
-                key={key}
-                className="rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
-              >
-                <p className="truncate text-xs font-medium text-gray-500 dark:text-gray-400" title={key}>
-                  {key}
-                </p>
-                <p className="mt-1 text-base font-semibold text-gray-900 dark:text-gray-100">
-                  {formatValue(value)}
-                </p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {reading && (
+          <ReadingPanel registers={registers} reading={reading}>
+            <HistoryChart profileId={activeProfile.id} registers={registers} />
+          </ReadingPanel>
+        )}
       </main>
     </div>
   );

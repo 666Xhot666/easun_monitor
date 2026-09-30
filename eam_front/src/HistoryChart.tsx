@@ -20,12 +20,27 @@ import {
   type History,
   type HistoryRangeId,
 } from './history/historyRange';
+import type { RegisterDefinition } from './inverter/types';
 
 const SERIES = ['PVPower', 'BatteryVoltage'];
 
 type FetchState = 'loading' | 'ok' | 'empty' | 'error';
 
-export default function HistoryChart({ profileId }: { profileId: number }) {
+/** "PV power (W)" from the register metadata, or the bare name. */
+function seriesLabel(registers: RegisterDefinition[] | undefined, name: string): string {
+  const definition = registers?.find((d) => d.name === name);
+  if (!definition) return name;
+  return definition.unit ? `${definition.label} (${definition.unit})` : definition.label;
+}
+
+export default function HistoryChart({
+  profileId,
+  registers,
+}: {
+  profileId: number;
+  registers?: RegisterDefinition[];
+}) {
+  const [pvLabel, batteryLabel] = SERIES.map((name) => seriesLabel(registers, name));
   const [rangeId, setRangeId] = useState<HistoryRangeId>('24h');
   const [rows, setRows] = useState<ChartRow[]>([]);
   const [fetchState, setFetchState] = useState<FetchState>('loading');
@@ -123,7 +138,7 @@ export default function HistoryChart({ profileId }: { profileId: number }) {
                   tickLine={false}
                   axisLine={false}
                   width={56}
-                  label={{ value: 'PV Power (W)', angle: -90, position: 'insideLeft', fill: 'var(--chart-axis)', fontSize: 12 }}
+                  label={{ value: pvLabel, angle: -90, position: 'insideLeft', fill: 'var(--chart-axis)', fontSize: 12 }}
                 />
                 <YAxis
                   yAxisId="right"
@@ -133,7 +148,7 @@ export default function HistoryChart({ profileId }: { profileId: number }) {
                   tickLine={false}
                   axisLine={false}
                   width={56}
-                  label={{ value: 'Battery Voltage (V)', angle: 90, position: 'insideRight', fill: 'var(--chart-axis)', fontSize: 12 }}
+                  label={{ value: batteryLabel, angle: 90, position: 'insideRight', fill: 'var(--chart-axis)', fontSize: 12 }}
                 />
                 <Tooltip
                   labelFormatter={(at) => format(Number(at), 'MMM d yyyy, HH:mm')}
@@ -149,7 +164,7 @@ export default function HistoryChart({ profileId }: { profileId: number }) {
                   yAxisId="left"
                   type="monotone"
                   dataKey="PVPower"
-                  name="PV Power (W)"
+                  name={pvLabel}
                   stroke="var(--chart-series-pv-power)"
                   strokeWidth={2}
                   dot={false}
@@ -159,7 +174,7 @@ export default function HistoryChart({ profileId }: { profileId: number }) {
                   yAxisId="right"
                   type="monotone"
                   dataKey="BatteryVoltage"
-                  name="Battery Voltage (V)"
+                  name={batteryLabel}
                   stroke="var(--chart-series-battery-voltage)"
                   strokeWidth={2}
                   dot={false}
