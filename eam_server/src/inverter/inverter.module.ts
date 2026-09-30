@@ -7,6 +7,7 @@ import { TcpLoggerTransport } from './link/tcp-logger-transport';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
 import { RegisterMap } from './registers/register-map';
+import { SettingsService } from './settings.service';
 import { SMG_II_REGISTERS } from './registers/smg-ii.registers';
 
 @Module({
@@ -17,6 +18,7 @@ import { SMG_II_REGISTERS } from './registers/smg-ii.registers';
   providers: [
     PollingService,
     LoggerLinks,
+    SettingsService,
     { provide: RegisterMap, useValue: new RegisterMap(SMG_II_REGISTERS) },
     {
       provide: LOGGER_TRANSPORT_FACTORY,

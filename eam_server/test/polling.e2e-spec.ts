@@ -7,25 +7,8 @@ import { configureApp } from '../src/configure-app';
 import { InMemoryLogger } from '../src/inverter/link/in-memory-logger';
 import { LOGGER_TRANSPORT_FACTORY } from '../src/inverter/link/logger-links';
 import { PollingService } from '../src/inverter/polling.service';
-import { TransportError, type LoggerTransport } from '../src/inverter/link/logger-transport';
 import { registerUser, resetDatabase, sampleProfile } from './helpers';
-
-/** In-process adapter at the transport seam: frames go straight to an
- * in-memory logger, or fail as an unreachable logger would. */
-class InMemoryTransport implements LoggerTransport {
-  connected = false;
-  constructor(private readonly logger: InMemoryLogger | null) {}
-  async connect() {
-    if (!this.logger) throw new TransportError('UDP handshake timed out');
-    this.connected = true;
-  }
-  async exchange(frame: Buffer) {
-    return this.logger!.handle(frame);
-  }
-  close() {
-    this.connected = false;
-  }
-}
+import { InMemoryTransport } from './support/in-memory-transport';
 
 describe('Polling through the Logger link (e2e)', () => {
   let app: INestApplication<App>;

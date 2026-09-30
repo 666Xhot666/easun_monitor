@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   ConflictException,
+  ServiceUnavailableException,
   Controller,
   Delete,
   Get,
@@ -16,7 +17,11 @@ import {
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerLinks } from './link/logger-links';
-import { RegisterMap } from './registers/register-map';
+import { RegisterMap, RegisterValueError } from './registers/register-map';
+import { LoggerUnavailableError } from './link/logger-link';
+import { LoggerFrameError } from './protocol/logger-frame';
+import { SettingsService } from './settings.service';
+import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
@@ -47,6 +52,7 @@ export class InverterController {
     private readonly addressPolicy: LoggerAddressPolicy,
     private readonly telemetry: TelemetryStore,
     private readonly registers: RegisterMap,
+    private readonly settings: SettingsService,
   ) {}
 
   /**
@@ -254,6 +260,62 @@ export class InverterController {
       maxPoints: query.points ?? DEFAULT_HISTORY_POINTS,
       fields: query.fields,
     });
+  }
+
+  // -----------------------------------------------------------------
+  // Settings — read from and written to the inverter itself.
+  // -----------------------------------------------------------------
+
+  /** The inverter's settings, cached for a few minutes. */
+  @Get(':profileId/settings')
+  async getSettings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    return this.deviceCall(() => this.settings.get(profile));
+  }
+
+  /** Re-reads the settings from the inverter now. */
+  @Post(':profileId/settings/refresh')
+  async refreshSettings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    return this.deviceCall(() => this.settings.refresh(profile));
+  }
+
+  /** Writes changed settings and returns what the inverter then holds. */
+  @Patch(':profileId/settings')
+  async updateSettings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Body() dto: UpdateSettingsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const entries = Object.entries(dto.changes);
+    if (entries.length === 0) {
+      throw new BadRequestException('No settings to change');
+    }
+    if (entries.some(([, value]) => typeof value !== 'number')) {
+      throw new BadRequestException('Every setting value must be a number');
+    }
+    return this.deviceCall(() => this.settings.apply(profile, dto.changes));
+  }
+
+  /** Maps device-side failures to HTTP errors with the device's message. */
+  private async deviceCall<T>(call: () => Promise<T>): Promise<T> {
+    try {
+      return await call();
+    } catch (error) {
+      if (error instanceof RegisterValueError) throw new BadRequestException(error.message);
+      if (error instanceof LoggerFrameError) throw new ConflictException(error.message);
+      if (error instanceof LoggerUnavailableError) {
+        throw new ServiceUnavailableException(error.message);
+      }
+      throw error;
+    }
   }
 
   // -----------------------------------------------------------------
