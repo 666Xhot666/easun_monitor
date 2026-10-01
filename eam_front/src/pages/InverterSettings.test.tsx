@@ -31,11 +31,14 @@ const noConstraints = { batteryVoltage: null, bounds: {}, defaults: {}, rules: [
 function renderPage(
   handler: (method: string, url: string, body: unknown) => Reply,
   constraints: unknown = noConstraints,
+  panelSettings: unknown[] = [],
 ) {
   const server = fakeServer((config) =>
     config.url === '/api/inverter/registers'
       ? { status: 200, data: registers }
-      : config.url === '/api/inverter/7/settings/constraints'
+      : config.url === '/api/inverter/panel-settings'
+        ? { status: 200, data: panelSettings }
+        : config.url === '/api/inverter/7/settings/constraints'
         ? { status: 200, data: constraints }
         : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
   );
@@ -225,6 +228,28 @@ describe('InverterSettings page', () => {
       'Remote switch: Remote shutdown turns off the AC output.\n\nChange it anyway?',
     );
     expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
+  });
+
+  it("lists the panel-only settings and links the settings they affect", async () => {
+    const batteryType = {
+      program: '05', title: 'Battery type', default: 'AGM',
+      description: 'Decides whether the charge voltages below apply.',
+      options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
+      affects: ['MaxChargingVoltage'],
+    };
+    restore = renderPage(
+      () => ({ status: 200, data: snapshot({ OutputPriority: 2, MaxChargingVoltage: 28.2 }) }),
+      noConstraints,
+      [batteryType],
+    ).restore;
+
+    const panel = await screen.findByRole('region', { name: "Set on the inverter's panel" });
+    expect(within(panel).getByText('Battery type')).toBeInTheDocument();
+    expect(within(panel).getByText('Program 05 · Default: AGM')).toBeInTheDocument();
+    expect(within(panel).getByText('AGM, Flooded, User-Defined, Lithium without communication')).toBeInTheDocument();
+    expect(within(panel).queryByRole('combobox')).not.toBeInTheDocument();
+
+    expect(screen.getByRole('link', { name: 'Depends on panel program 05' })).toHaveAttribute('href', '#panel-05');
   });
 
   it('offers fixed-choice settings as a list of their values', async () => {

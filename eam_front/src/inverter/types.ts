@@ -37,3 +37,15 @@ export interface RegisterDefinition {
   /** Factory default by nominal battery voltage (12/24/48 V). */
   defaultByBatteryVoltage?: Readonly<Record<number, number>>;
 }
+
+/** A setting only the inverter's own panel can change, as served by
+ * GET /api/inverter/panel-settings. */
+export interface PanelSetting {
+  program: string;
+  title: string;
+  description: string;
+  options?: readonly string[];
+  default: string;
+  /** Settings registers whose effect depends on this one. */
+  affects?: readonly string[];
+}

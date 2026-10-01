@@ -4,7 +4,7 @@ import { Info, RefreshCw, Send } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { decimalsFor, formatRegisterValue } from '../inverter/format';
-import type { RegisterDefinition } from '../inverter/types';
+import type { PanelSetting, RegisterDefinition } from '../inverter/types';
 import { useRegisters } from '../inverter/useRegisters';
 import {
   ADVANCED,
@@ -45,6 +45,7 @@ export default function InverterSettings() {
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [panelSettings, setPanelSettings] = useState<PanelSetting[]>([]);
 
   const original = useMemo(
     () => (registers && snapshot ? toFormValues(registers, snapshot.values) : {}),
@@ -107,6 +108,19 @@ export default function InverterSettings() {
       cancelled = true;
     };
   }, [profileId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get<PanelSetting[]>('/api/inverter/panel-settings')
+      .then(({ data }) => {
+        if (!cancelled) setPanelSettings(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function refresh() {
     setRefreshing(true);
@@ -264,6 +278,9 @@ export default function InverterSettings() {
                         warnings={check.warnings[definition.name]}
                         inactive={check.inactive[definition.name]}
                         bounds={constraints.bounds[definition.name]}
+                        panelPrograms={panelSettings
+                          .filter((p) => p.affects?.includes(definition.name))
+                          .map((p) => p.program)}
                         defaultValue={constraints.defaults[definition.name] ?? definition.default}
                         disabled={saving}
                         onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
@@ -273,6 +290,7 @@ export default function InverterSettings() {
                 )}
               </section>
             ))}
+            {panelSettings.length > 0 && <PanelSettings settings={panelSettings} />}
           </div>
         )}
       </main>
@@ -289,6 +307,7 @@ function SettingRow({
   warnings,
   inactive,
   bounds,
+  panelPrograms,
   defaultValue,
   disabled,
   onChange,
@@ -302,6 +321,8 @@ function SettingRow({
   /** Why the setting currently has no effect. */
   inactive?: string;
   bounds?: Bounds;
+  /** Panel-only programs this setting's effect depends on. */
+  panelPrograms: string[];
   defaultValue?: number;
   disabled: boolean;
   onChange: (text: string) => void;
@@ -349,6 +370,15 @@ function SettingRow({
             ))}
           </p>
         )}
+        {panelPrograms.map((program) => (
+          <a
+            key={program}
+            href={`#panel-${program}`}
+            className="mr-2 text-xs text-blue-600 hover:underline dark:text-blue-400"
+          >
+            Depends on panel program {program}
+          </a>
+        ))}
       </div>
       <div className="flex flex-col items-end">
         {!definition.writable ? (
@@ -440,6 +470,37 @@ function SettingRow({
         </div>
       )}
     </div>
+  );
+}
+
+/** Settings with no register: shown for reference, set on the inverter. */
+function PanelSettings({ settings }: { settings: PanelSetting[] }) {
+  return (
+    <section aria-labelledby="panel-settings-title">
+      <h2
+        id="panel-settings-title"
+        className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
+      >
+        Set on the inverter's panel
+      </h2>
+      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+        The app can't read or change these; they still change how the settings above behave.
+      </p>
+      <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+        {settings.map((setting) => (
+          <div key={`${setting.program}-${setting.title}`} id={`panel-${setting.program}`} className="px-4 py-3">
+            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{setting.title}</p>
+            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+              Program {setting.program} · Default: {setting.default}
+            </p>
+            {setting.options && (
+              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{setting.options.join(', ')}</p>
+            )}
+            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{setting.description}</p>
+          </div>
+        ))}
+      </div>
+    </section>
   );
 }
 
