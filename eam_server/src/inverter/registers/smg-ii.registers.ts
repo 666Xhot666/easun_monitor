@@ -2,7 +2,7 @@
  * Register table for the EASUN ISOLAR SMG-II, transcribed from the vendor's
  * "SMG-RS232 Communication Protocol V1.0.1". Addresses are decimal, as in
  * that document. Reserved, "invalid data" and "internal command" addresses
- * are omitted, as is 426 "Exit the fault mode" (a write-only command).
+ * are omitted.
  *
  * Names are the keys stored in every reading, so renaming one orphans its
  * history.
@@ -287,6 +287,13 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     risk: 'Remote shutdown turns off the inverter\'s AC output: everything it powers loses power until it is turned back on.',
     optionDescriptions: ['Remote shutdown: the AC output turns off.', 'Remote turn-on.'],
   },
+  // --- commands ---
+  {
+    name: 'ExitFaultMode', label: 'Exit fault mode', address: 426, type: 'uint16', group: 'command', writable: true,
+    choices: [1],
+    description: 'Clears the fault state. Works only while the inverter is in fault mode.',
+  },
+
   {
     name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings',
     description: 'The inverter\'s rated output power.',

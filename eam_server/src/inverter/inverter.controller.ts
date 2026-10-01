@@ -342,6 +342,28 @@ export class InverterController {
     }
   }
 
+  /**
+   * Clears the inverter's fault state. The protocol only honours this in
+   * fault mode, so the operating mode is read live first.
+   */
+  @Post(':profileId/exit-fault-mode')
+  async exitFaultMode(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const link = this.links.get(profile.ipAddress, profile.port);
+    const faultMode = this.registers.get('OperationMode')?.options?.indexOf('Fault');
+    return this.deviceCall(async () => {
+      const { OperationMode } = await link.read(['telemetry']);
+      if (OperationMode !== faultMode) {
+        throw new ConflictException('The inverter is not in fault mode');
+      }
+      await link.command('ExitFaultMode', 1);
+      return { success: true as const };
+    });
+  }
+
   /** Maps device-side failures to HTTP errors with the device's message. */
   private async deviceCall<T>(call: () => Promise<T>): Promise<T> {
     try {
