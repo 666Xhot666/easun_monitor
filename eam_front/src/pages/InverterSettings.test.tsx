@@ -15,15 +15,23 @@ const registers = [
   },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
   { name: 'OutputFrequencySet', label: 'Output frequency', address: 321, type: 'uint16', scale: 0.01, unit: 'Hz', group: 'settings', writable: true, choices: [50, 60] },
+  { name: 'MaxChargingVoltage', label: 'Max charging voltage (bulk)', address: 324, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true, defaultByBatteryVoltage: { 24: 28.2, 48: 56.4 } },
+  { name: 'FloatingChargingVoltage', label: 'Float charging voltage', address: 325, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
   { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
 ];
 const snapshot = (values: Record<string, number>) => ({ values, readAt: '2026-09-30T12:00:00.000Z' });
+const noConstraints = { batteryVoltage: null, bounds: {}, defaults: {}, rules: [] };
 
-function renderPage(handler: (method: string, url: string, body: unknown) => Reply) {
+function renderPage(
+  handler: (method: string, url: string, body: unknown) => Reply,
+  constraints: unknown = noConstraints,
+) {
   const server = fakeServer((config) =>
     config.url === '/api/inverter/registers'
       ? { status: 200, data: registers }
-      : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
+      : config.url === '/api/inverter/7/settings/constraints'
+        ? { status: 200, data: constraints }
+        : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
   );
   render(
     <MemoryRouter initialEntries={['/dashboard/7/settings']}>
@@ -107,6 +115,34 @@ describe('InverterSettings page', () => {
     expect(screen.getByText('Which source powers the loads first.')).toBeInTheDocument();
     expect(screen.getByText('Solar, then battery, then utility.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'About Output priority' })).toHaveAttribute('aria-expanded', 'true');
+  });
+
+  describe('with the rules for a 24 V battery', () => {
+    const constraints = {
+      batteryVoltage: 24,
+      bounds: { MaxChargingVoltage: { min: 24, max: 30, context: 'for a 24 V battery' } },
+      defaults: { MaxChargingVoltage: 28.2 },
+      rules: [],
+    };
+    const values = { OutputPriority: 2, MaxChargingVoltage: 28.2, FloatingChargingVoltage: 27 };
+
+    it("shows the battery's range and default", async () => {
+      restore = renderPage(() => ({ status: 200, data: snapshot(values) }), constraints).restore;
+
+      expect(await screen.findByText('24.0–30.0 V')).toBeInTheDocument();
+      expect(screen.getByText('Default: 28.2 V')).toBeInTheDocument();
+    });
+
+    it('blocks a value outside that range', async () => {
+      restore = renderPage(() => ({ status: 200, data: snapshot(values) }), constraints).restore;
+
+      const bulk = await screen.findByLabelText('Max charging voltage (bulk)');
+      await userEvent.clear(bulk);
+      await userEvent.type(bulk, '56.4');
+
+      expect(await screen.findByText('Must be between 24 and 30 for a 24 V battery')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    });
   });
 
   it('offers fixed-choice settings as a list of their values', async () => {

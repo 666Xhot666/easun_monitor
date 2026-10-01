@@ -12,6 +12,7 @@ import {
   toFormValues,
   type FormValues,
 } from '../settings/settingsForm';
+import { checkSettings, NO_CONSTRAINTS, type Bounds, type SettingsConstraints } from '../settings/settingsRules';
 
 /** GET/PATCH /api/inverter/:profileId/settings response. */
 interface SettingsSnapshot {
@@ -41,6 +42,7 @@ export default function InverterSettings() {
   const [loadError, setLoadError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
 
   const original = useMemo(
     () => (registers && snapshot ? toFormValues(registers, snapshot.values) : {}),
@@ -50,8 +52,17 @@ export default function InverterSettings() {
     () => (registers ? collectChanges(registers, original, form) : { changes: {}, errors: {} }),
     [registers, original, form],
   );
+  const check = useMemo(
+    () => checkSettings(constraints, snapshot?.values ?? {}, changes),
+    [constraints, snapshot, changes],
+  );
+  const fieldErrors = useMemo(() => {
+    const merged: Record<string, string[]> = { ...check.errors };
+    for (const [name, message] of Object.entries(errors)) merged[name] = [message, ...(merged[name] ?? [])];
+    return merged;
+  }, [check, errors]);
   const changeCount = Object.keys(changes).length;
-  const hasErrors = Object.keys(errors).length > 0;
+  const hasErrors = Object.keys(fieldErrors).length > 0;
 
   function applySnapshot(next: SettingsSnapshot) {
     setSnapshot(next);
@@ -78,6 +89,22 @@ export default function InverterSettings() {
       cancelled = true;
     };
   }, [profileId, registers]);
+
+  // The rules come from the profile, not the inverter, so they load even
+  // while the inverter is unreachable; without them only per-register
+  // checks apply.
+  useEffect(() => {
+    let cancelled = false;
+    axios
+      .get<SettingsConstraints>(`/api/inverter/${profileId}/settings/constraints`)
+      .then(({ data }) => {
+        if (!cancelled) setConstraints(data);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [profileId]);
 
   async function refresh() {
     setRefreshing(true);
@@ -205,7 +232,9 @@ export default function InverterSettings() {
                       value={form[definition.name] ?? ''}
                       current={snapshot?.values[definition.name]}
                       changed={definition.name in changes}
-                      error={errors[definition.name]}
+                      errors={fieldErrors[definition.name]}
+                      bounds={constraints.bounds[definition.name]}
+                      defaultValue={constraints.defaults[definition.name] ?? definition.default}
                       disabled={saving}
                       onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
                     />
@@ -225,7 +254,9 @@ function SettingRow({
   value,
   current,
   changed,
-  error,
+  errors,
+  bounds,
+  defaultValue,
   disabled,
   onChange,
 }: {
@@ -233,14 +264,16 @@ function SettingRow({
   value: string;
   current: number | undefined;
   changed: boolean;
-  error?: string;
+  errors?: string[];
+  bounds?: Bounds;
+  defaultValue?: number;
   disabled: boolean;
   onChange: (text: string) => void;
 }) {
   const id = `setting-${definition.name}`;
   const inputClass =
     'w-56 rounded-lg border px-3 py-1.5 text-sm dark:bg-gray-950 dark:text-gray-100 ' +
-    (error
+    (errors
       ? 'border-red-400 dark:border-red-600'
       : changed
         ? 'border-blue-400 dark:border-blue-500'
@@ -249,7 +282,7 @@ function SettingRow({
   const [open, setOpen] = useState(false);
   const facts = [
     definition.panelProgram && `Program ${definition.panelProgram}`,
-    definition.default !== undefined && `Default: ${formatRegisterValue(definition, definition.default)}`,
+    defaultValue !== undefined && `Default: ${formatRegisterValue(definition, defaultValue)}`,
   ].filter((fact): fact is string => Boolean(fact));
   const explained = definition.description || definition.optionDescriptions;
 
@@ -327,8 +360,8 @@ function SettingRow({
               type="number"
               inputMode="decimal"
               step={definition.scale ?? 1}
-              min={definition.min}
-              max={definition.max}
+              min={bounds?.min ?? definition.min}
+              max={bounds?.max ?? definition.max}
               value={value}
               placeholder="No data"
               disabled={disabled}
@@ -340,7 +373,14 @@ function SettingRow({
             )}
           </div>
         )}
-        {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
+        {bounds && (bounds.min !== undefined || bounds.max !== undefined) && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatRange(definition, bounds)}</p>
+        )}
+        {errors?.map((message) => (
+          <p key={message} className="mt-1 text-xs text-red-600 dark:text-red-400">
+            {message}
+          </p>
+        ))}
       </div>
       {open && explained && (
         <div className="basis-full rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
@@ -359,4 +399,12 @@ function SettingRow({
       )}
     </div>
   );
+}
+
+/** {min: 24, max: 30} -> "24.0–30.0 V", at the register's resolution. */
+function formatRange(definition: RegisterDefinition, bounds: Bounds): string {
+  const decimals = decimalsFor(definition);
+  const format = (value: number | undefined) => (value === undefined ? '…' : value.toFixed(decimals));
+  const unit = definition.unit ? ` ${definition.unit}` : '';
+  return `${format(bounds.min)}–${format(bounds.max)}${unit}`;
 }
