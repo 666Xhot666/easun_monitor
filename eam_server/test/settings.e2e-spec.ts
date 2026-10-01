@@ -99,14 +99,14 @@ describe('Inverter settings (e2e)', () => {
   it('writes a setting and returns the value confirmed by the inverter', async () => {
     const id = await pair();
     const res = await call('patch', `/api/inverter/${id}/settings`)
-      .send({ changes: { OutputVoltageSet: 220.5, OutputPriority: 0 } })
+      .send({ changes: { OutputVoltageSet: 240, OutputPriority: 0 } })
       .expect(200);
 
     expect(res.body.values).toMatchObject({
-      OutputVoltageSet: 220.5,
+      OutputVoltageSet: 240,
       OutputPriority: 0,
     });
-    expect(logger.get(320, 1)).toEqual([2205]);
+    expect(logger.get(320, 1)).toEqual([2400]);
     expect(logger.get(301, 1)).toEqual([0]);
   });
 

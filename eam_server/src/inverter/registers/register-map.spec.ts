@@ -128,6 +128,13 @@ describe('SMG-II register table', () => {
     ]);
   });
 
+  it('accepts only the output voltages and frequencies the panel offers', () => {
+    expect(smg.encode('OutputVoltageSet', 240)).toEqual({ address: 320, values: [2400] });
+    expect(() => smg.encode('OutputVoltageSet', 231)).toThrow(/220, 230 or 240 V/);
+    expect(smg.encode('OutputFrequencySet', 60)).toEqual({ address: 321, values: [6000] });
+    expect(() => smg.encode('OutputFrequencySet', 55)).toThrow(/50 or 60 Hz/);
+  });
+
   it('reads all telemetry in one request', () => {
     expect(smg.blocks('telemetry')).toHaveLength(1);
   });

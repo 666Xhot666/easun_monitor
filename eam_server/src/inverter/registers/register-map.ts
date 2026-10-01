@@ -39,6 +39,8 @@ export interface RegisterDefinition {
   /** Documented bounds, in real (scaled) units. */
   min?: number;
   max?: number;
+  /** The only real values a numeric setting accepts (e.g. 220/230/240 V). */
+  choices?: readonly number[];
   /** For bitfield registers (fault/warning codes): bit index -> meaning. */
   bits?: Readonly<Record<number, string>>;
 }
@@ -155,6 +157,12 @@ export class RegisterMap {
       return { address: definition.address, values: [value] };
     }
 
+    if (definition.choices && !definition.choices.includes(value)) {
+      throw new RegisterValueError(
+        `${definition.label} must be ${listChoices(definition.choices)}${definition.unit ? ` ${definition.unit}` : ''}`,
+      );
+    }
+
     if (
       (definition.min !== undefined && value < definition.min) ||
       (definition.max !== undefined && value > definition.max)
@@ -173,6 +181,13 @@ export class RegisterMap {
     }
     return { address: definition.address, values: toWords(definition, raw) };
   }
+}
+
+/** [220, 230, 240] -> "220, 230 or 240". */
+function listChoices(choices: readonly number[]): string {
+  return choices.length < 2
+    ? choices.join('')
+    : `${choices.slice(0, -1).join(', ')} or ${choices[choices.length - 1]}`;
 }
 
 export function wordCount(definition: RegisterDefinition): number {
