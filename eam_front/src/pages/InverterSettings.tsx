@@ -7,6 +7,7 @@ import { decimalsFor, formatRegisterValue } from '../inverter/format';
 import type { RegisterDefinition } from '../inverter/types';
 import { useRegisters } from '../inverter/useRegisters';
 import {
+  ADVANCED,
   collectChanges,
   groupIntoSections,
   toFormValues,
@@ -43,6 +44,7 @@ export default function InverterSettings() {
   const [refreshing, setRefreshing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const original = useMemo(
     () => (registers && snapshot ? toFormValues(registers, snapshot.values) : {}),
@@ -125,6 +127,10 @@ export default function InverterSettings() {
 
   async function save() {
     if (!registers || changeCount === 0 || hasErrors) return;
+    for (const name of Object.keys(changes)) {
+      const definition = registers.find((d) => d.name === name)!;
+      if (definition.risk && !window.confirm(`${definition.label}: ${definition.risk}\n\nChange it anyway?`)) return;
+    }
     const summary = Object.entries(changes)
       .map(([name, value]) => {
         const definition = registers.find((d) => d.name === name)!;
@@ -226,27 +232,45 @@ export default function InverterSettings() {
           <div className="space-y-8">
             {groupIntoSections(registers).map((section) => (
               <section key={section.title}>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  {section.title}
-                </h2>
-                <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-                  {section.registers.map((definition) => (
-                    <SettingRow
-                      key={definition.name}
-                      definition={definition}
-                      value={form[definition.name] ?? ''}
-                      current={snapshot?.values[definition.name]}
-                      changed={definition.name in changes}
-                      errors={fieldErrors[definition.name]}
-                      warnings={check.warnings[definition.name]}
-                      inactive={check.inactive[definition.name]}
-                      bounds={constraints.bounds[definition.name]}
-                      defaultValue={constraints.defaults[definition.name] ?? definition.default}
-                      disabled={saving}
-                      onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
-                    />
-                  ))}
+                <div className="mb-3 flex items-center justify-between">
+                  <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                    {section.title}
+                  </h2>
+                  {section.title === ADVANCED && (
+                    <button
+                      type="button"
+                      aria-expanded={showAdvanced}
+                      onClick={() => setShowAdvanced((shown) => !shown)}
+                      className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
+                    >
+                      {showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
+                    </button>
+                  )}
                 </div>
+                {section.title === ADVANCED && !showAdvanced ? (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Settings that can cut power or harm the battery. Each change asks for its own confirmation.
+                  </p>
+                ) : (
+                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+                    {section.registers.map((definition) => (
+                      <SettingRow
+                        key={definition.name}
+                        definition={definition}
+                        value={form[definition.name] ?? ''}
+                        current={snapshot?.values[definition.name]}
+                        changed={definition.name in changes}
+                        errors={fieldErrors[definition.name]}
+                        warnings={check.warnings[definition.name]}
+                        inactive={check.inactive[definition.name]}
+                        bounds={constraints.bounds[definition.name]}
+                        defaultValue={constraints.defaults[definition.name] ?? definition.default}
+                        disabled={saving}
+                        onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             ))}
           </div>

@@ -19,6 +19,10 @@ const registers = [
   { name: 'FloatingChargingVoltage', label: 'Float charging voltage', address: 325, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
   { name: 'BatteryEqModeEnabled', label: 'Battery equalization', address: 313, type: 'uint16', group: 'settings', writable: true, options: ['Disabled', 'Enabled'] },
   { name: 'EqChargingVoltage', label: 'Equalization voltage', address: 334, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
+  {
+    name: 'RemoteSwitch', label: 'Remote switch', address: 420, type: 'uint16', group: 'settings', writable: true,
+    options: ['Off', 'On'], risk: 'Remote shutdown turns off the AC output.',
+  },
   { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
 ];
 const snapshot = (values: Record<string, number>) => ({ values, readAt: '2026-09-30T12:00:00.000Z' });
@@ -203,6 +207,24 @@ describe('InverterSettings page', () => {
       await userEvent.selectOptions(screen.getByLabelText('Battery equalization'), '1');
       expect(screen.queryByText('Only used while battery equalization is enabled')).not.toBeInTheDocument();
     });
+  });
+
+  it('keeps risky settings collapsed and confirms each one with its consequence', async () => {
+    const server = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, RemoteSwitch: 1 }) }));
+    restore = server.restore;
+    await screen.findByLabelText('Output priority');
+    expect(screen.queryByLabelText('Remote switch')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Show advanced settings' }));
+    await userEvent.selectOptions(screen.getByLabelText('Remote switch'), '0');
+    vi.mocked(window.confirm).mockReturnValueOnce(false);
+    await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+
+    expect(window.confirm).toHaveBeenCalledTimes(1);
+    expect(window.confirm).toHaveBeenCalledWith(
+      'Remote switch: Remote shutdown turns off the AC output.\n\nChange it anyway?',
+    );
+    expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
   });
 
   it('offers fixed-choice settings as a list of their values', async () => {
