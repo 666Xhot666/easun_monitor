@@ -131,12 +131,17 @@ export default function InverterSettings() {
         return `${definition.label}: ${formatRegisterValue(definition, value)}`;
       })
       .join('\n');
-    if (!window.confirm(`Write these settings to the inverter?\n\n${summary}`)) return;
+    const warnings = [...new Set(Object.values(check.warnings).flat())];
+    const caution = warnings.length
+      ? `\n\nPlease confirm you want this despite:\n${warnings.map((w) => `- ${w}`).join('\n')}`
+      : '';
+    if (!window.confirm(`Write these settings to the inverter?\n\n${summary}${caution}`)) return;
 
     setSaveState({ kind: 'saving', names: Object.keys(changes) });
     try {
       const { data } = await axios.patch<SettingsSnapshot>(`/api/inverter/${profileId}/settings`, {
         changes,
+        ...(warnings.length ? { acknowledgeWarnings: true } : {}),
       });
       applySnapshot(data);
       setSaveState({ kind: 'saved' });
@@ -233,6 +238,8 @@ export default function InverterSettings() {
                       current={snapshot?.values[definition.name]}
                       changed={definition.name in changes}
                       errors={fieldErrors[definition.name]}
+                      warnings={check.warnings[definition.name]}
+                      inactive={check.inactive[definition.name]}
                       bounds={constraints.bounds[definition.name]}
                       defaultValue={constraints.defaults[definition.name] ?? definition.default}
                       disabled={saving}
@@ -255,6 +262,8 @@ function SettingRow({
   current,
   changed,
   errors,
+  warnings,
+  inactive,
   bounds,
   defaultValue,
   disabled,
@@ -265,6 +274,9 @@ function SettingRow({
   current: number | undefined;
   changed: boolean;
   errors?: string[];
+  warnings?: string[];
+  /** Why the setting currently has no effect. */
+  inactive?: string;
   bounds?: Bounds;
   defaultValue?: number;
   disabled: boolean;
@@ -287,7 +299,7 @@ function SettingRow({
   const explained = definition.description || definition.optionDescriptions;
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+    <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${inactive ? 'opacity-60' : ''}`}>
       <div>
         <div className="flex items-center gap-1.5">
           <label htmlFor={id} className="text-sm font-medium text-gray-800 dark:text-gray-200">
@@ -305,6 +317,7 @@ function SettingRow({
             </button>
           )}
         </div>
+        {inactive && <p className="mt-0.5 text-xs italic text-gray-500 dark:text-gray-400">{inactive}</p>}
         {facts.length > 0 && (
           <p className="mt-0.5 flex gap-2 text-xs text-gray-500 dark:text-gray-400">
             {facts.map((fact) => (
@@ -376,6 +389,11 @@ function SettingRow({
         {bounds && (bounds.min !== undefined || bounds.max !== undefined) && (
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatRange(definition, bounds)}</p>
         )}
+        {warnings?.map((message) => (
+          <p key={message} className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            {message}
+          </p>
+        ))}
         {errors?.map((message) => (
           <p key={message} className="mt-1 text-xs text-red-600 dark:text-red-400">
             {message}

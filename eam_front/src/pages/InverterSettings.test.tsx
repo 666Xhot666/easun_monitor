@@ -17,6 +17,8 @@ const registers = [
   { name: 'OutputFrequencySet', label: 'Output frequency', address: 321, type: 'uint16', scale: 0.01, unit: 'Hz', group: 'settings', writable: true, choices: [50, 60] },
   { name: 'MaxChargingVoltage', label: 'Max charging voltage (bulk)', address: 324, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true, defaultByBatteryVoltage: { 24: 28.2, 48: 56.4 } },
   { name: 'FloatingChargingVoltage', label: 'Float charging voltage', address: 325, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
+  { name: 'BatteryEqModeEnabled', label: 'Battery equalization', address: 313, type: 'uint16', group: 'settings', writable: true, options: ['Disabled', 'Enabled'] },
+  { name: 'EqChargingVoltage', label: 'Equalization voltage', address: 334, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
   { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
 ];
 const snapshot = (values: Record<string, number>) => ({ values, readAt: '2026-09-30T12:00:00.000Z' });
@@ -159,6 +161,47 @@ describe('InverterSettings page', () => {
 
       expect(await screen.findAllByText('Bulk charging voltage must be at least the float charging voltage')).toHaveLength(2);
       expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    });
+  });
+
+  describe('with the rules for a lithium battery', () => {
+    const constraints = {
+      ...noConstraints,
+      rules: [
+        { id: 'R-TYPE-2', kind: 'avoid', setting: 'BatteryEqModeEnabled', value: 1, message: 'Never equalize a lithium battery' },
+        {
+          id: 'R-EQ-1', kind: 'inactive', settings: ['EqChargingVoltage'],
+          when: 'BatteryEqModeEnabled', in: [1], reason: 'Only used while battery equalization is enabled',
+        },
+      ],
+    };
+    const values = { OutputPriority: 2, BatteryEqModeEnabled: 0, EqChargingVoltage: 29.2 };
+
+    it('asks the user to acknowledge a warning before writing', async () => {
+      const server = renderPage(
+        (method) => ({ status: 200, data: snapshot(method === 'patch' ? { ...values, BatteryEqModeEnabled: 1 } : values) }),
+        constraints,
+      );
+      restore = server.restore;
+
+      await userEvent.selectOptions(await screen.findByLabelText('Battery equalization'), '1');
+      expect(screen.getByText('Never equalize a lithium battery')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+
+      expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Never equalize a lithium battery'));
+      const patch = server.sent.find((c) => c.method === 'patch');
+      expect(JSON.parse(patch?.data)).toEqual({ changes: { BatteryEqModeEnabled: 1 }, acknowledgeWarnings: true });
+    });
+
+    it('marks settings that currently have no effect', async () => {
+      restore = renderPage(() => ({ status: 200, data: snapshot(values) }), constraints).restore;
+
+      await screen.findByLabelText('Equalization voltage');
+      expect(screen.getByText('Only used while battery equalization is enabled')).toBeInTheDocument();
+
+      await userEvent.selectOptions(screen.getByLabelText('Battery equalization'), '1');
+      expect(screen.queryByText('Only used while battery equalization is enabled')).not.toBeInTheDocument();
     });
   });
 
