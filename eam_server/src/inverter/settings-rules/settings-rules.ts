@@ -43,7 +43,26 @@ export interface CompareRule {
   message: string;
 }
 
-export type SettingsRule = CompareRule;
+/** `settings` have no effect unless `when` holds one of `in`. */
+export interface InactiveRule {
+  id: string;
+  kind: 'inactive';
+  settings: string[];
+  when: string;
+  in: number[];
+  reason: string;
+}
+
+/** Setting `setting` to `value` is allowed but advised against. */
+export interface AvoidRule {
+  id: string;
+  kind: 'avoid';
+  setting: string;
+  value: number;
+  message: string;
+}
+
+export type SettingsRule = CompareRule | InactiveRule | AvoidRule;
 
 /** Per setting: what blocks the change, what needs acknowledging, and
  * why a setting currently has no effect. */
@@ -78,6 +97,16 @@ export function checkSettings(
   }
   const values = { ...current, ...changes };
   for (const rule of constraints.rules) {
+    if (rule.kind === 'inactive') {
+      const value = values[rule.when];
+      if (value === undefined || rule.in.includes(value)) continue;
+      for (const name of rule.settings) result.inactive[name] = rule.reason;
+      continue;
+    }
+    if (rule.kind === 'avoid') {
+      if (changes[rule.setting] === rule.value) add(result.warnings, rule.setting, rule.message);
+      continue;
+    }
     if (!(rule.left in changes) && !(rule.right in changes)) continue;
     const left = values[rule.left];
     const right = values[rule.right];

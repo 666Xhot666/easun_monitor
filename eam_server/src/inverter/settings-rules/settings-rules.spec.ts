@@ -128,4 +128,25 @@ describe('checkSettings', () => {
       'Back-to-battery voltage should be at most the bulk charging voltage - 0.4 V',
     ]);
   });
+
+  it('marks settings that have no effect in the current state, edits included', () => {
+    const eqOff = { ...current, BatteryEqModeEnabled: 0, OutputPriority: 0 };
+    expect(checkSettings(c24, eqOff, {}).inactive).toEqual({
+      EqChargingVoltage: 'Only used while battery equalization is enabled',
+      BatteryEqualizationTime: 'Only used while battery equalization is enabled',
+      EqualizationTimeoutExit: 'Only used while battery equalization is enabled',
+      TwoEqChargingIntervals: 'Only used while battery equalization is enabled',
+      BatteryDischargeRecoveryMains: 'Only used with output priority Solar first or SBU',
+      BatteryLowVoltageProtectionMains: 'Only used with output priority Solar first or SBU',
+    });
+    expect(checkSettings(c24, eqOff, { BatteryEqModeEnabled: 1, OutputPriority: 2 }).inactive).toEqual({});
+  });
+
+  it('warns against equalizing a lithium battery', () => {
+    const lithium = settingsConstraints(profile(24, 'LIFEPO4'));
+    expect(checkSettings(lithium, current, { BatteryEqModeEnabled: 1 }).warnings).toEqual({
+      BatteryEqModeEnabled: ['Never equalize a lithium battery'],
+    });
+    expect(checkSettings(c24, current, { BatteryEqModeEnabled: 1 }).warnings).toEqual({});
+  });
 });

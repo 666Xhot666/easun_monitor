@@ -104,6 +104,29 @@ const RULES: SettingsRule[] = [
   },
 ];
 
+const INACTIVE_RULES: SettingsRule[] = [
+  {
+    id: 'R-EQ-1', kind: 'inactive',
+    settings: ['EqChargingVoltage', 'BatteryEqualizationTime', 'EqualizationTimeoutExit', 'TwoEqChargingIntervals'],
+    when: 'BatteryEqModeEnabled', in: [1],
+    reason: 'Only used while battery equalization is enabled',
+  },
+  {
+    id: 'R-PRIO-1', kind: 'inactive',
+    settings: ['BatteryDischargeRecoveryMains', 'BatteryLowVoltageProtectionMains'],
+    when: 'OutputPriority', in: [1, 2],
+    reason: 'Only used with output priority Solar first or SBU',
+  },
+];
+
+const LITHIUM_RULES: SettingsRule[] = [
+  {
+    id: 'R-TYPE-2', kind: 'avoid',
+    setting: 'BatteryEqModeEnabled', value: 1,
+    message: 'Never equalize a lithium battery',
+  },
+];
+
 export function settingsConstraints(profile: InstallationProfile): SettingsConstraints {
   const voltage = profile.batteryNominalVoltage;
   const voltageRanges = VOLTAGE_RANGES[voltage];
@@ -124,6 +147,6 @@ export function settingsConstraints(profile: InstallationProfile): SettingsConst
     batteryVoltage: voltageRanges ? voltage : null,
     bounds,
     defaults,
-    rules: RULES,
+    rules: [...RULES, ...INACTIVE_RULES, ...(profile.batteryType === 'LIFEPO4' ? LITHIUM_RULES : [])],
   };
 }
