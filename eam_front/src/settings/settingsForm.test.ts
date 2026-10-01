@@ -56,13 +56,32 @@ describe('collectChanges', () => {
 });
 
 describe('groupIntoSections', () => {
-  it('groups settings registers into titled sections, in address order', () => {
+  it('groups settings registers into titled sections', () => {
     const sections = groupIntoSections(defs);
     expect(sections.map((s) => [s.title, s.registers.map((r) => r.name)])).toEqual([
-      ['Output', ['OutputPriority', 'OutputVoltageSet']],
-      ['Battery and charging', ['MaxChargingCurrent', 'BatteryEqualizationTime']],
+      ['Output and source priority', ['OutputPriority', 'OutputVoltageSet']],
+      ['Battery and charging', ['MaxChargingCurrent']],
+      ['Equalization', ['BatteryEqualizationTime']],
       ['Power control', ['TurnOnMode']],
       ['Device information', ['RatedPower']],
+    ]);
+  });
+
+  it("orders settings like the manual's setting programs, not by address", () => {
+    const setting = (name: string, address: number): RegisterDefinition => ({
+      name, label: name, address, type: 'uint16', group: 'settings', writable: true,
+    });
+    const sections = groupIntoSections([
+      setting('BatteryDischargeRecoveryMains', 326),
+      setting('BatteryLowVoltageProtectionMains', 327),
+      setting('MaxChargingCurrent', 332),
+      setting('BuzzerMode', 303),
+      setting('LcdBacklight', 305),
+      setting('LcdAutoReturn', 306),
+    ]);
+    expect(sections.map((s) => [s.title, s.registers.map((r) => r.name)])).toEqual([
+      ['Battery and charging', ['MaxChargingCurrent', 'BatteryLowVoltageProtectionMains', 'BatteryDischargeRecoveryMains']],
+      ['Display and sound', ['BuzzerMode', 'LcdAutoReturn', 'LcdBacklight']],
     ]);
   });
 });

@@ -10,14 +10,62 @@ export interface SettingsSection {
 }
 
 /**
- * Sections by address range: the protocol document lays related settings
- * out in contiguous address blocks. Read-only settings go last.
+ * Sections as in the manual's setting programs, each listing its settings in
+ * program order (number in comments). Writable settings not listed here go
+ * to "Other"; read-only settings go last.
  */
-const SECTIONS: { title: string; ranges: [number, number][] }[] = [
-  { title: 'Output', ranges: [[300, 302], [320, 322]] },
-  { title: 'Display and behaviour', ranges: [[303, 310]] },
-  { title: 'Battery and charging', ranges: [[311, 319], [323, 399]] },
-  { title: 'Power control', ranges: [[400, 425]] },
+const SECTIONS: { title: string; names: string[] }[] = [
+  {
+    title: 'Output and source priority',
+    names: [
+      'OutputPriority', // 01
+      'InputVoltageRange', // 03
+      'OutputVoltageSet', // 08
+      'OutputFrequencySet', // 09
+      'BatteryChargingPriority', // 16
+      'OutputMode',
+    ],
+  },
+  {
+    title: 'Battery and charging',
+    names: [
+      'MaxChargingCurrent', // 02
+      'MaxMainsChargingCurrent', // 11
+      'BatteryLowVoltageProtectionMains', // 12
+      'BatteryDischargeRecoveryMains', // 13
+      'MaxChargingVoltage', // 26
+      'FloatingChargingVoltage', // 27
+      'BatteryLowVoltageProtectionOffGrid', // 29
+      'BatteryOvervoltageProtection',
+    ],
+  },
+  {
+    title: 'Equalization',
+    names: [
+      'BatteryEqModeEnabled', // 33
+      'EqChargingVoltage', // 34
+      'BatteryEqualizationTime', // 35
+      'EqualizationTimeoutExit', // 36
+      'TwoEqChargingIntervals', // 37
+    ],
+  },
+  {
+    title: 'Protection and restart',
+    names: [
+      'OverloadAutoRestart', // 06
+      'OverTempAutoRestart', // 07
+      'OverloadTransferToBypass', // 23
+    ],
+  },
+  {
+    title: 'Display and sound',
+    names: [
+      'BuzzerMode', // 18
+      'LcdAutoReturn', // 19
+      'LcdBacklight', // 20
+    ],
+  },
+  { title: 'Power control', names: ['EnergySavingMode', 'TurnOnMode', 'RemoteSwitch'] },
 ];
 
 const settingsOf = (definitions: RegisterDefinition[]) =>
@@ -26,9 +74,9 @@ const settingsOf = (definitions: RegisterDefinition[]) =>
 export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSection[] {
   const settings = settingsOf(definitions);
   const writable = settings.filter((d) => d.writable);
-  const sections = SECTIONS.map(({ title, ranges }) => ({
+  const sections = SECTIONS.map(({ title, names }) => ({
     title,
-    registers: writable.filter((d) => ranges.some(([lo, hi]) => d.address >= lo && d.address <= hi)),
+    registers: names.flatMap((name) => writable.filter((d) => d.name === name)),
   }));
   const placed = new Set(sections.flatMap((s) => s.registers));
   const other = writable.filter((d) => !placed.has(d));
