@@ -62,12 +62,40 @@ describe('checkSettings', () => {
     expect(checkSettings(c24, current, { MaxChargingVoltage: 56.4 }).errors).toEqual({
       MaxChargingVoltage: ['Must be between 24 and 30 for a 24 V battery'],
     });
-    expect(checkSettings(c24, current, { MaxMainsChargingCurrent: 80 }).errors).toEqual({
+    expect(checkSettings(c24, current, { MaxMainsChargingCurrent: 1 }).errors).toEqual({
       MaxMainsChargingCurrent: ['Must be between 2 and 60'],
     });
   });
 
   it('does not hold an unchanged out-of-range value against an unrelated change', () => {
     expect(checkSettings(c24, { ...current, MaxChargingVoltage: 56.4 }, { MaxMainsChargingCurrent: 20 }).errors).toEqual({});
+  });
+
+  it('flags a change that contradicts another setting on both settings', () => {
+    const message = 'Bulk charging voltage must be at least the float charging voltage';
+    expect(checkSettings(c24, current, { MaxChargingVoltage: 26.5 }).errors).toEqual({
+      MaxChargingVoltage: [message],
+      FloatingChargingVoltage: [message],
+    });
+    expect(checkSettings(c24, current, { MaxMainsChargingCurrent: 50, MaxChargingCurrent: 40 }).errors).toEqual({
+      MaxChargingCurrent: ['Max charging current must be at least the max utility charging current'],
+      MaxMainsChargingCurrent: ['Max charging current must be at least the max utility charging current'],
+    });
+  });
+
+  it('checks a contradiction against the edited values, not the old ones', () => {
+    expect(checkSettings(c24, current, { MaxChargingVoltage: 26.5, FloatingChargingVoltage: 26.5 }).errors).toEqual({});
+  });
+
+  it('enforces the order of the battery switching points', () => {
+    expect(checkSettings(c24, current, { BatteryLowVoltageProtectionOffGrid: 23.5 }).errors).toEqual({
+      BatteryLowVoltageProtectionMains: ['Back-to-utility voltage must be above the low DC cut-off voltage'],
+      BatteryLowVoltageProtectionOffGrid: ['Back-to-utility voltage must be above the low DC cut-off voltage'],
+    });
+  });
+
+  it('skips rules whose other setting was not read', () => {
+    const { FloatingChargingVoltage: _, ...withoutFloat } = current;
+    expect(checkSettings(c24, withoutFloat, { MaxChargingVoltage: 26.5 }).errors).toEqual({});
   });
 });

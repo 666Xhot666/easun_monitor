@@ -25,7 +25,25 @@ export interface SettingsConstraints {
   bounds: Record<string, Bounds>;
   /** Setting name -> factory default for this installation. */
   defaults: Record<string, number>;
+  rules: SettingsRule[];
 }
+
+/**
+ * `left op (right + offset)` must hold. Errors block the write; warnings
+ * need the user's acknowledgement. `id` names the manual rule (R-*).
+ */
+export interface CompareRule {
+  id: string;
+  kind: 'compare';
+  severity: 'error' | 'warning';
+  left: string;
+  op: '>' | '>=' | '<=';
+  right: string;
+  offset?: number;
+  message: string;
+}
+
+export type SettingsRule = CompareRule;
 
 /** Per setting: what blocks the change, what needs acknowledging, and
  * why a setting currently has no effect. */
@@ -58,5 +76,23 @@ export function checkSettings(
       add(result.errors, name, `Must be between ${bounds.min ?? '-∞'} and ${bounds.max ?? '∞'}${context}`);
     }
   }
+  const values = { ...current, ...changes };
+  for (const rule of constraints.rules) {
+    if (!(rule.left in changes) && !(rule.right in changes)) continue;
+    const left = values[rule.left];
+    const right = values[rule.right];
+    if (left === undefined || right === undefined) continue;
+    if (!compare(left, rule.op, right + (rule.offset ?? 0))) {
+      const into = rule.severity === 'error' ? result.errors : result.warnings;
+      add(into, rule.left, rule.message);
+      add(into, rule.right, rule.message);
+    }
+  }
   return result;
+}
+
+/** Compares at 0.001 resolution, so 27.0 + 0.4 equals 27.4. */
+function compare(left: number, op: CompareRule['op'], right: number): boolean {
+  const difference = Math.round((left - right) * 1000);
+  return op === '>' ? difference > 0 : op === '>=' ? difference >= 0 : difference <= 0;
 }

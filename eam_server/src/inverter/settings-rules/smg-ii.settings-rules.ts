@@ -3,7 +3,7 @@
  * programs and specification (docs/smg-ii-manual-settings.json).
  */
 import { SMG_II_REGISTERS } from '../registers/smg-ii.registers.ts';
-import type { Bounds, SettingsConstraints } from './settings-rules.ts';
+import type { Bounds, SettingsConstraints, SettingsRule } from './settings-rules.ts';
 
 /** What the rules need to know about the installation. */
 export interface InstallationProfile {
@@ -48,6 +48,30 @@ const CURRENT_RANGES: Record<string, Bounds> = {
   MaxMainsChargingCurrent: { min: 2, max: 60 },
 };
 
+/** Rules between settings (manual rule ids in docs/smg-ii-manual-settings.json). */
+const RULES: SettingsRule[] = [
+  {
+    id: 'R-VOLT-1', kind: 'compare', severity: 'error',
+    left: 'MaxChargingVoltage', op: '>=', right: 'FloatingChargingVoltage',
+    message: 'Bulk charging voltage must be at least the float charging voltage',
+  },
+  {
+    id: 'R-EQ-2', kind: 'compare', severity: 'error',
+    left: 'EqChargingVoltage', op: '>=', right: 'FloatingChargingVoltage',
+    message: 'Equalization voltage must be at least the float charging voltage',
+  },
+  {
+    id: 'R-VOLT-4', kind: 'compare', severity: 'error',
+    left: 'BatteryLowVoltageProtectionMains', op: '>', right: 'BatteryLowVoltageProtectionOffGrid',
+    message: 'Back-to-utility voltage must be above the low DC cut-off voltage',
+  },
+  {
+    id: 'R-CUR-1', kind: 'compare', severity: 'error',
+    left: 'MaxChargingCurrent', op: '>=', right: 'MaxMainsChargingCurrent',
+    message: 'Max charging current must be at least the max utility charging current',
+  },
+];
+
 export function settingsConstraints(profile: InstallationProfile): SettingsConstraints {
   const voltage = profile.batteryNominalVoltage;
   const voltageRanges = VOLTAGE_RANGES[voltage];
@@ -68,5 +92,6 @@ export function settingsConstraints(profile: InstallationProfile): SettingsConst
     batteryVoltage: voltageRanges ? voltage : null,
     bounds,
     defaults,
+    rules: RULES,
   };
 }
