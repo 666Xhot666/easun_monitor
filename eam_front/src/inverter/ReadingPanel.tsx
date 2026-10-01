@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { formatRegisterValue } from './format';
 import type { LatestReading, RegisterDefinition } from './types';
 
@@ -10,10 +10,12 @@ interface Props {
   reading: LatestReading;
   /** Rendered between the alerts and the full parameter grid. */
   children?: ReactNode;
+  /** Clears the inverter's fault state; offered only in fault mode. */
+  onExitFaultMode?: () => Promise<void>;
 }
 
 /** Live values of one reading, labelled and formatted from the Register map. */
-export default function ReadingPanel({ registers, reading, children }: Props) {
+export default function ReadingPanel({ registers, reading, children, onExitFaultMode }: Props) {
   const byName = new Map(registers.map((d) => [d.name, d]));
   const keyDefinitions = KEY_REGISTERS.flatMap((name) => byName.get(name) ?? []);
   const otherTelemetry = registers.filter(
@@ -21,6 +23,24 @@ export default function ReadingPanel({ registers, reading, children }: Props) {
   );
   const faults = reading.alerts?.faults ?? [];
   const warnings = reading.alerts?.warnings ?? [];
+  const mode = byName.get('OperationMode');
+  const inFaultMode = mode?.options?.[reading.payload.OperationMode] === 'Fault';
+  const [exiting, setExiting] = useState(false);
+  const [exitError, setExitError] = useState('');
+
+  async function exitFaultMode() {
+    if (!onExitFaultMode) return;
+    if (!window.confirm('Clear the fault and let the inverter try to resume normal operation?')) return;
+    setExiting(true);
+    setExitError('');
+    try {
+      await onExitFaultMode();
+    } catch (error) {
+      setExitError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setExiting(false);
+    }
+  }
 
   return (
     <>
@@ -48,6 +68,20 @@ export default function ReadingPanel({ registers, reading, children }: Props) {
       </section>
 
       <section aria-label="Alerts" className="mt-4">
+        {inFaultMode && onExitFaultMode && (
+          <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-300">
+            <span>The inverter is in fault mode.</span>
+            <button
+              type="button"
+              onClick={() => void exitFaultMode()}
+              disabled={exiting}
+              className="rounded-lg bg-red-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+            >
+              Exit fault mode
+            </button>
+            {exitError && <span role="alert">{exitError}</span>}
+          </div>
+        )}
         {faults.length === 0 && warnings.length === 0 ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">No active faults or warnings</p>
         ) : (

@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import ReadingPanel from './ReadingPanel';
 import type { RegisterDefinition } from './types';
 
 const registers: RegisterDefinition[] = [
   { name: 'FaultCode', label: 'Faults', address: 100, type: 'uint32', group: 'status' },
-  { name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Power on', 'Standby', 'Mains'] },
+  { name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Power on', 'Standby', 'Mains', 'Off-grid', 'Bypass', 'Charging', 'Fault'] },
   { name: 'MainsVoltage', label: 'Mains voltage', address: 202, type: 'int16', scale: 0.1, unit: 'V', group: 'telemetry' },
   { name: 'BatteryVoltage', label: 'Battery voltage', address: 215, type: 'int16', scale: 0.1, unit: 'V', group: 'telemetry' },
   { name: 'PVPower', label: 'PV power', address: 223, type: 'int16', unit: 'W', group: 'telemetry' },
@@ -54,5 +55,33 @@ describe('ReadingPanel', () => {
 
     rerender(<ReadingPanel registers={registers} reading={{ ...reading, alerts: { faults: [], warnings: [] } }} />);
     expect(screen.getByText('No active faults or warnings')).toBeInTheDocument();
+  });
+
+  it('offers to exit fault mode only while the inverter is in it', async () => {
+    const exit = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const { rerender } = render(<ReadingPanel registers={registers} reading={reading} onExitFaultMode={exit} />);
+    expect(screen.queryByRole('button', { name: 'Exit fault mode' })).not.toBeInTheDocument();
+
+    rerender(
+      <ReadingPanel registers={registers} reading={{ ...reading, payload: { ...reading.payload, OperationMode: 6 } }} onExitFaultMode={exit} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Exit fault mode' }));
+
+    expect(window.confirm).toHaveBeenCalledWith(expect.stringMatching(/clear the fault/i));
+    expect(exit).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
+  });
+
+  it('shows why exiting fault mode failed', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const exit = vi.fn().mockRejectedValue(new Error('The inverter is not in fault mode'));
+    render(
+      <ReadingPanel registers={registers} reading={{ ...reading, payload: { ...reading.payload, OperationMode: 6 } }} onExitFaultMode={exit} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Exit fault mode' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('The inverter is not in fault mode');
+    vi.restoreAllMocks();
   });
 });

@@ -229,7 +229,17 @@ export default function Dashboard() {
 
       <main className="mx-auto max-w-6xl px-6 py-8">
         {reading && (
-          <ReadingPanel registers={registers} reading={reading}>
+          <ReadingPanel
+            registers={registers}
+            reading={reading}
+            onExitFaultMode={async () => {
+              try {
+                await axios.post(`/api/inverter/${activeProfile.id}/exit-fault-mode`);
+              } catch (error) {
+                throw new Error(extractErrorMessage(error, "Couldn't clear the fault."), { cause: error });
+              }
+            }}
+          >
             <HistoryChart profileId={activeProfile.id} registers={registers} />
           </ReadingPanel>
         )}
