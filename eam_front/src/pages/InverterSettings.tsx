@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { RefreshCw, Send } from 'lucide-react';
+import { Info, RefreshCw, Send } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { decimalsFor, formatRegisterValue } from '../inverter/format';
@@ -246,11 +246,40 @@ function SettingRow({
         ? 'border-blue-400 dark:border-blue-500'
         : 'border-gray-300 dark:border-gray-700');
 
+  const [open, setOpen] = useState(false);
+  const facts = [
+    definition.panelProgram && `Program ${definition.panelProgram}`,
+    definition.default !== undefined && `Default: ${formatRegisterValue(definition, definition.default)}`,
+  ].filter((fact): fact is string => Boolean(fact));
+  const explained = definition.description || definition.optionDescriptions;
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-      <label htmlFor={id} className="text-sm font-medium text-gray-800 dark:text-gray-200">
-        {definition.label}
-      </label>
+      <div>
+        <div className="flex items-center gap-1.5">
+          <label htmlFor={id} className="text-sm font-medium text-gray-800 dark:text-gray-200">
+            {definition.label}
+          </label>
+          {explained && (
+            <button
+              type="button"
+              aria-label={`About ${definition.label}`}
+              aria-expanded={open}
+              onClick={() => setOpen((o) => !o)}
+              className="rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+            >
+              <Info className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        {facts.length > 0 && (
+          <p className="mt-0.5 flex gap-2 text-xs text-gray-500 dark:text-gray-400">
+            {facts.map((fact) => (
+              <span key={fact}>{fact}</span>
+            ))}
+          </p>
+        )}
+      </div>
       <div className="flex flex-col items-end">
         {!definition.writable ? (
           <span id={id} className="text-sm text-gray-600 dark:text-gray-300">
@@ -313,6 +342,21 @@ function SettingRow({
         )}
         {error && <p className="mt-1 text-xs text-red-600 dark:text-red-400">{error}</p>}
       </div>
+      {open && explained && (
+        <div className="basis-full rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+          {definition.description && <p>{definition.description}</p>}
+          {definition.options && definition.optionDescriptions && (
+            <dl className="mt-1.5 space-y-1">
+              {definition.options.map((option, index) => (
+                <div key={option}>
+                  <dt className="inline font-medium">{option}: </dt>
+                  <dd className="inline">{definition.optionDescriptions![index]}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -24,4 +24,14 @@ export interface RegisterDefinition {
   max?: number;
   /** The only values a numeric setting accepts (e.g. 220/230/240 V). */
   choices?: readonly number[];
+  /** What the setting does, in the manual's terms. */
+  description?: string;
+  /** What each enum option does, indexed like `options`. */
+  optionDescriptions?: readonly string[];
+  /** The inverter's LCD setting program ("01"-"46"), if it has one. */
+  panelProgram?: string;
+  /** Factory default (enum: option index). */
+  default?: number;
+  /** Factory default by nominal battery voltage (12/24/48 V). */
+  defaultByBatteryVoltage?: Readonly<Record<number, number>>;
 }

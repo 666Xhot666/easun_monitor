@@ -6,7 +6,13 @@ import { fakeServer, type Reply } from '../test/fakeServer';
 import InverterSettings from './InverterSettings';
 
 const registers = [
-  { name: 'OutputPriority', label: 'Output priority', address: 301, type: 'uint16', group: 'settings', writable: true, options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)'] },
+  {
+    name: 'OutputPriority', label: 'Output priority', address: 301, type: 'uint16', group: 'settings', writable: true,
+    options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)'],
+    panelProgram: '01', default: 0,
+    description: 'Which source powers the loads first.',
+    optionDescriptions: ['Utility powers the loads.', 'Solar powers the loads.', 'Solar, then battery, then utility.'],
+  },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
   { name: 'OutputFrequencySet', label: 'Output frequency', address: 321, type: 'uint16', scale: 0.01, unit: 'Hz', group: 'settings', writable: true, choices: [50, 60] },
   { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
@@ -86,6 +92,21 @@ describe('InverterSettings page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/not allowed to be modified/);
+  });
+
+  it('explains a setting: panel program, default and what each option does', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2 }) })).restore;
+    await screen.findByLabelText('Output priority');
+
+    expect(screen.getByText('Program 01')).toBeInTheDocument();
+    expect(screen.getByText('Default: Utility first (UTI)')).toBeInTheDocument();
+    expect(screen.queryByText('Which source powers the loads first.')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'About Output priority' }));
+
+    expect(screen.getByText('Which source powers the loads first.')).toBeInTheDocument();
+    expect(screen.getByText('Solar, then battery, then utility.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'About Output priority' })).toHaveAttribute('aria-expanded', 'true');
   });
 
   it('offers fixed-choice settings as a list of their values', async () => {
