@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { RefreshCw, Send } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
-import { formatRegisterValue } from '../inverter/format';
+import { decimalsFor, formatRegisterValue } from '../inverter/format';
 import type { RegisterDefinition } from '../inverter/types';
 import { useRegisters } from '../inverter/useRegisters';
 import {
@@ -268,6 +268,26 @@ function SettingRow({
             {definition.options.map((option, index) => (
               <option key={option} value={String(index)}>
                 {option}
+              </option>
+            ))}
+          </select>
+        ) : definition.choices ? (
+          <select
+            id={id}
+            value={value}
+            disabled={disabled}
+            onChange={(e) => onChange(e.target.value)}
+            className={inputClass}
+          >
+            {value === '' && <option value="">No data</option>}
+            {current !== undefined && !definition.choices.includes(current) && (
+              <option value={current.toFixed(decimalsFor(definition))}>
+                {formatRegisterValue(definition, current)} (not a panel option)
+              </option>
+            )}
+            {definition.choices.map((choice) => (
+              <option key={choice} value={choice.toFixed(decimalsFor(definition))}>
+                {definition.unit ? `${choice} ${definition.unit}` : choice}
               </option>
             ))}
           </select>

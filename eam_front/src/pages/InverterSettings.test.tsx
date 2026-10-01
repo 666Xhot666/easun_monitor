@@ -8,6 +8,7 @@ import InverterSettings from './InverterSettings';
 const registers = [
   { name: 'OutputPriority', label: 'Output priority', address: 301, type: 'uint16', group: 'settings', writable: true, options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)'] },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
+  { name: 'OutputFrequencySet', label: 'Output frequency', address: 321, type: 'uint16', scale: 0.01, unit: 'Hz', group: 'settings', writable: true, choices: [50, 60] },
   { name: 'RatedPower', label: 'Rated power', address: 643, type: 'uint16', unit: 'W', group: 'settings' },
 ];
 const snapshot = (values: Record<string, number>) => ({ values, readAt: '2026-09-30T12:00:00.000Z' });
@@ -85,6 +86,20 @@ describe('InverterSettings page', () => {
     await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/not allowed to be modified/);
+  });
+
+  it('offers fixed-choice settings as a list of their values', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputFrequencySet: 50 }) })).restore;
+
+    const frequency = await screen.findByLabelText('Output frequency');
+    expect(frequency).toHaveValue('50.00');
+    expect(within(frequency).getAllByRole('option').map((o) => o.textContent)).toEqual(['50 Hz', '60 Hz']);
+  });
+
+  it('still shows a fixed-choice value the inverter holds outside its choices', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputFrequencySet: 55 }) })).restore;
+
+    expect(await screen.findByLabelText('Output frequency')).toHaveValue('55.00');
   });
 
   it('re-reads the settings from the inverter on request', async () => {

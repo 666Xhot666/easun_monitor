@@ -22,4 +22,6 @@ export interface RegisterDefinition {
   writable?: boolean;
   min?: number;
   max?: number;
+  /** The only values a numeric setting accepts (e.g. 220/230/240 V). */
+  choices?: readonly number[];
 }
