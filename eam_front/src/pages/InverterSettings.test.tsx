@@ -122,7 +122,13 @@ describe('InverterSettings page', () => {
       batteryVoltage: 24,
       bounds: { MaxChargingVoltage: { min: 24, max: 30, context: 'for a 24 V battery' } },
       defaults: { MaxChargingVoltage: 28.2 },
-      rules: [],
+      rules: [
+        {
+          id: 'R-VOLT-1', kind: 'compare', severity: 'error',
+          left: 'MaxChargingVoltage', op: '>=', right: 'FloatingChargingVoltage',
+          message: 'Bulk charging voltage must be at least the float charging voltage',
+        },
+      ],
     };
     const values = { OutputPriority: 2, MaxChargingVoltage: 28.2, FloatingChargingVoltage: 27 };
 
@@ -141,6 +147,17 @@ describe('InverterSettings page', () => {
       await userEvent.type(bulk, '56.4');
 
       expect(await screen.findByText('Must be between 24 and 30 for a 24 V battery')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    });
+
+    it('flags an edit that contradicts an unchanged setting on both', async () => {
+      restore = renderPage(() => ({ status: 200, data: snapshot(values) }), constraints).restore;
+
+      const bulk = await screen.findByLabelText('Max charging voltage (bulk)');
+      await userEvent.clear(bulk);
+      await userEvent.type(bulk, '26.5');
+
+      expect(await screen.findAllByText('Bulk charging voltage must be at least the float charging voltage')).toHaveLength(2);
       expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
     });
   });
