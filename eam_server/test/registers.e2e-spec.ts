@@ -33,6 +33,25 @@ describe('Register metadata and decoded alerts (e2e)', () => {
     expect(byName.OutputPriority.options).toHaveLength(3);
   });
 
+  it('lists the settings that exist only on the inverter panel', async () => {
+    const res = await request(app.getHttpServer())
+      .get('/api/inverter/panel-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    const byProgram = Object.fromEntries(res.body.map((s: { program: string }) => [s.program, s]));
+    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['01', '03', '05', '10', '13', '25', '32', '39', '41', '42', '46']);
+    expect(byProgram['05']).toMatchObject({
+      title: 'Battery type',
+      default: 'AGM',
+      options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
+    });
+    expect(byProgram['05'].affects).toEqual(
+      expect.arrayContaining(['MaxChargingVoltage', 'BatteryEqModeEnabled']),
+    );
+    expect(byProgram['01'].title).toMatch(/SUB priority/);
+  });
+
   it('adds the active faults and warnings to the latest reading', async () => {
     const { id } = (
       await request(app.getHttpServer())
