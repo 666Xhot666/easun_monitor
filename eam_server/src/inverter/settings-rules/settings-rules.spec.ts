@@ -98,4 +98,34 @@ describe('checkSettings', () => {
     const { FloatingChargingVoltage: _, ...withoutFloat } = current;
     expect(checkSettings(c24, withoutFloat, { MaxChargingVoltage: 26.5 }).errors).toEqual({});
   });
+
+  it('warns about combinations the inverter accepts but the manual advises against', () => {
+    const check = checkSettings(c24, current, { BatteryLowVoltageProtectionOffGrid: 22.5 });
+    expect(check.errors).toEqual({});
+    expect(check.warnings.BatteryLowVoltageProtectionMains).toEqual([
+      'Back-to-utility voltage should be at least 1 V above the low DC cut-off, or the inverter warns of a low battery',
+    ]);
+
+    expect(checkSettings(c24, { ...current, BatteryEqualizationTime: 60 }, { EqualizationTimeoutExit: 30 }).warnings).toEqual({
+      BatteryEqualizationTime: ['Equalization timeout is normally at least the equalization time'],
+      EqualizationTimeoutExit: ['Equalization timeout is normally at least the equalization time'],
+    });
+  });
+
+  it('warns when overvoltage protection would trip during charging', () => {
+    expect(checkSettings(c24, { ...current, BatteryOvervoltageProtection: 33 }, { MaxChargingVoltage: 30, BatteryOvervoltageProtection: 29 }).warnings.BatteryOvervoltageProtection).toEqual([
+      'Battery overvoltage protection should be above the bulk charging voltage',
+    ]);
+  });
+
+  it('only warns about the back-to-battery point until its register mapping is confirmed', () => {
+    const check = checkSettings(c24, current, { BatteryDischargeRecoveryMains: 24.5, BatteryLowVoltageProtectionMains: 25 });
+    expect(check.errors).toEqual({});
+    expect(check.warnings.BatteryDischargeRecoveryMains).toEqual([
+      'Back-to-battery voltage should be above the back-to-utility voltage',
+    ]);
+    expect(checkSettings(c24, current, { BatteryDischargeRecoveryMains: 28 }).warnings.BatteryDischargeRecoveryMains).toEqual([
+      'Back-to-battery voltage should be at most the bulk charging voltage - 0.4 V',
+    ]);
+  });
 });

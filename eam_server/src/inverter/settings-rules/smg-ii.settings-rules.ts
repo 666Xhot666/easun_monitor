@@ -70,6 +70,38 @@ const RULES: SettingsRule[] = [
     left: 'MaxChargingCurrent', op: '>=', right: 'MaxMainsChargingCurrent',
     message: 'Max charging current must be at least the max utility charging current',
   },
+  {
+    id: 'R-LIB-5', kind: 'compare', severity: 'warning',
+    left: 'BatteryLowVoltageProtectionMains', op: '>=', right: 'BatteryLowVoltageProtectionOffGrid', offset: 1,
+    message: 'Back-to-utility voltage should be at least 1 V above the low DC cut-off, or the inverter warns of a low battery',
+  },
+  {
+    id: 'R-EQ-3', kind: 'compare', severity: 'warning',
+    left: 'EqualizationTimeoutExit', op: '>=', right: 'BatteryEqualizationTime',
+    message: 'Equalization timeout is normally at least the equalization time',
+  },
+  {
+    id: 'R-VOLT-6', kind: 'compare', severity: 'warning',
+    left: 'BatteryOvervoltageProtection', op: '>', right: 'MaxChargingVoltage',
+    message: 'Battery overvoltage protection should be above the bulk charging voltage',
+  },
+  {
+    id: 'R-VOLT-6', kind: 'compare', severity: 'warning',
+    left: 'BatteryOvervoltageProtection', op: '>', right: 'EqChargingVoltage',
+    message: 'Battery overvoltage protection should be above the equalization voltage',
+  },
+  // Errors in the manual, warnings here until the device confirms that
+  // register 326 is program 13 and how "battery fully charged" reads back.
+  {
+    id: 'R-VOLT-3', kind: 'compare', severity: 'warning',
+    left: 'BatteryDischargeRecoveryMains', op: '>', right: 'BatteryLowVoltageProtectionMains',
+    message: 'Back-to-battery voltage should be above the back-to-utility voltage',
+  },
+  {
+    id: 'R-VOLT-5', kind: 'compare', severity: 'warning',
+    left: 'BatteryDischargeRecoveryMains', op: '<=', right: 'MaxChargingVoltage', offset: -0.4,
+    message: 'Back-to-battery voltage should be at most the bulk charging voltage - 0.4 V',
+  },
 ];
 
 export function settingsConstraints(profile: InstallationProfile): SettingsConstraints {
