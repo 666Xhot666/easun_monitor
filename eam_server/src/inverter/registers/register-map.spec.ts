@@ -159,6 +159,12 @@ describe('SMG-II register table', () => {
     expect(smg.get('MaxChargingVoltage')?.label).toBe('Bulk charging voltage');
   });
 
+  it('states the consequence of changing a risky setting', () => {
+    const risky = smg.list('settings').filter((d) => d.risk).map((d) => d.name);
+    expect(risky).toEqual(['OutputMode', 'BatteryOvervoltageProtection', 'TurnOnMode', 'RemoteSwitch']);
+    expect(smg.get('RemoteSwitch')?.risk).toMatch(/AC output/);
+  });
+
   it('accepts only the output voltages and frequencies the panel offers', () => {
     expect(smg.encode('OutputVoltageSet', 240)).toEqual({ address: 320, values: [2400] });
     expect(() => smg.encode('OutputVoltageSet', 231)).toThrow(/220, 230 or 240 V/);

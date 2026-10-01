@@ -47,6 +47,9 @@ export interface RegisterDefinition {
   optionDescriptions?: readonly string[];
   /** The inverter's LCD setting program ("01"-"46"), if it has one. */
   panelProgram?: string;
+  /** What can go wrong when this setting is changed; set only for
+   * settings that can cut power or harm the battery. */
+  risk?: string;
   /** Factory default (enum: option index). */
   default?: number;
   /** Factory default by nominal battery voltage (12/24/48 V). */

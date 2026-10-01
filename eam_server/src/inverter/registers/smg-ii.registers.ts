@@ -104,6 +104,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     name: 'OutputMode', label: 'Output mode', address: 300, type: 'uint16', group: 'settings', writable: true,
     options: ['Single', 'Parallel', '3-phase P1', '3-phase P2', '3-phase P3'],
     description: 'Whether this inverter runs alone or as part of a parallel or 3-phase system. Maximum discharge current protection (program 46) is only available in Single.',
+    risk: 'The manual documents no parallel or 3-phase operation for this inverter. Anything but Single may stop the AC output.',
   },
   {
     name: 'OutputPriority', label: 'Output source priority', address: 301, type: 'uint16', group: 'settings', writable: true,
@@ -199,6 +200,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   {
     name: 'BatteryOvervoltageProtection', label: 'Battery overvoltage protection', address: 323, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     description: 'Battery voltage at which the inverter stops with fault 03 "battery voltage too high". No panel program; the specification lists 15.5 / 33 / 63 V for 12 / 24 / 48 V models. Keep it above the bulk and equalization voltages.',
+    risk: 'Set too low, the inverter stops charging with a fault; set too high, it no longer protects the battery from overcharging.',
   },
   {
     name: 'MaxChargingVoltage', label: 'Bulk charging voltage', address: 324, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
@@ -271,6 +273,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     name: 'TurnOnMode', label: 'Turn-on mode', address: 406, type: 'uint16', group: 'settings', writable: true,
     options: ['Local or remote', 'Local only', 'Remote only'],
     description: 'Where the inverter can be switched on from. No panel program.',
+    risk: 'With "Remote only", the inverter\'s own power switch no longer turns it on.',
     optionDescriptions: [
       'The power switch or the remote switch below.',
       'Only the inverter\'s own power switch.',
@@ -281,6 +284,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     name: 'RemoteSwitch', label: 'Remote switch', address: 420, type: 'uint16', group: 'settings', writable: true,
     options: ['Off', 'On'],
     description: 'Turns the inverter off or on remotely. No panel program.',
+    risk: 'Remote shutdown turns off the inverter\'s AC output: everything it powers loses power until it is turned back on.',
     optionDescriptions: ['Remote shutdown: the AC output turns off.', 'Remote turn-on.'],
   },
   {
