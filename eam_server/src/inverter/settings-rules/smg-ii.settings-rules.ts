@@ -59,9 +59,14 @@ export function settingsConstraints(profile: InstallationProfile): SettingsConst
     if (value !== undefined) defaults[definition.name] = value;
   }
 
+  const bounds: Record<string, Bounds> = { ...CURRENT_RANGES };
+  for (const [name, range] of Object.entries(voltageRanges ?? {})) {
+    bounds[name] = { ...range, context: `for a ${voltage} V battery` };
+  }
+
   return {
     batteryVoltage: voltageRanges ? voltage : null,
-    bounds: { ...voltageRanges, ...CURRENT_RANGES },
+    bounds,
     defaults,
   };
 }
