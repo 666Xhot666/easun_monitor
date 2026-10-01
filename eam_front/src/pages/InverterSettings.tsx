@@ -13,6 +13,7 @@ import {
   toFormValues,
   type FormValues,
 } from '../settings/settingsForm';
+import LithiumSetupHelper from '../settings/LithiumSetupHelper';
 import { checkSettings, NO_CONSTRAINTS, type Bounds, type SettingsConstraints } from '../settings/settingsRules';
 
 /** GET/PATCH /api/inverter/:profileId/settings response. */
@@ -121,6 +122,19 @@ export default function InverterSettings() {
       cancelled = true;
     };
   }, []);
+
+  /** Puts proposed values into the form as unsaved edits. */
+  function propose(settings: Record<string, number>) {
+    if (!registers) return;
+    setForm((current) => {
+      const next = { ...current };
+      for (const [name, value] of Object.entries(settings)) {
+        const definition = registers.find((d) => d.name === name && d.writable);
+        if (definition) next[name] = value.toFixed(decimalsFor(definition));
+      }
+      return next;
+    });
+  }
 
   async function refresh() {
     setRefreshing(true);
@@ -244,6 +258,7 @@ export default function InverterSettings() {
 
         {loadState === 'ready' && registers && (
           <div className="space-y-8">
+            <LithiumSetupHelper onPropose={propose} />
             {groupIntoSections(registers).map((section) => (
               <section key={section.title}>
                 <div className="mb-3 flex items-center justify-between">

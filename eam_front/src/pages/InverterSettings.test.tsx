@@ -252,6 +252,26 @@ describe('InverterSettings page', () => {
     expect(screen.getByRole('link', { name: 'Depends on panel program 05' })).toHaveAttribute('href', '#panel-05');
   });
 
+  it('fills in lithium settings from the BMS limits as unsaved edits', async () => {
+    const server = renderPage(() => ({
+      status: 200,
+      data: snapshot({ OutputPriority: 2, MaxChargingVoltage: 28.2, FloatingChargingVoltage: 27 }),
+    }));
+    restore = server.restore;
+    await screen.findByLabelText('Max charging voltage (bulk)');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Set up a lithium battery without BMS communication' }));
+    await userEvent.type(screen.getByLabelText('BMS max charging voltage (V)'), '29.2');
+    await userEvent.type(screen.getByLabelText('BMS max charging current (A)'), '100');
+    await userEvent.type(screen.getByLabelText('BMS discharge protection voltage (V)'), '20');
+    await userEvent.click(screen.getByRole('button', { name: 'Fill in proposed values' }));
+
+    expect(screen.getByLabelText('Max charging voltage (bulk)')).toHaveValue(28.7);
+    expect(screen.getByLabelText('Float charging voltage')).toHaveValue(28.7);
+    expect(screen.getByRole('button', { name: 'Save 2 changes' })).toBeEnabled();
+    expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
+  });
+
   it('offers fixed-choice settings as a list of their values', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputFrequencySet: 50 }) })).restore;
 
