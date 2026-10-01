@@ -18,8 +18,9 @@ export type RegisterType = 'uint16' | 'int16' | 'uint32';
  * telemetry: live measurements, polled every cycle.
  * settings: configuration, read on demand and on a slow cadence.
  * status: fault and warning bitfields, polled with telemetry.
+ * command: write-only actions, never read.
  */
-export type RegisterGroup = 'telemetry' | 'settings' | 'status';
+export type RegisterGroup = 'telemetry' | 'settings' | 'status' | 'command';
 
 export interface RegisterDefinition {
   /** Stable key, used in stored readings and by the frontend. */

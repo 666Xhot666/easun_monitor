@@ -121,6 +121,19 @@ export class LoggerLink {
     });
   }
 
+  /**
+   * Sends a write-only command register (e.g. "exit fault mode"). Validated
+   * like a setting, but not read back: commands have no value to confirm.
+   */
+  async command(name: string, value: number): Promise<void> {
+    const { address, values } = this.registers.encode(name, value);
+    await this.serialize(async () => {
+      await this.ensureConnected();
+      await this.request({ kind: 'write', address, values });
+      this.markSuccess();
+    });
+  }
+
   /** One full round trip (handshake, connect, one CRC-checked register
    * read), used to verify a logger before pairing it. */
   probe(): Promise<{ latencyMs: number; sampledRegister: string }> {

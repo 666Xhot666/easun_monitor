@@ -10,6 +10,7 @@ const defs: RegisterDefinition[] = [
   { name: 'FaultCode', label: 'Fault code', address: 100, type: 'uint32', group: 'status' },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true, min: 200, max: 240 },
   { name: 'Priority', label: 'Priority', address: 321, type: 'uint16', group: 'settings', writable: true, options: ['UTI', 'SOL', 'SBU'] },
+  { name: 'ExitFaultMode', label: 'Exit fault mode', address: 426, type: 'uint16', group: 'command', writable: true, choices: [1] },
 ];
 const map = new RegisterMap(defs);
 
@@ -180,6 +181,26 @@ describe('LoggerLink writes', () => {
     const { link, logger } = setup();
     logger.rejectWritesAt(321, 7);
     await expect(link.write({ Priority: 2 })).rejects.toThrow(/not allowed to be modified/);
+  });
+});
+
+describe('LoggerLink commands', () => {
+  it('sends a write-only command without reading it back', async () => {
+    const { link, logger, transport } = setup();
+    await link.command('ExitFaultMode', 1);
+    expect(logger.get(426, 1)).toEqual([1]);
+    expect(transport.exchanges).toHaveLength(1);
+  });
+
+  it('validates the command before sending it', async () => {
+    const { link, transport } = setup();
+    await expect(link.command('ExitFaultMode', 2)).rejects.toThrow(RegisterValueError);
+    expect(transport.exchanges).toHaveLength(0);
+  });
+
+  it('keeps commands out of group reads', () => {
+    expect(map.list().filter((d) => d.group !== 'command')).toHaveLength(defs.length - 1);
+    expect(map.blocks('settings').some((b) => b.address + b.count > 426)).toBe(false);
   });
 });
 
