@@ -20,7 +20,7 @@ import { LoggerLinks } from './link/logger-links';
 import { RegisterMap, RegisterValueError } from './registers/register-map';
 import { LoggerUnavailableError } from './link/logger-link';
 import { LoggerFrameError } from './protocol/logger-frame';
-import { SettingsService } from './settings.service';
+import { SettingsRuleError, SettingsService } from './settings.service';
 import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
@@ -315,7 +315,24 @@ export class InverterController {
     if (entries.some(([, value]) => typeof value !== 'number')) {
       throw new BadRequestException('Every setting value must be a number');
     }
-    return this.deviceCall(() => this.settings.apply(profile, dto.changes));
+    try {
+      return await this.deviceCall(() =>
+        this.settings.apply(profile, dto.changes, dto.acknowledgeWarnings),
+      );
+    } catch (error) {
+      if (!(error instanceof SettingsRuleError)) throw error;
+      const { errors, warnings } = error.check;
+      const lines = Object.entries(Object.keys(errors).length ? errors : warnings).map(
+        ([name, messages]) =>
+          `${this.registers.get(name)?.label ?? name}: ${messages.join('; ')}`,
+      );
+      throw new BadRequestException({
+        message: lines.join('\n'),
+        errors,
+        warnings,
+        warningsNeedAcknowledgement: Object.keys(errors).length === 0,
+      });
+    }
   }
 
   /** Maps device-side failures to HTTP errors with the device's message. */

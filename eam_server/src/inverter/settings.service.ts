@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerLinks } from './link/logger-links';
 import type { Reading } from './registers/register-map';
+import { checkSettings, type SettingsCheck } from './settings-rules/settings-rules';
+import { settingsConstraints, type InstallationProfile } from './settings-rules/smg-ii.settings-rules';
 
 export interface SettingsSnapshot {
   /** Settings register name -> value, as read from the inverter. */
@@ -14,6 +16,14 @@ interface LoggerAddress {
   id: number;
   ipAddress: string;
   port: number;
+}
+
+/** Changes were refused by the settings rules; nothing was written. */
+export class SettingsRuleError extends Error {
+  constructor(readonly check: SettingsCheck) {
+    super('The changes break the settings rules');
+    this.name = 'SettingsRuleError';
+  }
 }
 
 const DEFAULT_MAX_AGE_MS = 5 * 60_000;
@@ -67,12 +77,25 @@ export class SettingsService {
   }
 
   /**
-   * Validates and writes changed settings, then re-reads all settings so
-   * the caller sees what the inverter actually holds. Throws
-   * RegisterValueError (invalid, nothing sent), LoggerFrameError (the
-   * inverter refused) or LoggerUnavailableError.
+   * Checks changed settings against the settings rules and the inverter's
+   * current values, writes them, then re-reads all settings so the caller
+   * sees what the inverter actually holds. Throws SettingsRuleError (an
+   * error, or an unacknowledged warning; nothing sent), RegisterValueError
+   * (invalid, nothing sent), LoggerFrameError (the inverter refused) or
+   * LoggerUnavailableError.
    */
-  async apply(profile: LoggerAddress, changes: Record<string, number>): Promise<SettingsSnapshot> {
+  async apply(
+    profile: LoggerAddress & InstallationProfile,
+    changes: Record<string, number>,
+    acknowledgeWarnings = false,
+  ): Promise<SettingsSnapshot> {
+    const { values } = await this.get(profile);
+    const check = checkSettings(settingsConstraints(profile), values, changes);
+    const hasErrors = Object.keys(check.errors).length > 0;
+    const hasWarnings = Object.keys(check.warnings).length > 0;
+    if (hasErrors || (hasWarnings && !acknowledgeWarnings)) {
+      throw new SettingsRuleError(check);
+    }
     await this.links.get(profile.ipAddress, profile.port).write(changes);
     return this.refresh(profile);
   }
