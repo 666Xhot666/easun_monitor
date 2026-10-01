@@ -128,6 +128,23 @@ describe('SMG-II register table', () => {
     ]);
   });
 
+  it('explains every setting the way the manual does', () => {
+    for (const definition of smg.list('settings')) {
+      expect({ name: definition.name, description: definition.description }).toEqual({
+        name: definition.name,
+        description: expect.stringMatching(/\w{3,}/),
+      });
+      if (definition.optionDescriptions) {
+        expect(definition.optionDescriptions).toHaveLength(definition.options!.length);
+      }
+    }
+    expect(smg.get('OutputPriority')).toMatchObject({ panelProgram: '01', default: 0 });
+    expect(smg.get('OutputPriority')?.optionDescriptions?.[2]).toMatch(/program 12/);
+    expect(smg.get('BatteryEqualizationTime')).toMatchObject({ panelProgram: '35', default: 60 });
+    expect(smg.get('MaxChargingVoltage')?.defaultByBatteryVoltage).toEqual({ 12: 14.1, 24: 28.2, 48: 56.4 });
+    expect(smg.get('EnergySavingMode')?.panelProgram).toBeUndefined();
+  });
+
   it('accepts only the output voltages and frequencies the panel offers', () => {
     expect(smg.encode('OutputVoltageSet', 240)).toEqual({ address: 320, values: [2400] });
     expect(() => smg.encode('OutputVoltageSet', 231)).toThrow(/220, 230 or 240 V/);
