@@ -12,7 +12,9 @@
  *
  * To see alerts on the dashboard, start it with active fault or warning
  * bits, e.g. MOCK_FAULT_CODE=128 (output overload) or
- * MOCK_WARNING_CODE=16640 (battery low voltage + fan blocked).
+ * MOCK_WARNING_CODE=16640 (battery low voltage + fan blocked). Start it
+ * with MOCK_FAULT_MODE=1 to report fault mode until "Exit fault mode" is
+ * sent.
  */
 import { InMemoryLogger } from '../eam_server/src/inverter/link/in-memory-logger.ts';
 import { startLoggerServer } from '../eam_server/src/inverter/link/logger-server.ts';
@@ -28,13 +30,16 @@ const definitions = map.list();
 
 const between = (min: number, max: number) => min + Math.random() * (max - min);
 
+let faultMode = process.env.MOCK_FAULT_MODE === '1';
+
 /** A plausible real-world value for a register, by what it measures. */
 function realValue(definition: RegisterDefinition): number {
   const { name, unit } = definition;
   let value: number;
   if (name === 'FaultCode') value = Number(process.env.MOCK_FAULT_CODE ?? 0);
   else if (name === 'WarningCode') value = Number(process.env.MOCK_WARNING_CODE ?? 0);
-  else if (name === 'OperationMode') value = 2; // Mains
+  else if (name === 'OperationMode') value = faultMode ? 6 : 2; // Fault or Mains
+  else if (definition.choices) value = definition.choices[Math.floor(Math.random() * definition.choices.length)];
   else if (definition.options) value = Math.floor(Math.random() * definition.options.length);
   else if (name === 'RatedPower') value = 3200;
   else if (name.includes('Soc')) value = between(40, 100);
@@ -79,7 +84,12 @@ const logger = new InMemoryLogger({
     return toWords(definition, realValue(definition))[address - definition.address];
   },
   onWrite: (address, values) => {
-    console.log(`[mock-inverter] write ${definitionAt(address)?.name ?? address} = ${values.join(', ')}`);
+    const name = definitionAt(address)?.name;
+    console.log(`[mock-inverter] write ${name ?? address} = ${values.join(', ')}`);
+    if (name === 'ExitFaultMode' && faultMode) {
+      faultMode = false;
+      console.log('[mock-inverter] left fault mode');
+    }
   },
 });
 
