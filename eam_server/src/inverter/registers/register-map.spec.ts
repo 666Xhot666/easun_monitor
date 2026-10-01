@@ -145,6 +145,20 @@ describe('SMG-II register table', () => {
     expect(smg.get('EnergySavingMode')?.panelProgram).toBeUndefined();
   });
 
+  it("names settings and options in the manual's words", () => {
+    expect(smg.get('InputVoltageRange')).toMatchObject({
+      label: 'AC input voltage range',
+      options: ['Appliances (90-280 V)', 'UPS (170-280 V)'],
+    });
+    expect(smg.get('LcdBacklight')?.options).toEqual(['Backlight off (timed)', 'Backlight on']);
+    expect(smg.get('LcdAutoReturn')?.options).toEqual(['Stay at latest screen', 'Return to default screen']);
+    expect(smg.get('BatteryChargingPriority')?.options?.[0]).toBe('Utility first (not on the panel)');
+    expect(smg.get('BatteryLowVoltageProtectionMains')?.label).toBe('Back to utility voltage');
+    expect(smg.get('BatteryDischargeRecoveryMains')?.label).toBe('Back to battery voltage');
+    expect(smg.get('BatteryLowVoltageProtectionOffGrid')?.label).toBe('Low DC cut-off voltage');
+    expect(smg.get('MaxChargingVoltage')?.label).toBe('Bulk charging voltage');
+  });
+
   it('accepts only the output voltages and frequencies the panel offers', () => {
     expect(smg.encode('OutputVoltageSet', 240)).toEqual({ address: 320, values: [2400] });
     expect(() => smg.encode('OutputVoltageSet', 231)).toThrow(/220, 230 or 240 V/);

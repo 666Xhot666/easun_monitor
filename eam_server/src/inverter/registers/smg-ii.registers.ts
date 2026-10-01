@@ -106,7 +106,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     description: 'Whether this inverter runs alone or as part of a parallel or 3-phase system. Maximum discharge current protection (program 46) is only available in Single.',
   },
   {
-    name: 'OutputPriority', label: 'Output priority', address: 301, type: 'uint16', group: 'settings', writable: true,
+    name: 'OutputPriority', label: 'Output source priority', address: 301, type: 'uint16', group: 'settings', writable: true,
     options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)'],
     panelProgram: '01', default: 0,
     description: 'Which source powers the loads first.',
@@ -117,8 +117,8 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     ],
   },
   {
-    name: 'InputVoltageRange', label: 'Input voltage range', address: 302, type: 'uint16', group: 'settings', writable: true,
-    options: ['Wide', 'Narrow'],
+    name: 'InputVoltageRange', label: 'AC input voltage range', address: 302, type: 'uint16', group: 'settings', writable: true,
+    options: ['Appliances (90-280 V)', 'UPS (170-280 V)'],
     panelProgram: '03', default: 0,
     description: 'The AC input voltage the inverter accepts from utility or a generator before switching to battery.',
     optionDescriptions: [
@@ -128,7 +128,7 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   },
   {
     name: 'BuzzerMode', label: 'Buzzer', address: 303, type: 'uint16', group: 'settings', writable: true,
-    options: ['Mute', 'Source change, warning or fault', 'Warning or fault', 'Fault only'],
+    options: ['Mode 1: mute', 'Mode 2: source change, warning or fault', 'Mode 3: warning or fault', 'Mode 4: fault only'],
     panelProgram: '18', default: 3,
     description: 'When the buzzer sounds.',
     optionDescriptions: [
@@ -139,15 +139,15 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     ],
   },
   {
-    name: 'LcdBacklight', label: 'LCD backlight', address: 305, type: 'uint16', group: 'settings', writable: true,
-    options: ['Timed off', 'Always on'],
+    name: 'LcdBacklight', label: 'Backlight', address: 305, type: 'uint16', group: 'settings', writable: true,
+    options: ['Backlight off (timed)', 'Backlight on'],
     panelProgram: '20', default: 1,
     description: 'Whether the LCD backlight stays on.',
     optionDescriptions: ['Backlight turns off after a while.', 'Backlight stays on.'],
   },
   {
-    name: 'LcdAutoReturn', label: 'LCD returns to home page', address: 306, type: 'uint16', group: 'settings', writable: true,
-    options: ['Off', 'After 1 minute'],
+    name: 'LcdAutoReturn', label: 'Auto return to default screen', address: 306, type: 'uint16', group: 'settings', writable: true,
+    options: ['Stay at latest screen', 'Return to default screen'],
     panelProgram: '19', default: 1,
     description: 'Whether the LCD goes back to the default screen (input / output voltage) when no button is pressed.',
     optionDescriptions: [
@@ -161,19 +161,19 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     description: 'Energy-saving mode. The manual does not describe it and there is no panel program for it.',
   },
   {
-    name: 'OverloadAutoRestart', label: 'Restart after overload', address: 308, type: 'uint16', group: 'settings', writable: true,
+    name: 'OverloadAutoRestart', label: 'Auto restart after overload', address: 308, type: 'uint16', group: 'settings', writable: true,
     options: OFF_ON,
     panelProgram: '06', default: 1,
     description: 'Whether the inverter restarts by itself after shutting down for an overload.',
   },
   {
-    name: 'OverTempAutoRestart', label: 'Restart after over temperature', address: 309, type: 'uint16', group: 'settings', writable: true,
+    name: 'OverTempAutoRestart', label: 'Auto restart after over temperature', address: 309, type: 'uint16', group: 'settings', writable: true,
     options: OFF_ON,
     panelProgram: '07', default: 1,
     description: 'Whether the inverter restarts by itself after shutting down for over temperature.',
   },
   {
-    name: 'OverloadTransferToBypass', label: 'Transfer to bypass on overload', address: 310, type: 'uint16', group: 'settings', writable: true,
+    name: 'OverloadTransferToBypass', label: 'Overload bypass', address: 310, type: 'uint16', group: 'settings', writable: true,
     options: DISABLED_ENABLED,
     panelProgram: '23', default: 1,
     description: 'When enabled, the inverter transfers the loads to utility (line mode) if an overload occurs in battery mode.',
@@ -201,33 +201,33 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     description: 'Battery voltage at which the inverter stops with fault 03 "battery voltage too high". No panel program; the specification lists 15.5 / 33 / 63 V for 12 / 24 / 48 V models. Keep it above the bulk and equalization voltages.',
   },
   {
-    name: 'MaxChargingVoltage', label: 'Max charging voltage (bulk)', address: 324, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'MaxChargingVoltage', label: 'Bulk charging voltage', address: 324, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '26', defaultByBatteryVoltage: { 12: 14.1, 24: 28.2, 48: 56.4 },
     description: 'Bulk (constant-voltage) charging voltage. Must be at least the float voltage. Used only when the panel battery type (program 05) is User-Defined or Lithium.',
   },
   {
-    name: 'FloatingChargingVoltage', label: 'Float charging voltage', address: 325, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'FloatingChargingVoltage', label: 'Floating charging voltage', address: 325, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '27', defaultByBatteryVoltage: { 12: 13.5, 24: 27, 48: 54 },
     description: 'Float (maintenance) charging voltage, from the nominal battery voltage up to the bulk voltage. Used only when the panel battery type (program 05) is User-Defined or Lithium.',
   },
   {
-    name: 'BatteryDischargeRecoveryMains', label: 'Discharge recovery point (mains mode)', address: 326, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'BatteryDischargeRecoveryMains', label: 'Back to battery voltage', address: 326, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '13',
     description: 'Battery voltage at which the loads go back to battery in Solar first or SBU priority. Must be above the back-to-utility point and at most bulk voltage - 0.4 V. The panel default is "battery fully charged".',
   },
   {
-    name: 'BatteryLowVoltageProtectionMains', label: 'Low-voltage protection (mains mode)', address: 327, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'BatteryLowVoltageProtectionMains', label: 'Back to utility voltage', address: 327, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '12', defaultByBatteryVoltage: { 12: 11.5, 24: 23, 48: 46 },
     description: 'Battery voltage at which the loads go back to utility in Solar first or SBU priority. Must be below the back-to-battery point and at least 1 V above the low DC cut-off, or the inverter warns of a low battery.',
   },
   {
-    name: 'BatteryLowVoltageProtectionOffGrid', label: 'Low-voltage protection (off-grid mode)', address: 329, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'BatteryLowVoltageProtectionOffGrid', label: 'Low DC cut-off voltage', address: 329, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '29', defaultByBatteryVoltage: { 12: 10.5, 24: 21, 48: 42 },
     description: 'Low DC cut-off: the inverter stops discharging the battery at this voltage, whatever the load. Must be below the back-to-utility point. For lithium without BMS communication, set it at least 2 V above the BMS discharge protection voltage.',
   },
   {
-    name: 'BatteryChargingPriority', label: 'Charging priority', address: 331, type: 'uint16', group: 'settings', writable: true,
-    options: ['Utility first', 'PV first', 'PV and utility', 'PV only'],
+    name: 'BatteryChargingPriority', label: 'Charger source priority', address: 331, type: 'uint16', group: 'settings', writable: true,
+    options: ['Utility first (not on the panel)', 'Solar first (CSO)', 'Solar and utility (SNU)', 'Only solar (OSO)'],
     panelProgram: '16', default: 2,
     description: 'Which sources charge the battery in line, standby or fault mode. In battery mode only solar charges the battery.',
     optionDescriptions: [
@@ -243,22 +243,22 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     description: 'Total charging current from solar and utility together. Must not be less than the max utility charging current. For lithium without BMS communication, keep it below the BMS max charging current.',
   },
   {
-    name: 'MaxMainsChargingCurrent', label: 'Max mains charging current', address: 333, type: 'uint16', scale: 0.1, unit: 'A', group: 'settings', writable: true,
+    name: 'MaxMainsChargingCurrent', label: 'Max utility charging current', address: 333, type: 'uint16', scale: 0.1, unit: 'A', group: 'settings', writable: true,
     panelProgram: '11', default: 30,
     description: 'Maximum charging current from utility.',
   },
   {
-    name: 'EqChargingVoltage', label: 'Equalization voltage', address: 334, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
+    name: 'EqChargingVoltage', label: 'Battery equalization voltage', address: 334, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     panelProgram: '34', defaultByBatteryVoltage: { 12: 14.6, 24: 29.2, 48: 58.4 },
     description: 'Voltage the battery is held at while equalizing, from the float voltage up to 15.5 / 30 / 62 V. Used only when equalization is enabled.',
   },
   {
-    name: 'BatteryEqualizationTime', label: 'Equalization time', address: 335, type: 'uint16', unit: 'min', group: 'settings', writable: true, min: 0, max: 900,
+    name: 'BatteryEqualizationTime', label: 'Battery equalized time', address: 335, type: 'uint16', unit: 'min', group: 'settings', writable: true, min: 0, max: 900,
     panelProgram: '35', default: 60,
     description: 'How long the battery is held at the equalization voltage once it gets there.',
   },
   {
-    name: 'EqualizationTimeoutExit', label: 'Equalization timeout', address: 336, type: 'uint16', unit: 'min', group: 'settings', writable: true, min: 0, max: 900,
+    name: 'EqualizationTimeoutExit', label: 'Battery equalized timeout', address: 336, type: 'uint16', unit: 'min', group: 'settings', writable: true, min: 0, max: 900,
     panelProgram: '36', default: 120,
     description: 'If the battery has not reached the equalization voltage when the equalization time is up, equalizing continues until this timeout, then returns to float.',
   },

@@ -88,7 +88,7 @@ describe('Settings rules (e2e)', () => {
       .send({ changes: { MaxChargingVoltage: 56.4 } })
       .expect(400);
     expect(range.body.message).toMatch(
-      /Max charging voltage \(bulk\): Must be between 24 and 30 for a 24 V battery/,
+      /Bulk charging voltage: Must be between 24 and 30 for a 24 V battery/,
     );
 
     const contradiction = await call('patch', `/api/inverter/${id}/settings`)
