@@ -21,6 +21,7 @@ import { RegisterMap, RegisterValueError } from './registers/register-map';
 import { LoggerUnavailableError } from './link/logger-link';
 import { LoggerFrameError } from './protocol/logger-frame';
 import { SettingsService } from './settings.service';
+import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
@@ -274,6 +275,19 @@ export class InverterController {
   ) {
     const profile = await this.requireOwnedProfile(profileId, user.userId);
     return this.deviceCall(() => this.settings.get(profile));
+  }
+
+  /**
+   * What settings changes must respect for this installation: ranges and
+   * defaults for its battery, and the rules between settings. Comes from
+   * the profile, not the device.
+   */
+  @Get(':profileId/settings/constraints')
+  async getSettingsConstraints(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return settingsConstraints(await this.requireOwnedProfile(profileId, user.userId));
   }
 
   /** Re-reads the settings from the inverter now. */

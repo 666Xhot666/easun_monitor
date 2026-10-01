@@ -142,6 +142,20 @@ describe('Inverter settings (e2e)', () => {
     expect(res.body.message).toMatch(/unreachable/);
   });
 
+  it("serves the settings rules resolved for the installation's battery", async () => {
+    const id = await pair();
+    await call('get', `/api/inverter/${id}/settings`).expect(200);
+    const before = exchanges();
+    const res = await call('get', `/api/inverter/${id}/settings/constraints`).expect(200);
+    expect(res.body.batteryVoltage).toBe(24);
+    expect(res.body.bounds.MaxChargingVoltage).toMatchObject({ min: 24, max: 30 });
+    expect(res.body.defaults.MaxChargingVoltage).toBe(28.2);
+    expect(res.body.rules).toContainEqual(
+      expect.objectContaining({ id: 'R-TYPE-2', setting: 'BatteryEqModeEnabled' }),
+    );
+    expect(exchanges()).toBe(before);
+  });
+
   it("keeps other users' inverter settings private", async () => {
     const id = await pair();
     const other = await registerUser(app, 'other@example.com');
