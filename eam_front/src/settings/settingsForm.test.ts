@@ -67,6 +67,17 @@ describe('groupIntoSections', () => {
     ]);
   });
 
+  it('moves risky settings to an Advanced section', () => {
+    const risky = (name: string, address: number): RegisterDefinition => ({
+      name, label: name, address, type: 'uint16', group: 'settings', writable: true, risk: 'Cuts power',
+    });
+    const sections = groupIntoSections([...defs, risky('RemoteSwitch', 420), risky('OutputMode', 300)]);
+    expect(sections.map((s) => s.title)).toEqual([
+      'Output and source priority', 'Battery and charging', 'Equalization', 'Power control', 'Advanced', 'Device information',
+    ]);
+    expect(sections[4].registers.map((r) => r.name)).toEqual(['OutputMode', 'RemoteSwitch']);
+  });
+
   it("orders settings like the manual's setting programs, not by address", () => {
     const setting = (name: string, address: number): RegisterDefinition => ({
       name, label: name, address, type: 'uint16', group: 'settings', writable: true,

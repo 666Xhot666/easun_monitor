@@ -12,8 +12,11 @@ export interface SettingsSection {
 /**
  * Sections as in the manual's setting programs, each listing its settings in
  * program order (number in comments). Writable settings not listed here go
- * to "Other"; read-only settings go last.
+ * to "Other"; settings that can cut power or harm the battery (`risk`) to
+ * "Advanced"; read-only settings go last.
  */
+export const ADVANCED = 'Advanced';
+
 const SECTIONS: { title: string; names: string[] }[] = [
   {
     title: 'Output and source priority',
@@ -23,7 +26,6 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'OutputVoltageSet', // 08
       'OutputFrequencySet', // 09
       'BatteryChargingPriority', // 16
-      'OutputMode',
     ],
   },
   {
@@ -36,7 +38,6 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'MaxChargingVoltage', // 26
       'FloatingChargingVoltage', // 27
       'BatteryLowVoltageProtectionOffGrid', // 29
-      'BatteryOvervoltageProtection',
     ],
   },
   {
@@ -65,7 +66,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'LcdBacklight', // 20
     ],
   },
-  { title: 'Power control', names: ['EnergySavingMode', 'TurnOnMode', 'RemoteSwitch'] },
+  { title: 'Power control', names: ['EnergySavingMode', 'TurnOnMode'] },
 ];
 
 const settingsOf = (definitions: RegisterDefinition[]) =>
@@ -73,7 +74,7 @@ const settingsOf = (definitions: RegisterDefinition[]) =>
 
 export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSection[] {
   const settings = settingsOf(definitions);
-  const writable = settings.filter((d) => d.writable);
+  const writable = settings.filter((d) => d.writable && !d.risk);
   const sections = SECTIONS.map(({ title, names }) => ({
     title,
     registers: names.flatMap((name) => writable.filter((d) => d.name === name)),
@@ -81,6 +82,7 @@ export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSe
   const placed = new Set(sections.flatMap((s) => s.registers));
   const other = writable.filter((d) => !placed.has(d));
   if (other.length) sections.push({ title: 'Other', registers: other });
+  sections.push({ title: ADVANCED, registers: settings.filter((d) => d.writable && d.risk) });
   sections.push({ title: 'Device information', registers: settings.filter((d) => !d.writable) });
   return sections.filter((s) => s.registers.length > 0);
 }
