@@ -328,6 +328,15 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     risk: 'Remote shutdown turns off the inverter\'s AC output: everything it powers loses power until it is turned back on.',
     optionDescriptions: ['Remote shutdown: the AC output turns off.', 'Remote turn-on.'],
   },
+  // Not in the protocol PDF (460 is listed as reserved); read from the device
+  // in a Modbus capture, matching the vendor app's output ON/OFF toggle.
+  {
+    name: 'OutputControl', label: 'Output control', address: 460, type: 'uint16', group: 'settings', writable: true,
+    options: ['Off', 'On'],
+    description: 'Turns the inverter\'s AC output off or on. The vendor\'s app shows it as the main output switch; it may overlap with the remote switch.',
+    risk: 'Off turns off the inverter\'s AC output: everything it powers loses power until it is turned back on.',
+  },
+
   // --- commands ---
   {
     name: 'ExitFaultMode', label: 'Exit fault mode', address: 426, type: 'uint16', group: 'command', writable: true,
