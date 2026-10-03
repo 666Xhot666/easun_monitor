@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { InverterModule } from './inverter/inverter.module';
 import { AuthModule } from './auth/auth.module';
+import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { AuthModule } from './auth/auth.module';
     ScheduleModule.forRoot(),
     PrismaModule,
     AuthModule,
+    SerialSniffModule,
     InverterModule,
   ],
   controllers: [AppController],
