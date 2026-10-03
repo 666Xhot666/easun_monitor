@@ -5,6 +5,10 @@ import { extractErrorMessage } from '../lib/errors';
 import { useRegisters } from '../inverter/useRegisters';
 import { formatRegisterValue } from '../inverter/format';
 import type { RegisterDefinition } from '../inverter/types';
+import NameSuggestions, { type NameSuggestion } from './NameSuggestions';
+
+/** A reference reading this far from every value in a capture proves little. */
+const FAR_FROM_CAPTURE_MS = 30 * 60_000;
 
 interface PortStatus {
   path: string;
@@ -53,6 +57,8 @@ interface CaptureMeta {
 }
 
 interface Summary {
+  groundTruth?: { id: string; capturedAt: string; source?: string };
+  suggestions?: NameSuggestion[];
   meta: CaptureMeta;
   counts: {
     pairs: number;
@@ -141,6 +147,8 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
   const [captures, setCaptures] = useState<CaptureMeta[]>([]);
   const [selectedCaptureId, setSelectedCaptureId] = useState('');
   const [batteryVoltage, setBatteryVoltage] = useState('');
+  const [groundTruths, setGroundTruths] = useState<{ id: string; capturedAt: string; source?: string }[]>([]);
+  const [selectedGroundTruth, setSelectedGroundTruth] = useState('');
   const [summary, setSummary] = useState<Summary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -240,6 +248,15 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
     let active = true;
 
     axios
+      .get<{ id: string; capturedAt: string; source?: string }[]>('/api/dev/serial/ground-truth')
+      .then((response) => {
+        if (active && mountedRef.current) {
+          setGroundTruths(response.data);
+        }
+      })
+      .catch(() => {});
+
+    axios
       .get<CaptureMeta[]>('/api/dev/serial/captures')
       .then((response) => {
         if (active && mountedRef.current) {
@@ -316,6 +333,8 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
     }
   };
 
+  const suggestionFor = (address: number) => summary?.suggestions?.find((s) => s.address === address);
+
   const handleSummarise = async () => {
     if (!selectedCaptureId || summaryLoading) {
       return;
@@ -325,7 +344,10 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
     setSummaryError(null);
 
     try {
-      const query = batteryVoltage.trim() === '' ? '' : `?batteryVoltage=${encodeURIComponent(batteryVoltage.trim())}`;
+      const params = new URLSearchParams();
+      if (batteryVoltage.trim() !== '') params.set('batteryVoltage', batteryVoltage.trim());
+      if (selectedGroundTruth) params.set('groundTruth', selectedGroundTruth);
+      const query = params.size ? `?${params.toString()}` : '';
       const response = await axios.get<Summary>(`/api/dev/serial/captures/${selectedCaptureId}/summary${query}`);
       if (!mountedRef.current) {
         return;
@@ -555,6 +577,21 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
                   className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
                 />
               </label>
+              <label className="text-sm text-gray-700 dark:text-gray-300">
+                Reference reading
+                <select
+                  value={selectedGroundTruth}
+                  onChange={(event) => setSelectedGroundTruth(event.target.value)}
+                  className="mt-1 w-full rounded-md border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100"
+                >
+                  <option value="">None</option>
+                  {groundTruths.map((snapshot) => (
+                    <option key={snapshot.id} value={snapshot.id}>
+                      {snapshot.source ? `${snapshot.capturedAt} (${snapshot.source})` : snapshot.capturedAt}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <div className="flex items-end">
                 <button
                   type="button"
@@ -585,6 +622,14 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
                   <li>Reconnects: {summary.counts.reconnects}</li>
                 </ul>
 
+                {summary.suggestions &&
+                  summary.suggestions.length > 0 &&
+                  summary.suggestions.every((s) => Math.abs(s.gapMs) > FAR_FROM_CAPTURE_MS) && (
+                    <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
+                      This reference reading is more than 30 minutes from anything in this capture, so its suggestions are weak evidence.
+                    </p>
+                  )}
+
                 <div className="overflow-x-auto">
                   <table className="w-full border-collapse text-sm">
                     <thead className="bg-gray-100 dark:bg-gray-900">
@@ -612,7 +657,13 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
                             <td className="border border-gray-200 px-2 py-1 dark:border-gray-800">{row.latestValue}</td>
                             <td className="border border-gray-200 px-2 py-1 dark:border-gray-800">{row.category}</td>
                             <td className="border border-gray-200 px-2 py-1 dark:border-gray-800">{row.seen}</td>
-                            <td className="border border-gray-200 px-2 py-1 dark:border-gray-800">{row.reason ?? ''}</td>
+                            <td className="border border-gray-200 px-2 py-1 dark:border-gray-800">
+                              {suggestionFor(row.address) ? (
+                                <NameSuggestions suggestion={suggestionFor(row.address)!} />
+                              ) : (
+                                (row.reason ?? '')
+                              )}
+                            </td>
                           </tr>
                         );
                       })}
