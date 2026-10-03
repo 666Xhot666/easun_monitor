@@ -64,8 +64,11 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `REFRESH_TOKEN_TTL_DAYS` | 30 | How long a sign-in lasts without use. |
 | `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
 | `DEV_AUTO_LOGIN_EMAIL` | | Existing account that dev auto-login signs in as. |
-| `DEV_SERIAL_SNIFF` | false | Development only: enable the serial sniff panel at `/dev/serial`. |
-| `SERIAL_PORT` | | Serial port the sniff panel suggests, e.g. `/dev/cu.usbserial-…`. |
+| `DEV_SERIAL_SNIFF` | false | Development only: enable the serial capture panel at `/dev/serial`. |
+| `SERIAL_RX_PORT` | | Port of the tap on the logger's RX pad (responses), e.g. `/dev/cu.usbserial-…`. |
+| `SERIAL_TX_PORT` | | Port of the tap on the logger's TX pad (requests). |
+| `SERIAL_RX_BAUD` / `SERIAL_TX_BAUD` | 9600 | Baud rate of each tap's USB side. |
+| `DEV_CAPTURE_DIR` | .dev-captures | Where captures are saved, one JSON-lines file each. |
 
 The `DEV_*` options do nothing when `NODE_ENV=production`, whatever their value.
 
@@ -90,19 +93,39 @@ existing account, a dev build of the frontend signs in as that account when it
 loads without a session. It uses your own account rather than a separate
 system user, so you see your inverters.
 
-**Serial sniff.** For checking registers against the real device: a USB-serial
-adapter on the Wi-Fi logger's TTL-side RX pad (9600 8N1) hears the inverter's
-replies. With `DEV_SERIAL_SNIFF=true`, open `/dev/serial` in a dev build, pick
-the port (prefer `/dev/cu.usbserial-*` over `tty.`) and start a capture. The
-port is opened read-only in effect: nothing is ever written to it.
+**Serial capture.** For checking registers against the real device, two taps
+on the Wi-Fi logger's TTL-side pads listen to its conversation with the
+inverter: a USB-serial adapter on the RX pad hears the inverter's responses,
+and a second device on the TX pad hears the logger's requests. The second
+device can be an Arduino Nano running a SoftwareSerial passthrough on pins
+other than D0/D1; set `SERIAL_TX_BAUD` to whatever the sketch's USB side uses.
+Set the ports with `SERIAL_RX_PORT` and `SERIAL_TX_PORT` (prefer
+`/dev/cu.usbserial-*` over `tty.`); both bauds default to 9600.
 
-The tap is receive-only, so it never sees the requests: frames are listed in
-capture order with their raw words, never with a register name. Pair a value
-with its address by hand (for example, change a setting in the vendor app and
-note which frame changed); the note field on each frame is for that.
+With `DEV_SERIAL_SNIFF=true`, open `/dev/serial` in a dev build, check both
+ports and start a capture. Nothing is ever written to either port. Each request
+is paired with the next response whose size fits it (2 bytes per requested
+register) within a second; the two taps may report in either order. A request
+with no fitting response is unanswered, a response with no request an orphan.
+Values are named from the register map. Write requests (function `0x10`) are
+counted but not decoded.
+
+If a port fails (for example macOS's "device reports readiness to read but
+returned no data"), it is reopened with backoff from 1 s up to 30 s, and the
+outage is recorded in the capture. Every capture is saved as a JSON-lines file
+in `DEV_CAPTURE_DIR` (default `.dev-captures` in the server's working
+directory), so it outlives the page and the server.
+
+The Summary tab summarises any saved capture: how many addresses were
+plausible (a known register with a value inside its options or range),
+implausible (a known register with a value outside them) or unknown (not in the
+register map, shown raw), plus unanswered requests, orphan responses and
+reconnects, and one row per address with its latest value. Enter the battery
+voltage to also check values against that battery's ranges. The capture never
+edits the register map: unknown addresses are for a person to review and add.
 
 Docker Desktop on macOS can't pass USB devices into containers, so for the
-serial sniff run the server natively against the compose database:
+serial capture run the server natively against the compose database:
 
 ```bash
 docker compose up -d db
@@ -145,7 +168,8 @@ A minimal `com.easun-monitor.server.plist` (adjust paths; build first with
   <dict>
     <key>NODE_ENV</key><string>development</string>
     <key>DEV_SERIAL_SNIFF</key><string>true</string>
-    <key>SERIAL_PORT</key><string>/dev/cu.usbserial-XXXX</string>
+    <key>SERIAL_RX_PORT</key><string>/dev/cu.usbserial-XXXX</string>
+    <key>SERIAL_TX_PORT</key><string>/dev/cu.usbserial-YYYY</string>
     <key>DATABASE_URL</key><string>postgresql://eam_user:CHANGE_ME@localhost:5432/eam_db</string>
     <key>JWT_SECRET</key><string>CHANGE_ME</string>
   </dict>
@@ -157,7 +181,7 @@ A minimal `com.easun-monitor.server.plist` (adjust paths; build first with
 </plist>
 ```
 
-`NODE_ENV=development` is what keeps the serial sniff available; leave it out
+`NODE_ENV=development` is what keeps the serial capture available; leave it out
 (or set `production`) once you no longer need it.
 
 USB-serial adapters (CP210x, CH340, FTDI) are usually readable by any local
