@@ -78,6 +78,25 @@ describe('groupIntoSections', () => {
     expect(sections[4].registers.map((r) => r.name)).toEqual(['OutputMode', 'RemoteSwitch']);
   });
 
+  it('places the settings found on the device with their related settings', () => {
+    const setting = (name: string, address: number): RegisterDefinition => ({
+      name, label: name, address, type: 'uint16', group: 'settings', writable: true,
+    });
+    const sections = groupIntoSections([
+      setting('BeepsWhilePrimarySourceInterrupted', 304),
+      setting('TimeFromCVToFloating', 330),
+      setting('AutoACOutput', 338),
+      setting('LowDcProtectionSocGrid', 341),
+      setting('SocRecoveryMains', 342),
+      setting('OffGridSocProtection', 343),
+    ]);
+    expect(sections.map((s) => [s.title, s.registers.map((r) => r.name)])).toEqual([
+      ['Battery and charging', ['TimeFromCVToFloating', 'LowDcProtectionSocGrid', 'SocRecoveryMains', 'OffGridSocProtection']],
+      ['Display and sound', ['BeepsWhilePrimarySourceInterrupted']],
+      ['Power control', ['AutoACOutput']],
+    ]);
+  });
+
   it("orders settings like the manual's setting programs, not by address", () => {
     const setting = (name: string, address: number): RegisterDefinition => ({
       name, label: name, address, type: 'uint16', group: 'settings', writable: true,

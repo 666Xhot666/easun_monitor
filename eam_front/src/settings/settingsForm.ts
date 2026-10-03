@@ -38,6 +38,10 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'MaxChargingVoltage', // 26
       'FloatingChargingVoltage', // 27
       'BatteryLowVoltageProtectionOffGrid', // 29
+      'TimeFromCVToFloating',
+      'LowDcProtectionSocGrid',
+      'SocRecoveryMains',
+      'OffGridSocProtection',
     ],
   },
   {
@@ -62,11 +66,12 @@ const SECTIONS: { title: string; names: string[] }[] = [
     title: 'Display and sound',
     names: [
       'BuzzerMode', // 18
+      'BeepsWhilePrimarySourceInterrupted',
       'LcdAutoReturn', // 19
       'LcdBacklight', // 20
     ],
   },
-  { title: 'Power control', names: ['EnergySavingMode', 'TurnOnMode'] },
+  { title: 'Power control', names: ['EnergySavingMode', 'AutoACOutput', 'TurnOnMode'] },
 ];
 
 const settingsOf = (definitions: RegisterDefinition[]) =>
