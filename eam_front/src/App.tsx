@@ -11,6 +11,7 @@ import RegisterPage from './pages/RegisterPage'
 import SetupWizard from './pages/SetupWizard'
 import InverterSettings from './pages/InverterSettings'
 import Dashboard from './Dashboard'
+import DevSerialSniff from './pages/DevSerialSniff'
 
 function App() {
   return (
@@ -25,6 +26,9 @@ function App() {
           {/* Reachable even once a user already has one or more paired
               inverters — that's how "+ Add inverter" pairs another one. */}
           <Route path="/setup" element={<SetupWizard />} />
+
+          {/* Dev builds only; the server also refuses outside development. */}
+          {import.meta.env.DEV && <Route path="/dev/serial" element={<DevSerialSniff />} />}
 
           <Route element={<RequireInverterProfile />}>
             <Route path="/dashboard" element={<DashboardIndexRedirect />} />
