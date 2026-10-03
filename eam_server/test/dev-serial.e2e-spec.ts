@@ -1,5 +1,5 @@
 import { INestApplication } from '@nestjs/common';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import request from 'supertest';
@@ -106,6 +106,28 @@ describe('Dev serial capture (e2e)', () => {
 
     const summary = await call('get', `/api/dev/serial/captures/${captureId}/summary?batteryVoltage=24`).expect(200);
     expect(summary.body.addresses[0]).toMatchObject({ name: 'MaxChargingVoltage', category: 'implausible' });
+  });
+
+  it('suggests names for unknown addresses from a ground-truth snapshot', async () => {
+    mkdirSync(join(dir, 'ground-truth'), { recursive: true });
+    writeFileSync(
+      join(dir, 'ground-truth', 'cloud-snapshot.json'),
+      JSON.stringify({ capturedAt: new Date().toISOString(), source: 'vendor cloud app', fields: { inverter: 3900 } }),
+    );
+    await call('post', '/api/dev/serial/start').send({ rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx' }).expect(201);
+    taps.get('/dev/cu.tx')!.receive('01 03 02 e9 00 01 54 46'); // read 745, not in the register map
+    taps.get('/dev/cu.rx')!.receive('01 03 02 0f 3c bd a5'); // 3900
+    const { captureId } = (await call('get', '/api/dev/serial?since=0').expect(200)).body;
+
+    const snapshots = await call('get', '/api/dev/serial/ground-truth').expect(200);
+    expect(snapshots.body).toEqual([expect.objectContaining({ id: 'cloud-snapshot', source: 'vendor cloud app' })]);
+
+    const summary = await call('get', `/api/dev/serial/captures/${captureId}/summary?groundTruth=cloud-snapshot`).expect(200);
+    expect(summary.body.groundTruth).toMatchObject({ id: 'cloud-snapshot' });
+    expect(summary.body.suggestions).toEqual([
+      expect.objectContaining({ address: 745, raw: 3900, matches: [expect.objectContaining({ field: 'inverter', scale: 1 })] }),
+    ]);
+    await call('get', `/api/dev/serial/captures/${captureId}/summary?groundTruth=nope`).expect(404);
   });
 
   it('offers the configured ports and baud rates', async () => {
