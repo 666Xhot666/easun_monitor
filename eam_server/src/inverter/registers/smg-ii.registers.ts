@@ -148,6 +148,12 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
       'Panel Mode 4: sounds only when there is a fault.',
     ],
   },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'BeepsWhilePrimarySourceInterrupted', label: 'Beep when input source changes', address: 304, type: 'uint16', group: 'settings', writable: true,
+    options: ['Beeps OFF', 'Beeps ON'],
+    description: 'Controls whether the buzzer beeps when the primary input source is interrupted. This is separate from the buzzer mode setting.',
+  },
   {
     name: 'LcdBacklight', label: 'Backlight', address: 305, type: 'uint16', group: 'settings', writable: true,
     options: ['Backlight off (timed)', 'Backlight on'],
@@ -236,6 +242,11 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     panelProgram: '29', defaultByBatteryVoltage: { 12: 10.5, 24: 21, 48: 42 },
     description: 'Low DC cut-off: the inverter stops discharging the battery at this voltage, whatever the load. Must be below the back-to-utility point. For lithium without BMS communication, set it at least 2 V above the BMS discharge protection voltage.',
   },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'TimeFromCVToFloating', label: 'Time from bulk to floating charge', address: 330, type: 'uint16', group: 'settings', writable: true, unit: 'min',
+    description: 'Sets how long the charger stays in the bulk constant-voltage stage before dropping to float charge.',
+  },
   {
     name: 'BatteryChargingPriority', label: 'Charger source priority', address: 331, type: 'uint16', group: 'settings', writable: true,
     options: ['Utility first (not on the panel)', 'Solar first (CSO)', 'Solar and utility (SNU)', 'Only solar (OSO)'],
@@ -277,6 +288,27 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     name: 'TwoEqChargingIntervals', label: 'Equalization interval', address: 337, type: 'uint16', unit: 'days', group: 'settings', writable: true, min: 1, max: 90,
     panelProgram: '37', default: 30,
     description: 'Days between equalization charges. Equalization starts in the float stage when the interval comes round.',
+  },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'AutoACOutput', label: 'Auto AC output', address: 338, type: 'uint16', group: 'settings', writable: true,
+    options: ['Disable with power switch OFF', 'Enable with power switch ON'],
+    description: 'Controls whether the AC output follows the inverter power switch.',
+  },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'LowDcProtectionSocGrid', label: 'Low DC protection SOC (grid mode)', address: 341, type: 'uint16', group: 'settings', writable: true, unit: '%', min: 0, max: 100,
+    description: 'Sets the battery state of charge at which the inverter stops discharging the battery and switches the loads to utility in grid mode.',
+  },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'SocRecoveryMains', label: 'SOC recovery value (mains mode)', address: 342, type: 'uint16', group: 'settings', writable: true, unit: '%', min: 0, max: 100,
+    description: 'Sets the battery state of charge at which the inverter returns the loads to battery after a low SOC switch to utility in mains mode.',
+  },
+  // Not in the protocol PDF; read from the device in a Modbus capture.
+  {
+    name: 'OffGridSocProtection', label: 'Off-grid battery discharge SOC protection', address: 343, type: 'uint16', group: 'settings', writable: true, unit: '%', min: 0, max: 100,
+    description: 'Sets the battery state of charge at which the inverter stops discharging the battery when no utility is available.',
   },
   {
     name: 'TurnOnMode', label: 'Turn-on mode', address: 406, type: 'uint16', group: 'settings', writable: true,

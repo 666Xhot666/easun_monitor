@@ -174,6 +174,18 @@ describe('SMG-II register table', () => {
     expect(smg.get('OutputMode')?.risk).toMatch(/selectable but undocumented/);
   });
 
+  it('includes the settings found on the device beyond the protocol document', () => {
+    expect(smg.get('BeepsWhilePrimarySourceInterrupted')).toMatchObject({ address: 304, writable: true, options: ['Beeps OFF', 'Beeps ON'] });
+    expect(smg.get('TimeFromCVToFloating')).toMatchObject({ address: 330, writable: true, unit: 'min' });
+    expect(smg.get('AutoACOutput')).toMatchObject({
+      address: 338, writable: true, options: ['Disable with power switch OFF', 'Enable with power switch ON'],
+    });
+    for (const [name, address] of [['LowDcProtectionSocGrid', 341], ['SocRecoveryMains', 342], ['OffGridSocProtection', 343]] as const) {
+      expect(smg.get(name)).toMatchObject({ address, writable: true, unit: '%', min: 0, max: 100 });
+    }
+    expect(() => smg.encode('SocRecoveryMains', 101)).toThrow(/between 0 and 100/);
+  });
+
   it('accepts only the output voltages and frequencies the panel offers', () => {
     expect(smg.encode('OutputVoltageSet', 240)).toEqual({ address: 320, values: [2400] });
     expect(() => smg.encode('OutputVoltageSet', 231)).toThrow(/220, 230 or 240 V/);
