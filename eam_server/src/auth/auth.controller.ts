@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
   Post,
   Req,
   Res,
@@ -51,6 +52,23 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
     const tokens = await this.authService.login(dto.email, dto.password);
+    return this.respondWithTokens(tokens, res);
+  }
+
+  /**
+   * Dev-mode auto-login: signs in as DEV_AUTO_LOGIN_EMAIL without a
+   * password. Exists only when NODE_ENV is not production AND
+   * DEV_AUTO_LOGIN=true; two independent checks, so a production
+   * deployment with the flag set by mistake still gets a 404.
+   */
+  @Get('dev-login')
+  async devLogin(@Res({ passthrough: true }) res: Response): Promise<AuthResult> {
+    const notFound = () => new NotFoundException();
+    if (this.configService.get<string>('NODE_ENV') === 'production') throw notFound();
+    if (this.configService.get<string>('DEV_AUTO_LOGIN') !== 'true') throw notFound();
+    const email = this.configService.get<string>('DEV_AUTO_LOGIN_EMAIL');
+    const tokens = email ? await this.authService.devLogin(email) : null;
+    if (!tokens) throw notFound();
     return this.respondWithTokens(tokens, res);
   }
 

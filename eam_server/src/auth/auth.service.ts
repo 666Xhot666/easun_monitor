@@ -120,6 +120,16 @@ export class AuthService {
   }
 
   /**
+   * Issues tokens for an existing account without a password, for dev-mode
+   * auto-login only; the caller is responsible for the dev-mode gate.
+   * Null when no such account exists.
+   */
+  async devLogin(email: string): Promise<IssuedTokens | null> {
+    const user = await this.prisma.user.findUnique({ where: { email } });
+    return user ? this.issueTokens(user.id, user.email) : null;
+  }
+
+  /**
    * Exchanges a still-valid refresh token for a fresh access token, and
    * rotates the refresh token in the same operation: the presented one
    * is revoked, and a brand new one is issued and stored. A stolen
