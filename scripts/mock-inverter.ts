@@ -93,8 +93,17 @@ const logger = new InMemoryLogger({
   },
 });
 
+/** Text as register words: two characters per word, NUL padded. */
+function textWords(definition: RegisterDefinition, text: string): number[] {
+  const bytes = Buffer.alloc(wordCount(definition) * 2);
+  bytes.write(text, 'latin1');
+  return Array.from({ length: wordCount(definition) }, (_, i) => bytes.readUInt16BE(i * 2));
+}
+
 for (const definition of definitions) {
-  if (definition.group !== 'telemetry') {
+  if (definition.type === 'ascii') {
+    logger.set(definition.address, textWords(definition, 'MOCK-SMG-0001'));
+  } else if (definition.group !== 'telemetry') {
     logger.set(definition.address, toWords(definition, realValue(definition)));
   }
 }
