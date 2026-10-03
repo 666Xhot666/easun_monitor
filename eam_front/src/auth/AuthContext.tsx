@@ -14,7 +14,27 @@ async function fetchCurrentUser(): Promise<AuthUser> {
   return data;
 }
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+/** Dev-mode auto-login; null when the server doesn't offer it (404). */
+async function tryDevLogin(): Promise<AuthUser | null> {
+  try {
+    const { data } = await axios.get<AuthResponse>('/api/auth/dev-login');
+    setAccessToken(data.accessToken);
+    return await fetchCurrentUser();
+  } catch {
+    clearAccessToken();
+    return null;
+  }
+}
+
+export function AuthProvider({
+  children,
+  devAutoLogin = import.meta.env.DEV,
+}: {
+  children: ReactNode;
+  /** Try GET /api/auth/dev-login when no session can be restored. The
+   * server only answers it in development with DEV_AUTO_LOGIN=true. */
+  devAutoLogin?: boolean;
+}) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -35,7 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setUser(me);
       } catch {
         clearAccessToken();
-        if (!cancelled) setUser(null);
+        const me = devAutoLogin ? await tryDevLogin() : null;
+        if (!cancelled) setUser(me);
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -45,7 +66,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [devAutoLogin]);
 
   const applyAuthResponse = useCallback(async (auth: AuthResponse) => {
     setAccessToken(auth.accessToken);

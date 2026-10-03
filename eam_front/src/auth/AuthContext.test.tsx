@@ -53,4 +53,43 @@ describe('AuthProvider', () => {
     expect(call?.method).toBe('post');
     expect(call?.headers.get('Authorization')).toBe('Bearer t1');
   });
+
+  describe('dev-mode auto-login', () => {
+    const noSession = (devLogin: { status: number; data?: unknown }) =>
+      fakeServer((config) =>
+        config.url === '/api/auth/refresh'
+          ? { status: 401, data: { message: 'No refresh token provided' } }
+          : config.url === '/api/auth/dev-login'
+            ? devLogin
+            : { status: 200, data: me },
+      );
+
+    it('signs in through dev-login when there is no session to restore', async () => {
+      const server = noSession({ status: 200, data: { accessToken: 'dev', user: me } });
+      restore = server.restore;
+
+      render(<AuthProvider devAutoLogin><Probe /></AuthProvider>);
+
+      expect(await screen.findByText('signed in as owner@example.com')).toBeInTheDocument();
+      expect(server.sent.find((c) => c.url === '/api/auth/me')?.headers.get('Authorization')).toBe('Bearer dev');
+    });
+
+    it('stays signed out when the server has dev-login turned off', async () => {
+      restore = noSession({ status: 404, data: { message: 'Not Found' } }).restore;
+
+      render(<AuthProvider devAutoLogin><Probe /></AuthProvider>);
+
+      expect(await screen.findByText('signed out')).toBeInTheDocument();
+    });
+
+    it('never tries dev-login outside dev builds', async () => {
+      const server = noSession({ status: 200, data: { accessToken: 'dev', user: me } });
+      restore = server.restore;
+
+      render(<AuthProvider devAutoLogin={false}><Probe /></AuthProvider>);
+
+      expect(await screen.findByText('signed out')).toBeInTheDocument();
+      expect(server.sent.some((c) => c.url === '/api/auth/dev-login')).toBe(false);
+    });
+  });
 });
