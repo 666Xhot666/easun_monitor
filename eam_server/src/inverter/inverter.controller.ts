@@ -342,6 +342,16 @@ export class InverterController {
     }
   }
 
+  /** Fixed facts read from the inverter itself, e.g. its serial number. */
+  @Get(':profileId/device-info')
+  async getDeviceInfo(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    return this.deviceCall(() => this.links.get(profile.ipAddress, profile.port).readText('info'));
+  }
+
   /**
    * Clears the inverter's fault state. The protocol only honours this in
    * fault mode, so the operating mode is read live first.
