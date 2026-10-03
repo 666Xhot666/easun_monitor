@@ -47,7 +47,6 @@ export default function InverterSettings() {
   const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [panelSettings, setPanelSettings] = useState<PanelSetting[]>([]);
-  const [serialNumber, setSerialNumber] = useState<string | null>(null);
 
   const original = useMemo(
     () => (registers && snapshot ? toFormValues(registers, snapshot.values) : {}),
@@ -136,19 +135,6 @@ export default function InverterSettings() {
       return next;
     });
   }
-
-  useEffect(() => {
-    let cancelled = false;
-    axios
-      .get<{ SerialNumber?: string }>(`/api/inverter/${profileId}/device-info`)
-      .then(({ data }) => {
-        if (!cancelled && data.SerialNumber) setSerialNumber(data.SerialNumber);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [profileId]);
 
   async function refresh() {
     setRefreshing(true);
@@ -315,12 +301,6 @@ export default function InverterSettings() {
                         onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
                       />
                     ))}
-                    {section.title === 'Device information' && serialNumber && (
-                      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Serial number</span>
-                        <span className="font-mono text-sm text-gray-600 dark:text-gray-300">{serialNumber}</span>
-                      </div>
-                    )}
                   </div>
                 )}
               </section>

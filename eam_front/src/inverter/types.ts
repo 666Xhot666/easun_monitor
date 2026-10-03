@@ -14,13 +14,11 @@ export interface RegisterDefinition {
   name: string;
   label: string;
   address: number;
-  type: 'uint16' | 'int16' | 'uint32' | 'ascii';
-  /** Words an ascii register spans. */
-  length?: number;
+  type: 'uint16' | 'int16' | 'uint32';
   scale?: number;
   unit?: string;
   options?: readonly string[];
-  group: 'telemetry' | 'settings' | 'status' | 'command' | 'info';
+  group: 'telemetry' | 'settings' | 'status';
   writable?: boolean;
   min?: number;
   max?: number;

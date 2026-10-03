@@ -12,17 +12,15 @@
  * it with Node's type stripping.
  */
 
-/** ascii: text over `length` words, two characters per word, high byte first. */
-export type RegisterType = 'uint16' | 'int16' | 'uint32' | 'ascii';
+export type RegisterType = 'uint16' | 'int16' | 'uint32';
 
 /**
  * telemetry: live measurements, polled every cycle.
  * settings: configuration, read on demand and on a slow cadence.
  * status: fault and warning bitfields, polled with telemetry.
  * command: write-only actions, never read.
- * info: fixed device facts (e.g. serial number), read on demand.
  */
-export type RegisterGroup = 'telemetry' | 'settings' | 'status' | 'command' | 'info';
+export type RegisterGroup = 'telemetry' | 'settings' | 'status' | 'command';
 
 export interface RegisterDefinition {
   /** Stable key, used in stored readings and by the frontend. */
@@ -32,8 +30,6 @@ export interface RegisterDefinition {
   /** Decimal register address, as in the vendor protocol document. */
   address: number;
   type: RegisterType;
-  /** Words an ascii register spans. */
-  length?: number;
   /** real value = raw * scale (default 1). */
   scale?: number;
   unit?: string;
@@ -135,25 +131,11 @@ export class RegisterMap {
   }
 
   /** Decodes the raw words of one block into named real values. */
-  /** Text registers fully inside a block: name -> text, trailing NULs and
-   * spaces removed. */
-  decodeText(block: RegisterBlock, words: readonly number[]): Record<string, string> {
-    const text: Record<string, string> = {};
-    for (const definition of this.definitions) {
-      if (definition.type !== 'ascii') continue;
-      const offset = definition.address - block.address;
-      if (offset < 0 || offset + wordCount(definition) > block.count) continue;
-      const bytes = words.slice(offset, offset + wordCount(definition)).flatMap((word) => [word >> 8, word & 0xff]);
-      text[definition.name] = String.fromCharCode(...bytes).replace(/[\0 ]+$/, '');
-    }
-    return text;
-  }
-
   decodeBlock(block: RegisterBlock, words: readonly number[]): Reading {
     const reading: Reading = {};
     for (const definition of this.definitions) {
       const offset = definition.address - block.address;
-      if (offset < 0 || offset + wordCount(definition) > block.count || definition.type === 'ascii') continue;
+      if (offset < 0 || offset + wordCount(definition) > block.count) continue;
       reading[definition.name] = decode(definition, words.slice(offset, offset + wordCount(definition)));
     }
     return reading;
@@ -223,7 +205,6 @@ function listChoices(choices: readonly number[]): string {
 }
 
 export function wordCount(definition: RegisterDefinition): number {
-  if (definition.type === 'ascii') return definition.length ?? 1;
   return definition.type === 'uint32' ? 2 : 1;
 }
 

@@ -2,7 +2,6 @@ import { Module, type OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SerialSniffController } from './serial-sniff.controller';
 import { CaptureStore } from './capture-store';
-import { GroundTruthStore } from './ground-truth-store';
 import { SerialCapture } from './serial-capture';
 import type { SerialTapFactory } from './serial-capture';
 import { openSerialTap } from './serial-port-tap';
@@ -18,12 +17,6 @@ export const SERIAL_TAP_FACTORY = Symbol('SERIAL_TAP_FACTORY');
       provide: CaptureStore,
       inject: [ConfigService],
       useFactory: (config: ConfigService) => new CaptureStore(config.get<string>('DEV_CAPTURE_DIR') ?? '.dev-captures'),
-    },
-    {
-      provide: GroundTruthStore,
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) =>
-        new GroundTruthStore(config.get<string>('DEV_CAPTURE_DIR') ?? '.dev-captures'),
     },
     {
       provide: SerialCapture,

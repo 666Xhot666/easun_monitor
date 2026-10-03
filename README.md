@@ -124,37 +124,6 @@ reconnects, and one row per address with its latest value. Enter the battery
 voltage to also check values against that battery's ranges. The capture never
 edits the register map: unknown addresses are for a person to review and add.
 
-**Reference readings.** To get names suggested for unknown
-addresses, save a reading transcribed by hand from the vendor's
-cloud app (its "Data Details" screen) as a JSON file in the
-ground-truth folder inside `DEV_CAPTURE_DIR` (so
-`.dev-captures/ground-truth/` by default). Nothing writes these
-files automatically; the app never talks to the cloud. The
-format is a `capturedAt` time with its UTC offset and a flat
-`fields` object of name to value; `source` and `notes` are
-optional. Choose it as the reference reading in the Summary
-tab. For each unknown address, the value seen closest to that
-time is scaled by 1, 0.1 and 0.01 and compared with every
-numeric field, within the precision the field shows. Matches
-are suggestions, ranked: exact before close, settings before
-fast-changing values such as power or current, then more
-matching digits. Each shows how far the reading was from the
-value. A raw 0 is shown as a count of zero fields instead of
-a list. Text fields are not matched. A suggestion is a lead
-to check, never an edit to the register map.
-
-```json
-{
-  "capturedAt": "2026-10-03T21:04:18+03:00",
-  "source": "vendor cloud app",
-  "fields": {
-    "inverter": 3900,
-    "batteryVoltageV": 27.4,
-    "outputPriority": "SUB"
-  }
-}
-```
-
 Docker Desktop on macOS can't pass USB devices into containers, so for the
 serial capture run the server natively against the compose database:
 

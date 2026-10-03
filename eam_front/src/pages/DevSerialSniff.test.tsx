@@ -104,11 +104,9 @@ describe('DevSerialSniff page', () => {
     const server = renderPage((_method, url) =>
       url === '/api/dev/serial/captures'
         ? { status: 200, data: [summary.meta] }
-        : url === '/api/dev/serial/ground-truth'
-          ? { status: 200, data: [] }
-          : url.startsWith('/api/dev/serial/captures/cap-1/summary')
-            ? { status: 200, data: summary }
-            : { status: 200, data: idle },
+        : url.startsWith('/api/dev/serial/captures/cap-1/summary')
+          ? { status: 200, data: summary }
+          : { status: 200, data: idle },
     );
     restore = server.restore;
 
@@ -127,62 +125,6 @@ describe('DevSerialSniff page', () => {
     expect(screen.getByText('344').closest('tr')).toHaveTextContent('unknown');
     expect(screen.getByText('322 ×22')).toBeInTheDocument();
     expect(server.sent.some((c) => c.url === '/api/dev/serial/captures/cap-1/summary?batteryVoltage=24')).toBe(true);
-  });
-
-  it('suggests names for unknown addresses from a chosen reference reading', async () => {
-    const reference = { id: 'cloud-21-04', capturedAt: '2026-10-03T21:04:18+03:00', source: 'vendor cloud app' };
-    const suggestion = {
-      address: 344, raw: 3900, at: 0, gapMs: 252_000,
-      matches: [{ field: 'inverter', value: 3900, scale: 1, exact: true, digits: 2, stable: true }],
-    };
-    const server = renderPage((_method, url) =>
-      url === '/api/dev/serial/captures'
-        ? { status: 200, data: [summary.meta] }
-        : url === '/api/dev/serial/ground-truth'
-          ? { status: 200, data: [reference] }
-          : url.startsWith('/api/dev/serial/captures/cap-1/summary')
-            ? { status: 200, data: { ...summary, groundTruth: { ...reference, fields: {} }, suggestions: [suggestion] } }
-            : { status: 200, data: idle },
-    );
-    restore = server.restore;
-
-    await userEvent.click(await screen.findByRole('tab', { name: 'Summary' }));
-    await userEvent.selectOptions(await screen.findByLabelText('Capture'), 'cap-1');
-    await userEvent.selectOptions(await screen.findByLabelText('Reference reading'), 'cloud-21-04');
-    await userEvent.click(screen.getByRole('button', { name: 'Summarise' }));
-
-    const unknown = (await screen.findByText('344')).closest('tr')!;
-    expect(within(unknown).getByText('inverter = 3900')).toBeInTheDocument();
-    expect(within(unknown).getByText('cloud reading 4m12s after this value')).toBeInTheDocument();
-    expect(screen.queryByText(/more than 30 minutes/)).toBeNull();
-    expect(server.sent.some((c) => c.url === '/api/dev/serial/captures/cap-1/summary?groundTruth=cloud-21-04')).toBe(true);
-  });
-
-  it('warns when the reference reading is far from everything in the capture', async () => {
-    const reference = { id: 'old', capturedAt: '2026-10-01T09:00:00+03:00' };
-    restore = renderPage((_method, url) =>
-      url === '/api/dev/serial/captures'
-        ? { status: 200, data: [summary.meta] }
-        : url === '/api/dev/serial/ground-truth'
-          ? { status: 200, data: [reference] }
-          : url.startsWith('/api/dev/serial/captures/cap-1/summary')
-            ? {
-                status: 200,
-                data: {
-                  ...summary,
-                  groundTruth: { ...reference, fields: {} },
-                  suggestions: [{ address: 344, raw: 7, at: 0, gapMs: -2 * 86_400_000, matches: [] }],
-                },
-              }
-            : { status: 200, data: idle },
-    ).restore;
-
-    await userEvent.click(await screen.findByRole('tab', { name: 'Summary' }));
-    await userEvent.selectOptions(await screen.findByLabelText('Capture'), 'cap-1');
-    await userEvent.selectOptions(await screen.findByLabelText('Reference reading'), 'old');
-    await userEvent.click(screen.getByRole('button', { name: 'Summarise' }));
-
-    expect(await screen.findByText(/more than 30 minutes from anything in this capture/)).toBeInTheDocument();
   });
 
   it('explains how to turn the capture on when the server has it off', async () => {
