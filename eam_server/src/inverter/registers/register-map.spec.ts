@@ -94,6 +94,27 @@ describe('RegisterMap encode', () => {
   });
 });
 
+describe('RegisterMap text registers', () => {
+  const text = new RegisterMap([
+    { name: 'SerialNumber', label: 'Serial number', address: 186, type: 'ascii', length: 4, group: 'info' },
+    { name: 'Mode', label: 'Mode', address: 201, type: 'uint16', group: 'telemetry' },
+  ]);
+  // "92 33 24 05" packed two characters per word, then NUL padding.
+  const words = [0x3932, 0x3333, 0x3234, 0x0000];
+
+  it('spans its full length and is read as one block', () => {
+    expect(text.blocks('info')).toEqual([{ address: 186, count: 4 }]);
+  });
+
+  it('decodes as text, two characters per word, without trailing padding', () => {
+    expect(text.decodeText({ address: 186, count: 4 }, words)).toEqual({ SerialNumber: '923324' });
+  });
+
+  it('stays out of numeric readings', () => {
+    expect(text.decodeBlock({ address: 186, count: 4 }, words)).toEqual({});
+  });
+});
+
 describe('RegisterMap flags', () => {
   it('lists the labels of the bits set in a bitfield register', () => {
     expect(map.activeFlags('FaultCode', 0b1010)).toEqual(['Inverter over temperature', 'Battery over voltage']);
