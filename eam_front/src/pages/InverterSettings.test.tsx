@@ -36,7 +36,9 @@ function renderPage(
   const server = fakeServer((config) =>
     config.url === '/api/inverter/registers'
       ? { status: 200, data: registers }
-      : config.url === '/api/inverter/panel-settings'
+      : config.url === '/api/inverter/7/device-info'
+        ? { status: 200, data: { SerialNumber: '9233240510217 0' } }
+        : config.url === '/api/inverter/panel-settings'
         ? { status: 200, data: panelSettings }
         : config.url === '/api/inverter/7/settings/constraints'
         ? { status: 200, data: constraints }
@@ -63,6 +65,8 @@ describe('InverterSettings page', () => {
   it('shows the settings read from the inverter, with read-only ones as text', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230, RatedPower: 3200 }) })).restore;
 
+    expect(await screen.findByText('9233240510217 0')).toBeInTheDocument();
+    expect(screen.getByText('Serial number')).toBeInTheDocument();
     expect(await screen.findByLabelText('Output priority')).toHaveValue('2');
     expect(screen.getByLabelText('Output voltage')).toHaveValue(230);
     expect(screen.getByText('3,200 W')).toBeInTheDocument();
