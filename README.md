@@ -62,6 +62,12 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `ALLOW_REGISTRATION` | false | Allow more accounts after the first. |
 | `JWT_EXPIRES_IN` | 15m | Access-token lifetime; sessions renew from a refresh cookie. |
 | `REFRESH_TOKEN_TTL_DAYS` | 30 | How long a sign-in lasts without use. |
+| `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
+| `DEV_AUTO_LOGIN_EMAIL` | | Existing account that dev auto-login signs in as. |
+| `DEV_SERIAL_SNIFF` | false | Development only: enable the serial sniff panel at `/dev/serial`. |
+| `SERIAL_PORT` | | Serial port the sniff panel suggests, e.g. `/dev/cu.usbserial-…`. |
+
+The `DEV_*` options do nothing when `NODE_ENV=production`, whatever their value.
 
 ## Developing without the inverter
 
@@ -73,6 +79,85 @@ Then pair it in the wizard at `host.docker.internal` (Docker Desktop) or your
 host's LAN IP (Docker on Linux), port 8899. Telemetry values move on every
 read; settings keep their value and accept writes. To see alerts, start it with
 fault or warning bits set, e.g. `MOCK_WARNING_CODE=16640 node scripts/mock-inverter.ts`.
+
+## Development tools
+
+Both tools work only when `NODE_ENV` is not `production` **and** their flag is
+set; otherwise their routes answer 404.
+
+**Auto-login.** With `DEV_AUTO_LOGIN=true` and `DEV_AUTO_LOGIN_EMAIL` set to an
+existing account, a dev build of the frontend signs in as that account when it
+loads without a session. It uses your own account rather than a separate
+system user, so you see your inverters.
+
+**Serial sniff.** For checking registers against the real device: a USB-serial
+adapter on the Wi-Fi logger's TTL-side RX pad (9600 8N1) hears the inverter's
+replies. With `DEV_SERIAL_SNIFF=true`, open `/dev/serial` in a dev build, pick
+the port (prefer `/dev/cu.usbserial-*` over `tty.`) and start a capture. The
+port is opened read-only in effect: nothing is ever written to it.
+
+The tap is receive-only, so it never sees the requests: frames are listed in
+capture order with their raw words, never with a register name. Pair a value
+with its address by hand (for example, change a setting in the vendor app and
+note which frame changed); the note field on each frame is for that.
+
+Docker Desktop on macOS can't pass USB devices into containers, so for the
+serial sniff run the server natively against the compose database:
+
+```bash
+docker compose up -d db
+cd eam_server
+DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB" \
+  DEV_SERIAL_SNIFF=true SERIAL_PORT=/dev/cu.usbserial-XXXX npm run start:dev
+```
+
+To run it unattended on a Mac, use a dedicated standard (non-admin) macOS user
+rather than your own login or root, and start it with launchd:
+
+```bash
+sudo sysadminctl -addUser easun-monitor -fullName "EASUN Monitor" -password -   # prompts; no -admin
+sudo cp com.easun-monitor.server.plist /Library/LaunchDaemons/
+sudo launchctl bootstrap system /Library/LaunchDaemons/com.easun-monitor.server.plist
+```
+
+A minimal `com.easun-monitor.server.plist` (adjust paths; build first with
+`npm run build`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.easun-monitor.server</string>
+  <key>UserName</key><string>easun-monitor</string>
+  <key>WorkingDirectory</key><string>/Users/Shared/easun_monitor/eam_server</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/node</string>
+    <string>dist/main</string>
+  </array>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>NODE_ENV</key><string>development</string>
+    <key>DEV_SERIAL_SNIFF</key><string>true</string>
+    <key>SERIAL_PORT</key><string>/dev/cu.usbserial-XXXX</string>
+    <key>DATABASE_URL</key><string>postgresql://eam_user:CHANGE_ME@localhost:5432/eam_db</string>
+    <key>JWT_SECRET</key><string>CHANGE_ME</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/Shared/easun_monitor/server.log</string>
+  <key>StandardErrorPath</key><string>/Users/Shared/easun_monitor/server.err.log</string>
+</dict>
+</plist>
+```
+
+`NODE_ENV=development` is what keeps the serial sniff available; leave it out
+(or set `production`) once you no longer need it.
+
+USB-serial adapters (CP210x, CH340, FTDI) are usually readable by any local
+user on macOS, but check yours: if the service logs a permission error opening
+the port, the driver needs a grant for that user.
 
 ## Tests
 
