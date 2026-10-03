@@ -212,6 +212,16 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     panelProgram: '09', default: 50,
     description: 'The AC output frequency.',
   },
+  // Not in the protocol PDF (322 is listed as reserved); found in a Modbus
+  // capture of the vendor app. Read-only until a capture confirms which raw
+  // value each battery type is: the options follow the manual's order, and
+  // this unit read 8, which the vendor app shows as unset ("--").
+  {
+    name: 'BatteryType', label: 'Battery type', address: 322, type: 'uint16', group: 'settings',
+    options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
+    panelProgram: '05', default: 0,
+    description: 'The battery type set on the inverter\'s panel. With AGM or Flooded the inverter uses its own charge voltages; bulk, floating and low DC cut-off voltages apply only with User-Defined or Lithium. Change it on the panel.',
+  },
   {
     name: 'BatteryOvervoltageProtection', label: 'Battery overvoltage protection', address: 323, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true,
     description: 'Battery voltage at which the inverter stops with fault 03 "battery voltage too high". No panel program; the specification lists 15.5 / 33 / 63 V for 12 / 24 / 48 V models. Keep it above the bulk and equalization voltages.',

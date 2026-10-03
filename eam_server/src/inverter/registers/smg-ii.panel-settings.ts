@@ -21,14 +21,6 @@ export interface PanelSetting {
 
 export const SMG_II_PANEL_SETTINGS: readonly PanelSetting[] = [
   {
-    program: '05',
-    title: 'Battery type',
-    description: 'With AGM or Flooded the inverter uses its own charge voltages; bulk, floating and low DC cut-off voltages set here apply only with User-Defined or Lithium. Equalization can be enabled only with Flooded or User-Defined.',
-    options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
-    default: 'AGM',
-    affects: ['MaxChargingVoltage', 'FloatingChargingVoltage', 'BatteryLowVoltageProtectionOffGrid', 'BatteryEqModeEnabled'],
-  },
-  {
     program: '10',
     title: 'Auto bypass',
     description: 'With "Auto", the loads are bypassed to utility whenever mains is normal, even with the power switch off. Not the same as overload bypass.',

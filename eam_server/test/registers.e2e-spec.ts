@@ -40,15 +40,8 @@ describe('Register metadata and decoded alerts (e2e)', () => {
       .expect(200);
 
     const byProgram = Object.fromEntries(res.body.map((s: { program: string }) => [s.program, s]));
-    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['05', '10', '13', '25', '32', '39', '41', '42', '46']);
-    expect(byProgram['05']).toMatchObject({
-      title: 'Battery type',
-      default: 'AGM',
-      options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
-    });
-    expect(byProgram['05'].affects).toEqual(
-      expect.arrayContaining(['MaxChargingVoltage', 'BatteryEqModeEnabled']),
-    );
+    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['10', '13', '25', '32', '39', '41', '42', '46']);
+    expect(byProgram['10']).toMatchObject({ title: 'Auto bypass', default: 'Manual' });
   });
 
   it('adds the active faults and warnings to the latest reading', async () => {

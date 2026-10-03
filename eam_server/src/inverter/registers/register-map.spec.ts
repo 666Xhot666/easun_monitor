@@ -179,6 +179,10 @@ describe('SMG-II register table', () => {
   it('includes the settings found on the device beyond the protocol document', () => {
     expect(smg.get('BeepsWhilePrimarySourceInterrupted')).toMatchObject({ address: 304, writable: true, options: ['Beeps OFF', 'Beeps ON'] });
     expect(smg.get('TimeFromCVToFloating')).toMatchObject({ address: 330, writable: true, unit: 'min' });
+    expect(smg.get('BatteryType')).toMatchObject({
+      address: 322, panelProgram: '05', options: ['AGM', 'Flooded', 'User-Defined', 'Lithium without communication'],
+    });
+    expect(smg.get('BatteryType')?.writable).toBeFalsy();
     expect(smg.get('AutoACOutput')).toMatchObject({
       address: 338, writable: true, options: ['Disable with power switch OFF', 'Enable with power switch ON'],
     });
