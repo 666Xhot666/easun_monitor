@@ -102,9 +102,11 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   // (docs/smg-ii-manual-settings.json); "program NN" is the LCD setting.
   {
     name: 'OutputMode', label: 'Output mode', address: 300, type: 'uint16', group: 'settings', writable: true,
-    options: ['Single', 'Parallel', '3-phase P1', '3-phase P2', '3-phase P3'],
+    // The 2-phase modes are listed by the vendor's app after 3-phase P3, so
+    // raw 5 and 6 by position; not captured from the device.
+    options: ['Single', 'Parallel', '3-phase P1', '3-phase P2', '3-phase P3', '2-phase P1', '2-phase P2'],
     description: 'Whether this inverter runs alone or as part of a parallel or 3-phase system. Maximum discharge current protection (program 46) is only available in Single.',
-    risk: 'The manual documents no parallel or 3-phase operation for this inverter. Anything but Single may stop the AC output.',
+    risk: 'Parallel, 3-phase and 2-phase modes are selectable but undocumented for this model, and untested. Anything but Single may stop the AC output.',
   },
   {
     name: 'OutputPriority', label: 'Output source priority', address: 301, type: 'uint16', group: 'settings', writable: true,

@@ -170,6 +170,8 @@ describe('SMG-II register table', () => {
     const risky = smg.list('settings').filter((d) => d.risk).map((d) => d.name);
     expect(risky).toEqual(['OutputMode', 'BatteryOvervoltageProtection', 'TurnOnMode', 'RemoteSwitch']);
     expect(smg.get('RemoteSwitch')?.risk).toMatch(/AC output/);
+    expect(smg.get('OutputMode')?.options?.slice(5)).toEqual(['2-phase P1', '2-phase P2']);
+    expect(smg.get('OutputMode')?.risk).toMatch(/selectable but undocumented/);
   });
 
   it('accepts only the output voltages and frequencies the panel offers', () => {
