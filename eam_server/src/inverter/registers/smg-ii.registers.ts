@@ -108,13 +108,16 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   },
   {
     name: 'OutputPriority', label: 'Output source priority', address: 301, type: 'uint16', group: 'settings', writable: true,
-    options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)'],
+    // SUB (3) is missing from the protocol PDF; confirmed on the device by a
+    // Modbus capture with the inverter's own screen showing SUB.
+    options: ['Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)', 'Solar-utility-battery (SUB)'],
     panelProgram: '01', default: 0,
     description: 'Which source powers the loads first.',
     optionDescriptions: [
       'Utility powers the loads. Solar and battery power them only when utility is not available.',
       'Solar powers the loads, with the battery helping when solar is not enough. Utility takes over when solar is not available or the battery drops to the low-level warning or the voltage set in program 12.',
       'Solar powers the loads, with the battery helping when solar is not enough. Utility takes over only when the battery drops to the low-level warning or the voltage set in program 12.',
+      'Solar charges the battery first, then powers the loads. Utility powers the loads alongside when solar is not enough.',
     ],
   },
   {

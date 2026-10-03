@@ -116,7 +116,10 @@ describe('SMG-II register table', () => {
     expect(smg.get('MainsVoltage')).toMatchObject({ address: 202, scale: 0.1, unit: 'V' });
     expect(smg.get('BatterySoc')).toMatchObject({ address: 229, unit: '%' });
     expect(smg.get('OutputVoltageSet')).toMatchObject({ address: 320, writable: true });
-    expect(smg.get('OutputPriority')?.options).toHaveLength(3);
+    expect(smg.get('OutputPriority')?.options).toEqual([
+      'Utility first (UTI)', 'Solar first (SOL)', 'Solar-battery-utility (SBU)', 'Solar-utility-battery (SUB)',
+    ]);
+    expect(smg.encode('OutputPriority', 3)).toEqual({ address: 301, values: [3] });
     expect(smg.get('RatedPower')?.writable).toBeFalsy();
   });
 

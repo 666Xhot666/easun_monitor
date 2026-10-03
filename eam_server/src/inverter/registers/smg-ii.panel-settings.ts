@@ -21,13 +21,6 @@ export interface PanelSetting {
 
 export const SMG_II_PANEL_SETTINGS: readonly PanelSetting[] = [
   {
-    program: '01',
-    title: 'Output source priority: SUB priority',
-    description: 'A fourth output priority on the panel: solar charges the battery first, then powers the loads, with utility helping when solar is not enough. The protocol has no value for it; if the panel is set to SUB, the page may show an unknown output priority.',
-    default: 'Utility first',
-    affects: ['OutputPriority'],
-  },
-  {
     program: '03',
     title: 'AC input voltage range: Generator',
     description: 'A third input range on the panel: accepts 90-280 VAC and is compatible with generators, whose unstable output may make the inverter output unstable too. The protocol has no value for it.',

@@ -30,7 +30,7 @@ describe('Register metadata and decoded alerts (e2e)', () => {
     const byName = Object.fromEntries(res.body.map((d: { name: string }) => [d.name, d]));
     expect(byName.MainsVoltage).toMatchObject({ label: 'Mains voltage', unit: 'V', group: 'telemetry', scale: 0.1 });
     expect(byName.OutputPriority).toMatchObject({ group: 'settings', writable: true });
-    expect(byName.OutputPriority.options).toHaveLength(3);
+    expect(byName.OutputPriority.options).toHaveLength(4);
   });
 
   it('lists the settings that exist only on the inverter panel', async () => {
@@ -40,7 +40,7 @@ describe('Register metadata and decoded alerts (e2e)', () => {
       .expect(200);
 
     const byProgram = Object.fromEntries(res.body.map((s: { program: string }) => [s.program, s]));
-    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['01', '03', '05', '10', '13', '25', '32', '39', '41', '42', '46']);
+    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['03', '05', '10', '13', '25', '32', '39', '41', '42', '46']);
     expect(byProgram['05']).toMatchObject({
       title: 'Battery type',
       default: 'AGM',
@@ -49,7 +49,6 @@ describe('Register metadata and decoded alerts (e2e)', () => {
     expect(byProgram['05'].affects).toEqual(
       expect.arrayContaining(['MaxChargingVoltage', 'BatteryEqModeEnabled']),
     );
-    expect(byProgram['01'].title).toMatch(/SUB priority/);
   });
 
   it('adds the active faults and warnings to the latest reading', async () => {
