@@ -153,6 +153,10 @@ describe('SMG-II register table', () => {
       label: 'AC input voltage range',
       options: ['Appliances (90-280 V)', 'UPS (170-280 V)', 'Generator (90-280 V)'],
     });
+    expect(smg.get('BuzzerMode')?.options).toEqual([
+      'Beeps OFF', 'Beeps ON', 'Mute when input source changes', 'Beeps only in fault mode',
+    ]);
+    expect(smg.get('BuzzerMode')?.optionDescriptions?.[2]).toMatch(/Mode 3/);
     expect(smg.get('LcdBacklight')?.options).toEqual(['Backlight off (timed)', 'Backlight on']);
     expect(smg.get('LcdAutoReturn')?.options).toEqual(['Stay at latest screen', 'Return to default screen']);
     expect(smg.get('BatteryChargingPriority')?.options?.[0]).toBe('Utility first (not on the panel)');

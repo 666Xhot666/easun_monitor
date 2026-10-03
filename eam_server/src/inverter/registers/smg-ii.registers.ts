@@ -135,14 +135,15 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   },
   {
     name: 'BuzzerMode', label: 'Buzzer', address: 303, type: 'uint16', group: 'settings', writable: true,
-    options: ['Mode 1: mute', 'Mode 2: source change, warning or fault', 'Mode 3: warning or fault', 'Mode 4: fault only'],
+    // Labels as in the vendor's app; the panel calls them Mode 1-4.
+    options: ['Beeps OFF', 'Beeps ON', 'Mute when input source changes', 'Beeps only in fault mode'],
     panelProgram: '18', default: 3,
     description: 'When the buzzer sounds.',
     optionDescriptions: [
-      'Mode 1: buzzer muted.',
-      'Mode 2: sounds when the input source changes or there is a specific warning or fault.',
-      'Mode 3: sounds when there is a specific warning or fault.',
-      'Mode 4: sounds when there is a fault.',
+      'Panel Mode 1: buzzer muted.',
+      'Panel Mode 2: sounds when the input source changes or there is a specific warning or fault.',
+      'Panel Mode 3: sounds when there is a specific warning or fault, but not when the input source changes.',
+      'Panel Mode 4: sounds only when there is a fault.',
     ],
   },
   {
