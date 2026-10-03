@@ -10,6 +10,7 @@ const defs: RegisterDefinition[] = [
   { name: 'FaultCode', label: 'Fault code', address: 100, type: 'uint32', group: 'status' },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true, min: 200, max: 240 },
   { name: 'Priority', label: 'Priority', address: 321, type: 'uint16', group: 'settings', writable: true, options: ['UTI', 'SOL', 'SBU'] },
+  { name: 'SerialNumber', label: 'Serial number', address: 186, type: 'ascii', length: 2, group: 'info' },
   { name: 'ExitFaultMode', label: 'Exit fault mode', address: 426, type: 'uint16', group: 'command', writable: true, choices: [1] },
 ];
 const map = new RegisterMap(defs);
@@ -200,7 +201,16 @@ describe('LoggerLink commands', () => {
 
   it('keeps commands out of group reads', () => {
     expect(map.list().filter((d) => d.group !== 'command')).toHaveLength(defs.length - 1);
+    expect(map.blocks('settings').some((b) => b.address <= 186 && b.address + b.count > 186)).toBe(false);
     expect(map.blocks('settings').some((b) => b.address + b.count > 426)).toBe(false);
+  });
+});
+
+describe('LoggerLink text reads', () => {
+  it('reads a group of text registers', async () => {
+    const { link, logger } = setup();
+    logger.set(186, [0x3932, 0x3300]);
+    await expect(link.readText('info')).resolves.toEqual({ SerialNumber: '923' });
   });
 });
 

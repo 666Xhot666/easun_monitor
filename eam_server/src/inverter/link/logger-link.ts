@@ -92,6 +92,20 @@ export class LoggerLink {
     });
   }
 
+  /** Reads the text (ascii) registers of a group, e.g. the serial number. */
+  readText(group: RegisterGroup): Promise<Record<string, string>> {
+    return this.serialize(async () => {
+      await this.ensureConnected();
+      const text: Record<string, string> = {};
+      for (const block of this.registers.blocks(group)) {
+        const words = await this.request({ kind: 'read', ...block });
+        Object.assign(text, this.registers.decodeText(block, words));
+      }
+      this.markSuccess();
+      return text;
+    });
+  }
+
   /**
    * Writes settings (register name -> real value) and returns the values
    * read back from the device afterwards. Every value is validated against
