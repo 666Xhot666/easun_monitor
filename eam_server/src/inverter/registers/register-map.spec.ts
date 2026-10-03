@@ -220,6 +220,11 @@ describe('SMG-II register table', () => {
     expect(() => smg.encode('OutputFrequencySet', 55)).toThrow(/50 or 60 Hz/);
   });
 
+  it('reads the ASCII serial number as one complete block, as the protocol requires', () => {
+    expect(smg.get('SerialNumber')).toMatchObject({ address: 186, type: 'ascii', length: 12, group: 'info' });
+    expect(smg.blocks('info')).toEqual([{ address: 186, count: 12 }]);
+  });
+
   it('reads all telemetry in one request', () => {
     expect(smg.blocks('telemetry')).toHaveLength(1);
   });
