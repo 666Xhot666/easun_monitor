@@ -151,7 +151,7 @@ describe('SMG-II register table', () => {
   it("names settings and options in the manual's words", () => {
     expect(smg.get('InputVoltageRange')).toMatchObject({
       label: 'AC input voltage range',
-      options: ['Appliances (90-280 V)', 'UPS (170-280 V)'],
+      options: ['Appliances (90-280 V)', 'UPS (170-280 V)', 'Generator (90-280 V)'],
     });
     expect(smg.get('LcdBacklight')?.options).toEqual(['Backlight off (timed)', 'Backlight on']);
     expect(smg.get('LcdAutoReturn')?.options).toEqual(['Stay at latest screen', 'Return to default screen']);

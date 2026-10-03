@@ -21,13 +21,6 @@ export interface PanelSetting {
 
 export const SMG_II_PANEL_SETTINGS: readonly PanelSetting[] = [
   {
-    program: '03',
-    title: 'AC input voltage range: Generator',
-    description: 'A third input range on the panel: accepts 90-280 VAC and is compatible with generators, whose unstable output may make the inverter output unstable too. The protocol has no value for it.',
-    default: 'Appliances',
-    affects: ['InputVoltageRange'],
-  },
-  {
     program: '05',
     title: 'Battery type',
     description: 'With AGM or Flooded the inverter uses its own charge voltages; bulk, floating and low DC cut-off voltages set here apply only with User-Defined or Lithium. Equalization can be enabled only with Flooded or User-Defined.',

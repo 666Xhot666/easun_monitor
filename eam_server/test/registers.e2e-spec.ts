@@ -40,7 +40,7 @@ describe('Register metadata and decoded alerts (e2e)', () => {
       .expect(200);
 
     const byProgram = Object.fromEntries(res.body.map((s: { program: string }) => [s.program, s]));
-    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['03', '05', '10', '13', '25', '32', '39', '41', '42', '46']);
+    expect(res.body.map((s: { program: string }) => s.program)).toEqual(['05', '10', '13', '25', '32', '39', '41', '42', '46']);
     expect(byProgram['05']).toMatchObject({
       title: 'Battery type',
       default: 'AGM',

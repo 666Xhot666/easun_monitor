@@ -122,12 +122,15 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   },
   {
     name: 'InputVoltageRange', label: 'AC input voltage range', address: 302, type: 'uint16', group: 'settings', writable: true,
-    options: ['Appliances (90-280 V)', 'UPS (170-280 V)'],
+    // Generator (2) is missing from the protocol PDF; confirmed on the device
+    // by a Modbus capture with the inverter's own screen showing Generator.
+    options: ['Appliances (90-280 V)', 'UPS (170-280 V)', 'Generator (90-280 V)'],
     panelProgram: '03', default: 0,
     description: 'The AC input voltage the inverter accepts from utility or a generator before switching to battery.',
     optionDescriptions: [
       'Appliances: accepts 90-280 VAC, ~20 ms transfer time.',
       'UPS: accepts 170-280 VAC, ~10 ms transfer time.',
+      'Generator: accepts 90-280 VAC and tolerates generators. Generators are unstable, so the inverter output may be too.',
     ],
   },
   {
