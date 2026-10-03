@@ -106,10 +106,15 @@ serial sniff run the server natively against the compose database:
 
 ```bash
 docker compose up -d db
+docker compose stop server    # one server per logger, and port 3000 is needed
 cd eam_server
-DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:5432/$POSTGRES_DB" \
-  DEV_SERIAL_SNIFF=true SERIAL_PORT=/dev/cu.usbserial-XXXX npm run start:dev
+set -a; source ../.env; set +a  # the server only reads a .env in its own directory
+export DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@localhost:${DB_PORT:-5432}/$POSTGRES_DB"
+npm run start:dev
 ```
+
+`DATABASE_URL` is not in `.env`: docker-compose builds it from the `POSTGRES_*`
+values, so a native run has to do the same.
 
 To run it unattended on a Mac, use a dedicated standard (non-admin) macOS user
 rather than your own login or root, and start it with launchd:
