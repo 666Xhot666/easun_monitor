@@ -1,4 +1,4 @@
-import type { SerialTap } from './serial-sniffer';
+import type { SerialTap } from './serial-capture';
 
 /**
  * Opens a real serial port (e.g. /dev/cu.usbserial-*) at 9600 8N1 for

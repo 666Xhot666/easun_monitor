@@ -1,9 +1,15 @@
 import { INestApplication } from '@nestjs/common';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import type { SerialTap } from '../src/inverter/serial-sniff/serial-capture';
 import { SERIAL_TAP_FACTORY } from '../src/inverter/serial-sniff/serial-sniff.module';
-import type { SerialTap } from '../src/inverter/serial-sniff/serial-sniffer';
 import { createTestApp, registerUser, resetDatabase } from './helpers';
+
+const READ_301 = '01 03 01 2d 00 01 15 ff'; // request: read register 301
+const VALUE_2 = '01 03 02 00 02 39 85'; // response: one register = 2
 
 class FakeTap implements SerialTap {
   private data: (chunk: Buffer) => void = () => {};
@@ -17,17 +23,20 @@ class FakeTap implements SerialTap {
   }
 }
 
-describe('Dev serial sniff (e2e)', () => {
+describe('Dev serial capture (e2e)', () => {
   let app: INestApplication<App>;
   let token: string;
-  const taps: { path: string; tap: FakeTap }[] = [];
-  const env = { NODE_ENV: process.env.NODE_ENV, DEV_SERIAL_SNIFF: process.env.DEV_SERIAL_SNIFF };
+  let dir: string;
+  const taps = new Map<string, FakeTap>();
+  const saved = { ...process.env };
 
   beforeAll(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'dev-captures-'));
+    process.env.DEV_CAPTURE_DIR = dir;
     app = await createTestApp((builder) =>
       builder.overrideProvider(SERIAL_TAP_FACTORY).useValue(async (path: string) => {
         const tap = new FakeTap();
-        taps.push({ path, tap });
+        taps.set(path, tap);
         return tap;
       }),
     );
@@ -41,47 +50,69 @@ describe('Dev serial sniff (e2e)', () => {
   });
 
   afterEach(async () => {
+    process.env.NODE_ENV = 'development';
+    process.env.DEV_SERIAL_SNIFF = 'true';
     await call('post', '/api/dev/serial/stop');
-    Object.assign(process.env, env);
-    for (const [k, v] of Object.entries(env)) if (v === undefined) delete process.env[k];
+    for (const key of ['NODE_ENV', 'DEV_SERIAL_SNIFF', 'SERIAL_RX_PORT', 'SERIAL_TX_BAUD']) {
+      if (saved[key] === undefined) delete process.env[key];
+      else process.env[key] = saved[key];
+    }
   });
 
-  afterAll(() => app.close());
+  afterAll(async () => {
+    await app.close();
+    rmSync(dir, { recursive: true, force: true });
+  });
 
   const call = (method: 'get' | 'post', path: string) =>
     request(app.getHttpServer())[method](path).set('Authorization', `Bearer ${token}`);
 
-  it('captures frames from the port and serves them by sequence number', async () => {
-    const started = await call('post', '/api/dev/serial/start').send({ path: '/dev/cu.usbserial-1' }).expect(201);
-    expect(started.body).toMatchObject({ running: true, path: '/dev/cu.usbserial-1' });
+  it('captures paired reads and summarises the capture afterwards', async () => {
+    const started = await call('post', '/api/dev/serial/start')
+      .send({ rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx', txBaud: 115200 })
+      .expect(201);
+    expect(started.body).toMatchObject({
+      running: true,
+      ports: { rx: { path: '/dev/cu.rx', baudRate: 9600, state: 'open' }, tx: { path: '/dev/cu.tx', baudRate: 115200 } },
+    });
 
-    taps[taps.length - 1].tap.receive('01 03 02 08 fc bf c5 01 03 04 00 14 00 32 3b e2');
+    taps.get('/dev/cu.tx')!.receive(READ_301);
+    taps.get('/dev/cu.rx')!.receive(VALUE_2);
 
-    const all = await call('get', '/api/dev/serial?since=0').expect(200);
-    expect(all.body.frames.map((f: { seq: number; words: number[] }) => [f.seq, f.words])).toEqual([
-      [1, [2300]],
-      [2, [20, 50]],
+    const live = await call('get', '/api/dev/serial?since=2').expect(200);
+    expect(live.body.records).toEqual([
+      expect.objectContaining({ seq: 3, kind: 'pair', request: expect.objectContaining({ address: 301 }) }),
     ]);
-    const newer = await call('get', '/api/dev/serial?since=1').expect(200);
-    expect(newer.body.frames).toHaveLength(1);
+    const captureId = live.body.captureId as string;
 
-    await call('post', '/api/dev/serial/frames/1/note').send({ note: 'output voltage 230 V' }).expect(204);
-    await call('post', '/api/dev/serial/frames/99/note').send({ note: 'x' }).expect(404);
-    const noted = await call('get', '/api/dev/serial?since=0').expect(200);
-    expect(noted.body.frames[0].note).toBe('output voltage 230 V');
+    await call('post', '/api/dev/serial/stop').expect(201);
 
-    const stopped = await call('post', '/api/dev/serial/stop').expect(201);
-    expect(stopped.body.running).toBe(false);
+    const captures = await call('get', '/api/dev/serial/captures').expect(200);
+    expect(captures.body[0]).toMatchObject({ id: captureId, rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx' });
+
+    const summary = await call('get', `/api/dev/serial/captures/${captureId}/summary`).expect(200);
+    expect(summary.body.counts).toMatchObject({ pairs: 1, plausible: 1 });
+    expect(summary.body.addresses).toEqual([
+      expect.objectContaining({ address: 301, name: 'OutputPriority', latestValue: 2, category: 'plausible' }),
+    ]);
+    await call('get', '/api/dev/serial/captures/nope/summary').expect(404);
   });
 
-  it('offers the configured port path', async () => {
-    process.env.SERIAL_PORT = '/dev/cu.usbserial-XYZ';
-    try {
-      const res = await call('get', '/api/dev/serial?since=0').expect(200);
-      expect(res.body.defaultPath).toBe('/dev/cu.usbserial-XYZ');
-    } finally {
-      delete process.env.SERIAL_PORT;
-    }
+  it('checks values against the ranges for a given battery voltage', async () => {
+    await call('post', '/api/dev/serial/start').send({ rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx' }).expect(201);
+    taps.get('/dev/cu.tx')!.receive('01 03 01 44 00 01 c5 e3'); // read 324 (bulk voltage)
+    taps.get('/dev/cu.rx')!.receive('01 03 02 02 30 b9 30'); // 560 = 56.0 V
+    const { captureId } = (await call('get', '/api/dev/serial?since=0').expect(200)).body;
+
+    const summary = await call('get', `/api/dev/serial/captures/${captureId}/summary?batteryVoltage=24`).expect(200);
+    expect(summary.body.addresses[0]).toMatchObject({ name: 'MaxChargingVoltage', category: 'implausible' });
+  });
+
+  it('offers the configured ports and baud rates', async () => {
+    process.env.SERIAL_RX_PORT = '/dev/cu.usbserial-RX';
+    process.env.SERIAL_TX_BAUD = '115200';
+    const res = await call('get', '/api/dev/serial?since=0').expect(200);
+    expect(res.body.defaults).toEqual({ rxPath: '/dev/cu.usbserial-RX', txPath: null, rxBaud: 9600, txBaud: 115200 });
   });
 
   it('requires a signed-in user', async () => {
@@ -90,9 +121,9 @@ describe('Dev serial sniff (e2e)', () => {
 
   it('does not exist unless opted in, nor in production', async () => {
     delete process.env.DEV_SERIAL_SNIFF;
-    await call('get', '/api/dev/serial?since=0').expect(404);
+    await call('get', '/api/dev/serial/captures').expect(404);
     process.env.DEV_SERIAL_SNIFF = 'true';
     process.env.NODE_ENV = 'production';
-    await call('post', '/api/dev/serial/start').send({ path: '/dev/cu.x' }).expect(404);
+    await call('post', '/api/dev/serial/start').send({ rxPath: 'a', txPath: 'b' }).expect(404);
   });
 });

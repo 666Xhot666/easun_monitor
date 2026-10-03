@@ -1,20 +1,35 @@
-import { Module } from '@nestjs/common';
-import { openSerialTap } from './serial-port-tap';
+import { Module, type OnModuleDestroy } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { SerialSniffController } from './serial-sniff.controller';
-import { SerialSniffer, type SerialTapFactory } from './serial-sniffer';
+import { CaptureStore } from './capture-store';
+import { SerialCapture } from './serial-capture';
+import type { SerialTapFactory } from './serial-capture';
+import { openSerialTap } from './serial-port-tap';
 
-/** Opens serial ports for the sniffer; replaced by a fake in tests. */
+/** Opens serial ports for the capture; replaced by a fake in tests. */
 export const SERIAL_TAP_FACTORY = Symbol('SERIAL_TAP_FACTORY');
 
 @Module({
   controllers: [SerialSniffController],
   providers: [
-    { provide: SERIAL_TAP_FACTORY, useValue: openSerialTap satisfies SerialTapFactory },
+    { provide: SERIAL_TAP_FACTORY, useValue: openSerialTap },
     {
-      provide: SerialSniffer,
-      inject: [SERIAL_TAP_FACTORY],
-      useFactory: (openTap: SerialTapFactory) => new SerialSniffer(openTap),
+      provide: CaptureStore,
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => new CaptureStore(config.get<string>('DEV_CAPTURE_DIR') ?? '.dev-captures'),
+    },
+    {
+      provide: SerialCapture,
+      inject: [SERIAL_TAP_FACTORY, CaptureStore],
+      useFactory: (openTap: SerialTapFactory, store: CaptureStore) => new SerialCapture({ openTap, store }),
     },
   ],
 })
-export class SerialSniffModule {}
+export class SerialSniffModule implements OnModuleDestroy {
+  constructor(private readonly capture: SerialCapture) {}
+
+  /** Closes the ports and stops retrying when the server shuts down. */
+  async onModuleDestroy(): Promise<void> {
+    await this.capture.stop();
+  }
+}
