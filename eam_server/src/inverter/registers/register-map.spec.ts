@@ -220,6 +220,14 @@ describe('SMG-II register table', () => {
     expect(() => smg.encode('OutputFrequencySet', 55)).toThrow(/50 or 60 Hz/);
   });
 
+  it('names the device facts confirmed against the cloud log, without ever polling them', () => {
+    expect(smg.get('InverterCode')).toMatchObject({ address: 171, type: 'uint16', group: 'info' });
+    expect(smg.get('SerialNumber')).toMatchObject({ address: 186, type: 'ascii', length: 12, group: 'info' });
+    for (const group of ['telemetry', 'status', 'settings'] as const) {
+      expect(smg.blocks(group).some((b) => b.address < 198 && b.address + b.count > 171)).toBe(false);
+    }
+  });
+
   it('reads all telemetry in one request', () => {
     expect(smg.blocks('telemetry')).toHaveLength(1);
   });

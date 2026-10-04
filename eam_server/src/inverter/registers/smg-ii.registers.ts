@@ -67,6 +67,17 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   { name: 'FaultCode', label: 'Faults', address: 100, type: 'uint32', group: 'status', bits: FAULT_BITS },
   { name: 'WarningCode', label: 'Warnings', address: 108, type: 'uint32', group: 'status', bits: WARNING_BITS },
 
+  // --- info ---
+  // Confirmed by matching an overnight serial capture against the vendor
+  // cloud log (2026-10-04). Never polled or read live: here so captures
+  // name these addresses.
+  {
+    name: 'InverterCode', label: 'Inverter code', address: 171, type: 'uint16', group: 'info',
+    description: 'Shown by the vendor cloud app as "inverter" (e.g. 3900), which is this value in hexadecimal (0x3900). Likely a model or firmware code.',
+  },
+  // The protocol requires reading 186-197 as one complete block.
+  { name: 'SerialNumber', label: 'Serial number', address: 186, type: 'ascii', length: 12, group: 'info' },
+
   // --- telemetry ---
   { name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', options: ['Power on', 'Standby', 'Mains', 'Off-grid', 'Bypass', 'Charging', 'Fault'], group: 'telemetry' },
   { name: 'MainsVoltage', label: 'Mains voltage', address: 202, type: 'int16', scale: 0.1, unit: 'V', group: 'telemetry' },
