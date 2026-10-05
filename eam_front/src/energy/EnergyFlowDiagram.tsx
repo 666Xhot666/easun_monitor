@@ -9,34 +9,19 @@ interface NodeLayout {
   /** Icon centre. */
   cx: number;
   cy: number;
-  /** Drawn from the node to the inverter: vertical, rounded corner, horizontal. */
+  /** Drawn from below the label (top nodes) or above the icon (bottom nodes)
+   * to the inverter: vertical, rounded corner, horizontal. */
   path: string;
   /** Value text: halfway between the corner and the inverter. */
   vx: number;
   vy: number;
-  /** Label beside the icon, on the side away from the line. */
-  lx: number;
-  ly: number;
-  anchor: 'start' | 'end';
 }
 
 const NODES: readonly NodeLayout[] = [
-  {
-    key: 'pv', label: 'PV', Icon: SolarPanel, cx: 60, cy: 40,
-    path: 'M60,64 V128 Q60,140 72,140 H170', vx: 115, vy: 132, lx: 96, ly: 44, anchor: 'start',
-  },
-  {
-    key: 'grid', label: 'Grid', Icon: UtilityPole, cx: 340, cy: 40,
-    path: 'M340,64 V128 Q340,140 328,140 H230', vx: 285, vy: 132, lx: 304, ly: 44, anchor: 'end',
-  },
-  {
-    key: 'battery', label: 'Battery', Icon: BatteryMedium, cx: 60, cy: 260,
-    path: 'M60,236 V172 Q60,160 72,160 H170', vx: 115, vy: 176, lx: 96, ly: 264, anchor: 'start',
-  },
-  {
-    key: 'load', label: 'Load', Icon: House, cx: 340, cy: 260,
-    path: 'M340,236 V172 Q340,160 328,160 H230', vx: 285, vy: 176, lx: 304, ly: 264, anchor: 'end',
-  },
+  { key: 'pv', label: 'PV', Icon: SolarPanel, cx: 60, cy: 32, path: 'M60,80 V128 Q60,140 72,140 H170', vx: 115, vy: 132 },
+  { key: 'grid', label: 'Grid', Icon: UtilityPole, cx: 340, cy: 32, path: 'M340,80 V128 Q340,140 328,140 H230', vx: 285, vy: 132 },
+  { key: 'battery', label: 'Battery', Icon: BatteryMedium, cx: 60, cy: 238, path: 'M60,220 V172 Q60,160 72,160 H170', vx: 115, vy: 176 },
+  { key: 'load', label: 'Load', Icon: House, cx: 340, cy: 238, path: 'M340,220 V172 Q340,160 328,160 H230', vx: 285, vy: 176 },
 ];
 
 const ICON_SIZE = 28;
@@ -104,7 +89,7 @@ export default function EnergyFlowDiagram({ flow, freshness = 'live', age }: Pro
         Device
       </text>
 
-      {NODES.map(({ key, label, Icon, cx, cy, vx, vy, lx, ly, anchor }) => {
+      {NODES.map(({ key, label, Icon, cx, cy, vx, vy }) => {
         const connection = flow[key];
         const active = live && connection.active;
         return (
@@ -125,7 +110,7 @@ export default function EnergyFlowDiagram({ flow, freshness = 'live', age }: Pro
                 filter={connection.available ? 'url(#flow-glow)' : undefined}
               />
             </g>
-            <text x={lx} y={ly} textAnchor={anchor} fontSize="13" fill="#C9D1D9">
+            <text x={cx} y={cy + 36} textAnchor="middle" fontSize="13" fill="#C9D1D9">
               {label}
             </text>
             <text
