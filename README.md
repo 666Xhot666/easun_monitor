@@ -188,6 +188,39 @@ USB-serial adapters (CP210x, CH340, FTDI) are usually readable by any local
 user on macOS, but check yours: if the service logs a permission error opening
 the port, the driver needs a grant for that user.
 
+## Serial mode (serial logger service)
+
+Serial mode feeds the dashboard from the two USB-serial taps on the Wi-Fi
+logger's TTL pads, instead of the app talking to the logger over Wi-Fi. The
+taps only listen, so the vendor app keeps working.
+
+A separate service, the serial logger, runs natively on the machine the taps
+are plugged into (Docker on macOS can't reach USB devices); the main app can
+stay in Docker. To the main app the service looks exactly like the Wi-Fi
+logger. Start it from `eam_server` with the two tap devices:
+
+```bash
+cd eam_server
+SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B npm run serial-logger
+```
+
+`SERIAL_RX_BAUD` and `SERIAL_TX_BAUD` default to 9600; `SERIAL_LOGGER_TCP_PORT`
+and `SERIAL_LOGGER_UDP_PORT` to 8899 and 58899. Pair it in the setup wizard at
+`host.docker.internal` (main app in Docker) or the machine's address, port 8899.
+
+The service can only report what the real logger reads, and the real logger
+reads the inverter about every 5 minutes. Between those reads it keeps
+answering with the last values, so set `POLLING_INTERVAL_MS=30000` rather than
+the default 5 seconds. Until the logger has read a register at least once, the
+service answers it with an error instead of a made-up value, so nothing false
+is stored.
+
+Serial mode is read-only: settings writes are refused, and nothing is written
+to the taps or the inverter. The service keeps saving the two-tap capture files
+in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
+program can open a serial port, so stop the serial logger before using the
+`/dev/serial` capture panel, and the other way round.
+
 ## Tests
 
 ```bash
