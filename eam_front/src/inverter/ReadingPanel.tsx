@@ -19,8 +19,9 @@ export default function ReadingPanel({ registers, reading, children, onExitFault
   const byName = new Map(registers.map((d) => [d.name, d]));
   const keyDefinitions = KEY_REGISTERS.flatMap((name) => byName.get(name) ?? []);
   const otherTelemetry = registers.filter(
-    (d) => d.group === 'telemetry' && !KEY_REGISTERS.includes(d.name),
+    (d) => d.group === 'telemetry' && !KEY_REGISTERS.includes(d.name) && d.verified !== false,
   );
+  const unverified = registers.filter((d) => d.group === 'telemetry' && d.verified === false);
   const faults = reading.alerts?.faults ?? [];
   const warnings = reading.alerts?.warnings ?? [];
   const mode = byName.get('OperationMode');
@@ -128,6 +129,31 @@ export default function ReadingPanel({ registers, reading, children, onExitFault
           ))}
         </div>
       </section>
+
+      {unverified.length > 0 && (
+        <section aria-label="Unverified registers" className="mt-10">
+          <h2 className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            Unverified registers ({unverified.length})
+          </h2>
+          <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+            Seen on the device but not yet identified: raw values, kept in history to work out what they are.
+          </p>
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+            {unverified.map((definition) => (
+              <div
+                key={definition.name}
+                title={definition.description}
+                className="rounded-lg border border-dashed border-gray-300 bg-white p-3 dark:border-gray-700 dark:bg-gray-900"
+              >
+                <p className="truncate text-xs font-medium text-gray-500 dark:text-gray-400">{definition.label}</p>
+                <p className="mt-1 font-mono text-base text-gray-700 dark:text-gray-300">
+                  {reading.payload[definition.name] ?? 'no data'}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </>
   );
 }
