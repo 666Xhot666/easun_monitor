@@ -11,6 +11,7 @@ const registers: RegisterDefinition[] = [
   { name: 'BatteryVoltage', label: 'Battery voltage', address: 215, type: 'int16', scale: 0.1, unit: 'V', group: 'telemetry' },
   { name: 'PVPower', label: 'PV power', address: 223, type: 'int16', unit: 'W', group: 'telemetry' },
   { name: 'BatterySoc', label: 'Battery state of charge', address: 229, type: 'uint16', unit: '%', group: 'telemetry' },
+  { name: 'Unverified102', label: 'Unverified 102', address: 102, type: 'uint16', group: 'status', verified: false },
   { name: 'Unverified218', label: 'Unverified 218', address: 218, type: 'uint16', group: 'telemetry', verified: false },
   { name: 'OutputVoltageSet', label: 'Output voltage', address: 320, type: 'uint16', scale: 0.1, unit: 'V', group: 'settings', writable: true },
 ];
@@ -18,7 +19,7 @@ const registers: RegisterDefinition[] = [
 const reading = {
   id: 1,
   timestamp: '2026-09-30T12:00:00Z',
-  payload: { OperationMode: 2, MainsVoltage: 230.5, PVPower: 1200, BatterySoc: 87, FaultCode: 0, Unverified218: 4331 },
+  payload: { OperationMode: 2, MainsVoltage: 230.5, PVPower: 1200, BatterySoc: 87, FaultCode: 0, Unverified218: 4331, Unverified102: 0 },
   alerts: { faults: [], warnings: ['Fan blocked'] },
 };
 
@@ -48,6 +49,7 @@ describe('ReadingPanel', () => {
     const unverified = screen.getByRole('region', { name: 'Unverified registers' });
     expect(within(unverified).getByText('Unverified 218')).toBeInTheDocument();
     expect(within(unverified).getByText('4331')).toBeInTheDocument();
+    expect(within(unverified).getByText('Unverified 102')).toBeInTheDocument();
   });
 
   it('shows active faults and warnings, or that there are none', () => {

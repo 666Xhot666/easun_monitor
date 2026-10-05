@@ -21,7 +21,7 @@ export default function ReadingPanel({ registers, reading, children, onExitFault
   const otherTelemetry = registers.filter(
     (d) => d.group === 'telemetry' && !KEY_REGISTERS.includes(d.name) && d.verified !== false,
   );
-  const unverified = registers.filter((d) => d.group === 'telemetry' && d.verified === false);
+  const unverified = registers.filter((d) => (d.group === 'telemetry' || d.group === 'status') && d.verified === false);
   const faults = reading.alerts?.faults ?? [];
   const warnings = reading.alerts?.warnings ?? [];
   const mode = byName.get('OperationMode');
