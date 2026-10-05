@@ -262,12 +262,34 @@ describe('SMG-II register table', () => {
   it('names the device facts confirmed against the cloud log, without ever polling them', () => {
     expect(smg.get('InverterCode')).toMatchObject({ address: 171, type: 'uint16', group: 'info' });
     expect(smg.get('SerialNumber')).toMatchObject({ address: 186, type: 'ascii', length: 12, group: 'info' });
+    // 171 and the serial number block (186-197, readable only whole) are never polled.
     for (const group of ['telemetry', 'status', 'settings'] as const) {
-      expect(smg.blocks(group).some((b) => b.address < 198 && b.address + b.count > 171)).toBe(false);
+      const touches = (lo: number, hi: number) => smg.blocks(group).some((b) => b.address < hi && b.address + b.count > lo);
+      expect([group, touches(171, 172), touches(186, 198)]).toEqual([group, false, false]);
     }
   });
 
-  it('reads all telemetry in one request', () => {
-    expect(smg.blocks('telemetry')).toHaveLength(1);
+  it('includes every address the logger reads, unidentified ones marked unverified and never written', () => {
+    const unverified = [
+      102, 104, 106, 110, ...Array.from({ length: 14 }, (_, i) => 172 + i), 198, 200, 218, 221, 228, 230, 231, 235,
+      311, 314, 315, 316, 317, 328, 339, 404, 405, 407, 421, 422, 425, 427, 428, 450, 457, 461, 462, 468,
+      500, 534, 600, 634, 641, 642, 644, 645, 745,
+    ];
+    expect(unverified).toHaveLength(55);
+    for (const address of unverified) {
+      const definition = smg.list().find((d) => d.address === address);
+      expect({ address, verified: definition?.verified, writable: definition?.writable }).toEqual({ address, verified: false, writable: undefined });
+    }
+    expect(smg.list().filter((d) => d.verified === false)).toHaveLength(55);
+  });
+
+  it("reads in exactly the block shapes the logger uses on the device", () => {
+    const shape = (group: 'status' | 'telemetry' | 'settings') => smg.blocks(group).map((b) => `${b.address}x${b.count}`);
+    expect(shape('status')).toEqual(['100x3', '104x1', '106x1', '108x3']);
+    expect(shape('telemetry')).toEqual(['200x22', '223x13']);
+    expect(shape('settings')).toEqual([
+      '172x14', '198x1', '300x12', '313x5', '320x20', '341x3', '404x4', '420x3', '425x1', '427x2',
+      '450x1', '457x1', '460x3', '468x1', '500x1', '534x1', '600x1', '634x1', '641x5', '745x1',
+    ]);
   });
 });

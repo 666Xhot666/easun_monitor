@@ -137,7 +137,7 @@ export class LoggerLink {
   /** One full round trip (handshake, connect, one CRC-checked register
    * read), used to verify a logger before pairing it. */
   probe(): Promise<{ latencyMs: number; sampledRegister: string }> {
-    const [sample] = this.registers.list('telemetry');
+    const sample = this.registers.list('telemetry').find((d) => d.verified !== false)!;
     return this.serialize(async () => {
       const startedAt = this.now();
       await this.ensureConnected();
