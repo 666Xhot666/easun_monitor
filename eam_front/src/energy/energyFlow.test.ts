@@ -53,4 +53,43 @@ describe('computeEnergyFlow', () => {
       direction: 'fromInverter',
     });
   });
+
+  it('reverses the battery dots when it switches to charging', () => {
+    const flow = computeEnergyFlow({ ...NIGHT_ON_BATTERY, BatteryCurrentSigned: 11.7 });
+
+    expect(flow.battery).toMatchObject({ active: true, direction: 'fromInverter' });
+  });
+
+  it('keeps lines idle inside the deadband so noise does not flicker', () => {
+    const flow = computeEnergyFlow({
+      ...NIGHT_ON_BATTERY,
+      PVPower: 8,
+      AverageMainsPower: -6,
+      BatteryCurrentSigned: 0.3,
+      OutputActivePower: 10,
+    });
+
+    expect(flow.pv.active).toBe(false);
+    expect(flow.grid.active).toBe(false);
+    expect(flow.battery.active).toBe(false);
+    expect(flow.load.active).toBe(false);
+    expect(flow.pv.value).toBe('8W');
+  });
+
+  it('takes the deadband as an option', () => {
+    const flow = computeEnergyFlow({ ...NIGHT_ON_BATTERY, OutputActivePower: 40 }, { deadbandW: 50 });
+
+    expect(flow.load.active).toBe(false);
+  });
+
+  it('runs PV and grid into the inverter while they supply power', () => {
+    const flow = computeEnergyFlow({ ...NIGHT_ON_BATTERY, PVPower: 1450, AverageMainsPower: 600 });
+
+    expect(flow.pv).toMatchObject({ value: '1.4kW', active: true, available: true, direction: 'toInverter' });
+    expect(flow.grid).toMatchObject({ value: '600W', active: true, direction: 'toInverter' });
+  });
+
+  it('dims the grid when mains is down', () => {
+    expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, MainsVoltage: 0 }).grid.available).toBe(false);
+  });
 });
