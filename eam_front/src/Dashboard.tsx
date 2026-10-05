@@ -10,6 +10,7 @@ import { DEFAULT_POLL_MS, useReading } from './inverter/useReading';
 import { describeDeviceStatus, useDeviceStatus } from './inverter/useDeviceStatus';
 import { useRegisters } from './inverter/useRegisters';
 import ReadingPanel from './inverter/ReadingPanel';
+import EnergyFlowPanel from './energy/EnergyFlowPanel';
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
@@ -228,6 +229,9 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
+        <div className="mb-8">
+          <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} />
+        </div>
         {reading && (
           <ReadingPanel
             registers={registers}
