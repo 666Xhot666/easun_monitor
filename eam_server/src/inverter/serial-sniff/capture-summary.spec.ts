@@ -33,6 +33,26 @@ describe('observePair', () => {
   });
 });
 
+describe('observePair with unverified registers', () => {
+  const withUnverified = new RegisterMap([
+    { name: 'Known', label: 'Known', address: 500, type: 'uint16', group: 'settings' },
+    { name: 'Unverified501', label: 'Unverified 501', address: 501, type: 'uint16', group: 'settings', verified: false },
+  ]);
+
+  it('reports registers that are mapped but not yet identified as unverified', () => {
+    expect(observePair(withUnverified, read(500, [1, 7, 9]))).toEqual([
+      { address: 500, name: 'Known', value: 1, category: 'plausible' },
+      { address: 501, name: 'Unverified501', value: 7, category: 'unverified' },
+      { address: 502, name: null, value: 9, category: 'unknown' },
+    ]);
+  });
+
+  it('counts them separately in a summary', () => {
+    const summary = summarizeCapture(withUnverified, [{ seq: 1, kind: 'pair', requestAt: 1, responseAt: 2, ...read(500, [1, 7, 9]) }]);
+    expect(summary.counts).toMatchObject({ plausible: 1, unverified: 1, unknown: 1 });
+  });
+});
+
 describe('summarizeCapture', () => {
   const records: CaptureRecord[] = [
     { seq: 1, kind: 'pair', requestAt: 1000, responseAt: 1040, ...read(301, [2]) },
@@ -53,7 +73,7 @@ describe('summarizeCapture', () => {
 
   it('counts addresses by category, plus unanswered requests and orphan responses', () => {
     const summary = summarizeCapture(map, records);
-    expect(summary.counts).toEqual({ pairs: 4, plausible: 0, implausible: 1, unknown: 1, unanswered: 1, orphan: 1, reconnects: 1 });
+    expect(summary.counts).toEqual({ pairs: 4, plausible: 0, implausible: 1, unverified: 0, unknown: 1, unanswered: 1, orphan: 1, reconnects: 1 });
     expect(summary.unanswered).toEqual([{ address: 322, quantity: 1, count: 1 }]);
   });
 });

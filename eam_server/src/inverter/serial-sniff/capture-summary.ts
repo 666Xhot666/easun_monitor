@@ -5,9 +5,10 @@ import type { PairResult } from './request-response-pairer';
 /**
  * plausible: a known register with a value inside its options/choices/range
  * (or with nothing to check against); implausible: a known register with a
- * value outside them; unknown: an address the register map doesn't have.
+ * value outside them; unverified: mapped but not yet identified; unknown: an
+ * address the register map doesn't have.
  */
-export type ObservationCategory = 'plausible' | 'implausible' | 'unknown';
+export type ObservationCategory = 'plausible' | 'implausible' | 'unverified' | 'unknown';
 
 export interface Observation {
   address: number;
@@ -39,6 +40,7 @@ export interface CaptureSummary {
     pairs: number;
     plausible: number;
     implausible: number;
+    unverified: number;
     unknown: number;
     unanswered: number;
     orphan: number;
@@ -70,6 +72,10 @@ export function observePair(map: RegisterMap, pair: Read, bounds: Record<string,
     // a 32-bit register and registers only partly inside this read.
     if (at !== definition.address || !(definition.name in reading)) continue;
     const value = reading[definition.name];
+    if (definition.verified === false) {
+      observations.push({ address: at, name: definition.name, value, category: 'unverified' });
+      continue;
+    }
     const reason = implausibility(definition, value, bounds[definition.name]);
     observations.push({
       address: at,
@@ -101,7 +107,7 @@ function implausibility(definition: RegisterDefinition, value: number, bounds?: 
   return undefined;
 }
 
-const SEVERITY: Record<ObservationCategory, number> = { plausible: 0, unknown: 1, implausible: 2 };
+const SEVERITY: Record<ObservationCategory, number> = { plausible: 0, unverified: 1, unknown: 2, implausible: 3 };
 
 /** Per-address findings and counts for a whole capture. */
 export function summarizeCapture(
@@ -111,7 +117,7 @@ export function summarizeCapture(
 ): CaptureSummary {
   const byAddress = new Map<number, AddressSummary>();
   const unanswered = new Map<string, { address: number; quantity: number; count: number }>();
-  const counts = { pairs: 0, plausible: 0, implausible: 0, unknown: 0, unanswered: 0, orphan: 0, reconnects: 0 };
+  const counts = { pairs: 0, plausible: 0, implausible: 0, unverified: 0, unknown: 0, unanswered: 0, orphan: 0, reconnects: 0 };
 
   for (const record of records) {
     if (record.kind === 'pair') {
