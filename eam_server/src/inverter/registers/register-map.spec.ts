@@ -45,6 +45,45 @@ describe('RegisterMap blocks', () => {
   });
 });
 
+describe('RegisterMap blocks with unverified registers', () => {
+  const reg = (name: string, address: number, extra: Partial<RegisterDefinition> = {}): RegisterDefinition => ({
+    name, label: name, address, type: 'uint16', group: 'settings', ...extra,
+  });
+  const unverified = { verified: false } as const;
+
+  it('reads a run of adjacent registers in one block, verified or not', () => {
+    const m = new RegisterMap([reg('A', 404, unverified), reg('B', 405, unverified), reg('C', 406), reg('D', 407, unverified)]);
+    expect(m.blocks('settings')).toEqual([{ address: 404, count: 4 }]);
+  });
+
+  it('never bridges a gap next to an unverified register, so reads match what the logger reads', () => {
+    const m = new RegisterMap([reg('A', 450, unverified), reg('B', 457, unverified), reg('C', 460), reg('D', 461, unverified)]);
+    expect(m.blocks('settings')).toEqual([
+      { address: 450, count: 1 },
+      { address: 457, count: 1 },
+      { address: 460, count: 2 },
+    ]);
+  });
+
+  it('still bridges small gaps between verified registers', () => {
+    const m = new RegisterMap([reg('A', 320), reg('B', 323)]);
+    expect(m.blocks('settings')).toEqual([{ address: 320, count: 4 }]);
+  });
+
+  it('never reads across a register of another group', () => {
+    const m = new RegisterMap([reg('A', 420), reg('Cmd', 422, { group: 'command' }), reg('B', 424)]);
+    expect(m.blocks('settings')).toEqual([
+      { address: 420, count: 1 },
+      { address: 424, count: 1 },
+    ]);
+  });
+
+  it('refuses to write an unverified register', () => {
+    const m = new RegisterMap([reg('A', 404, { ...unverified, writable: true })]);
+    expect(() => m.encode('A', 1)).toThrow(/unverified/);
+  });
+});
+
 describe('RegisterMap decode', () => {
   it('turns block words into a reading keyed by register name', () => {
     // 201 Mode=1, 202 230.5 V, 203 gap, 204 -12.3 A (two's complement)

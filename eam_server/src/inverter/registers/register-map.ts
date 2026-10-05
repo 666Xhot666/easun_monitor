@@ -41,6 +41,9 @@ export interface RegisterDefinition {
   options?: readonly string[];
   group: RegisterGroup;
   writable?: boolean;
+  /** false: seen on the device but not yet identified. Read and stored
+   * like any register, never written. Absent means verified. */
+  verified?: boolean;
   /** Documented bounds, in real (scaled) units. */
   min?: number;
   max?: number;
@@ -115,21 +118,32 @@ export class RegisterMap {
   }
 
   /** The fewest read requests that cover every register of a group. */
+  /**
+   * Adjacent registers share a read. A small gap is bridged only between
+   * verified registers and never across another group's register; gaps
+   * next to unverified registers are not bridged, so those reads keep the
+   * exact shape the logger itself uses on the device.
+   */
   blocks(group: RegisterGroup): RegisterBlock[] {
     const blocks: RegisterBlock[] = [];
+    let previous: RegisterDefinition | undefined;
     for (const definition of this.list(group)) {
       const end = definition.address + wordCount(definition);
       const current = blocks[blocks.length - 1];
       const currentEnd = current ? current.address + current.count : 0;
-      if (
-        current &&
-        definition.address - currentEnd <= MAX_BRIDGED_GAP &&
-        end - current.address <= MAX_BLOCK
-      ) {
+      const gap = definition.address - currentEnd;
+      const bridgeable =
+        gap === 0 ||
+        (gap <= MAX_BRIDGED_GAP &&
+          previous?.verified !== false &&
+          definition.verified !== false &&
+          !this.definitions.some((d) => d.address >= currentEnd && d.address < definition.address));
+      if (current && bridgeable && end - current.address <= MAX_BLOCK) {
         current.count = end - current.address;
       } else {
         blocks.push({ address: definition.address, count: end - definition.address });
       }
+      previous = definition;
     }
     return blocks;
   }
@@ -179,6 +193,9 @@ export class RegisterMap {
   encode(name: string, value: number): { address: number; values: number[] } {
     const definition = this.byName.get(name);
     if (!definition) throw new RegisterValueError(`Unknown register ${name}`);
+    if (definition.verified === false) {
+      throw new RegisterValueError(`${definition.label} is unverified and cannot be written`);
+    }
     if (!definition.writable) throw new RegisterValueError(`${definition.label} is not writable`);
     if (!Number.isFinite(value)) throw new RegisterValueError(`${definition.label} must be a number`);
 
