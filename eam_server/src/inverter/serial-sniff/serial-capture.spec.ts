@@ -89,6 +89,25 @@ describe('SerialCapture', () => {
     expect(records.map((r) => r.kind)).toEqual(['port', 'port', 'pair']);
   });
 
+  it('hands every record to a listener as it is captured', async () => {
+    const seen: string[] = [];
+    const listening = new SerialCapture({
+      store,
+      windowMs: 1000,
+      openTap: async (path, baudRate) => {
+        const tap = new FakeTap();
+        opened.push({ path, baudRate, tap });
+        return tap;
+      },
+      onRecord: (record) => seen.push(record.kind),
+    });
+    await listening.start({ rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx', rxBaud: 9600, txBaud: 9600 });
+    tap('/dev/cu.tx').receive(READ_301);
+    tap('/dev/cu.rx').receive(VALUE_2);
+    await listening.stop();
+    expect(seen).toEqual(['port', 'port', 'pair']);
+  });
+
   it('records a request left unanswered once the window has passed', async () => {
     await start();
     tap('/dev/cu.tx').receive(READ_301);

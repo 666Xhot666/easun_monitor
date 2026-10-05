@@ -64,6 +64,7 @@ export class SerialCapture {
   private readonly store: CaptureStore;
   private readonly windowMs: number;
   private readonly maxRecent: number;
+  private readonly onRecord?: (record: CaptureRecord) => void;
   private captureId: string | null = null;
   private ports: Record<PortName, Port | null> = { rx: null, tx: null };
   private pairer = new RequestResponsePairer();
@@ -74,11 +75,19 @@ export class SerialCapture {
   /** Bumped on every start/stop, so callbacks from an old run are ignored. */
   private run = 0;
 
-  constructor(options: { openTap: SerialTapFactory; store: CaptureStore; windowMs?: number; maxRecent?: number }) {
+  constructor(options: {
+    openTap: SerialTapFactory;
+    store: CaptureStore;
+    windowMs?: number;
+    maxRecent?: number;
+    /** Called with every record as it is captured. */
+    onRecord?: (record: CaptureRecord) => void;
+  }) {
     this.openTap = options.openTap;
     this.store = options.store;
     this.windowMs = options.windowMs ?? 1000;
     this.maxRecent = options.maxRecent ?? DEFAULT_MAX_RECENT;
+    this.onRecord = options.onRecord;
   }
 
   async start(options: StartOptions): Promise<void> {
@@ -193,6 +202,7 @@ export class SerialCapture {
     this.store.append(this.captureId, record);
     this.recent.push(record);
     if (this.recent.length > this.maxRecent) this.recent.splice(0, this.recent.length - this.maxRecent);
+    this.onRecord?.(record);
   }
 }
 
