@@ -92,8 +92,9 @@ model InverterProfile {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  logs       InverterLog[]
-  hourlyLogs InverterLogHourly[]
+  logs              InverterLog[]
+  hourlyLogs        InverterLogHourly[]
+  settingsSnapshots InverterSettingsSnapshot[]
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
@@ -144,4 +145,34 @@ model InverterLogHourly {
 
   @@id([inverterProfileId, hour])
   @@map("inverter_log_hourly")
+}
+
+/// The inverter's settings registers (verified and unverified) as read from
+/// the device, kept forever: the history of every change, for working out
+/// unidentified registers and for learning how the installation behaves.
+///
+/// A row is written only when some value differs from the previous snapshot;
+/// an identical read just moves `lastSeenAt` on, so each row covers the
+/// interval its values held.
+model InverterSettingsSnapshot {
+  id         Int      @id @default(autoincrement())
+  /// First read with these values.
+  readAt     DateTime
+  /// Latest read that still found these values.
+  lastSeenAt DateTime
+
+  /// { [registerName]: value } for every settings register read.
+  values  Json
+  /// "read" (scheduled or on demand) or "write" (read back right after the
+  /// app wrote settings).
+  reason  String
+  /// For "write": the settings the app wrote, { [registerName]: value }.
+  changes Json?
+
+  /// Nullable and kept on profile deletion, like the telemetry history.
+  inverterProfileId Int?
+  inverterProfile   InverterProfile? @relation(fields: [inverterProfileId], references: [id], onDelete: SetNull)
+
+  @@index([inverterProfileId, readAt])
+  @@map("inverter_settings_snapshots")
 }
