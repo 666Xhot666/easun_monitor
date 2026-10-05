@@ -24,7 +24,7 @@ const pair = {
 };
 const summary = {
   meta: { id: 'cap-1', startedAt: '2026-10-03T12:00:00.000Z', rxPath: '/dev/cu.rx', txPath: '/dev/cu.tx' },
-  counts: { pairs: 40, plausible: 18, implausible: 1, unknown: 2, unanswered: 1, orphan: 0, reconnects: 1 },
+  counts: { pairs: 40, plausible: 18, implausible: 1, unverified: 5, unknown: 2, unanswered: 1, orphan: 0, reconnects: 1 },
   addresses: [
     { address: 301, name: 'OutputPriority', latestValue: 2, category: 'plausible', seen: 20, lastSeenAt: 1_040 },
     { address: 302, name: 'InputVoltageRange', latestValue: 9, category: 'implausible', reason: 'not one of its 3 options', seen: 20, lastSeenAt: 1_040 },
@@ -119,6 +119,7 @@ describe('DevSerialSniff page', () => {
     const counts = await screen.findByRole('list', { name: 'Counts' });
     expect(within(counts).getByText('Implausible: 1')).toBeInTheDocument();
     expect(within(counts).getByText('Unknown: 2')).toBeInTheDocument();
+    expect(within(counts).getByText('Unverified: 5')).toBeInTheDocument();
     expect(within(counts).getByText('Unanswered: 1')).toBeInTheDocument();
     const implausible = screen.getByText('InputVoltageRange').closest('tr')!;
     expect(within(implausible).getByText('not one of its 3 options')).toBeInTheDocument();

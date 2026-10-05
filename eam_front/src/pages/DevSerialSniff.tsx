@@ -58,6 +58,7 @@ interface Summary {
     pairs: number;
     plausible: number;
     implausible: number;
+    unverified?: number;
     unknown: number;
     unanswered: number;
     orphan: number;
@@ -67,7 +68,7 @@ interface Summary {
     address: number;
     name: string | null;
     latestValue: number;
-    category: 'plausible' | 'implausible' | 'unknown';
+    category: 'plausible' | 'implausible' | 'unverified' | 'unknown';
     reason?: string;
     seen: number;
     lastSeenAt: number;
@@ -579,6 +580,7 @@ export default function DevSerialSniff({ pollMs = 1000 }: { pollMs?: number }) {
                   <li>Pairs: {summary.counts.pairs}</li>
                   <li>Plausible: {summary.counts.plausible}</li>
                   <li>Implausible: {summary.counts.implausible}</li>
+                  <li>Unverified: {summary.counts.unverified ?? 0}</li>
                   <li>Unknown: {summary.counts.unknown}</li>
                   <li>Unanswered: {summary.counts.unanswered}</li>
                   <li>Orphan responses: {summary.counts.orphan}</li>
