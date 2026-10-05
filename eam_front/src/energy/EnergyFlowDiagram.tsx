@@ -1,5 +1,6 @@
 import { BatteryMedium, Cpu, House, SolarPanel, UtilityPole, type LucideIcon } from 'lucide-react';
 import type { EnergyFlow } from './energyFlow';
+import type { FlowFreshness } from './freshness';
 
 interface NodeLayout {
   key: keyof EnergyFlow;
@@ -40,8 +41,19 @@ const NODES: readonly NodeLayout[] = [
 
 const ICON_SIZE = 28;
 
+interface Props {
+  flow: EnergyFlow;
+  /** Not live: nothing animates; stale keeps the last values, greyed. */
+  freshness?: FlowFreshness;
+  /** How old the reading is ("2m"), shown while stale. */
+  age?: string;
+}
+
 /** Where power is flowing between PV, grid, battery, house and the inverter. */
-export default function EnergyFlowDiagram({ flow }: { flow: EnergyFlow }) {
+export default function EnergyFlowDiagram({ flow, freshness = 'live', age }: Props) {
+  const live = freshness === 'live';
+  const note =
+    freshness === 'offline' ? 'Offline' : freshness === 'stale' ? `Last updated ${age ?? '?'} ago` : null;
   return (
     <svg viewBox="0 0 400 300" role="img" aria-label="Energy flow" className="block h-auto w-full">
       <style>{`
@@ -70,15 +82,16 @@ export default function EnergyFlowDiagram({ flow }: { flow: EnergyFlow }) {
 
       {NODES.map(({ key, path }) => {
         const connection = flow[key];
+        const active = live && connection.active;
         return (
           <g
             key={key}
             data-testid={`flow-line-${key}`}
-            data-active={String(connection.active)}
+            data-active={String(active)}
             data-direction={connection.direction}
           >
             <path d={path} stroke="#4A5866" strokeWidth="3" fill="none" strokeLinecap="round" />
-            {connection.active && (
+            {active && (
               <path d={path} className="flow-dots" data-direction={connection.direction} />
             )}
           </g>
@@ -93,6 +106,7 @@ export default function EnergyFlowDiagram({ flow }: { flow: EnergyFlow }) {
 
       {NODES.map(({ key, label, Icon, cx, cy, vx, vy, lx, ly, anchor }) => {
         const connection = flow[key];
+        const active = live && connection.active;
         return (
           <g key={key}>
             <g
@@ -116,19 +130,26 @@ export default function EnergyFlowDiagram({ flow }: { flow: EnergyFlow }) {
             </text>
             <text
               data-testid={`flow-value-${key}`}
-              data-active={String(connection.active)}
+              data-active={String(active)}
+              data-stale={String(freshness === 'stale')}
               x={vx}
               y={vy}
               textAnchor="middle"
               fontSize="13"
               fontWeight="600"
-              fill={connection.active ? '#4A9EFF' : '#FFFFFF'}
+              fill={freshness === 'stale' ? '#6B7785' : active ? '#4A9EFF' : '#FFFFFF'}
             >
               {connection.value}
             </text>
           </g>
         );
       })}
+
+      {note && (
+        <text data-testid="flow-freshness" x="200" y="24" textAnchor="middle" fontSize="11" fill="#E8A468">
+          {note}
+        </text>
+      )}
     </svg>
   );
 }

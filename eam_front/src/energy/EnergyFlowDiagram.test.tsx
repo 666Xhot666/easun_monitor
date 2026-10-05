@@ -58,4 +58,29 @@ describe('EnergyFlowDiagram', () => {
     expect(screen.getByTestId('flow-node-pv')).toHaveAttribute('data-available', 'false');
     expect(screen.getByTestId('flow-node-grid')).toHaveAttribute('data-available', 'true');
   });
+
+  it('stops every line and greys the last values when the data is stale', () => {
+    render(<EnergyFlowDiagram flow={NIGHT_ON_BATTERY} freshness="stale" age="2m" />);
+
+    for (const key of ['pv', 'grid', 'battery', 'load']) {
+      expect(screen.getByTestId(`flow-line-${key}`)).toHaveAttribute('data-active', 'false');
+      expect(screen.getByTestId(`flow-value-${key}`)).toHaveAttribute('data-stale', 'true');
+    }
+    expect(screen.getByTestId('flow-value-battery')).toHaveTextContent('88%');
+    expect(document.querySelector('.flow-dots')).toBeNull();
+    expect(screen.getByTestId('flow-freshness')).toHaveTextContent('Last updated 2m ago');
+  });
+
+  it('says the inverter is offline when there is no data', () => {
+    render(<EnergyFlowDiagram flow={NIGHT_ON_BATTERY} freshness="offline" />);
+
+    expect(screen.getByTestId('flow-freshness')).toHaveTextContent('Offline');
+    expect(document.querySelector('.flow-dots')).toBeNull();
+  });
+
+  it('shows no freshness note while live', () => {
+    render(<EnergyFlowDiagram flow={NIGHT_ON_BATTERY} freshness="live" />);
+
+    expect(screen.queryByTestId('flow-freshness')).toBeNull();
+  });
 });
