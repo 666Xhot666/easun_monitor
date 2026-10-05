@@ -83,4 +83,11 @@ describe('EnergyFlowDiagram', () => {
 
     expect(screen.queryByTestId('flow-freshness')).toBeNull();
   });
+
+  it('times the dots by the power on the line', () => {
+    render(<EnergyFlowDiagram flow={NIGHT_ON_BATTERY} />);
+
+    const dots = screen.getByTestId('flow-line-load').querySelector<SVGPathElement>('.flow-dots');
+    expect(dots?.style.animationDuration).toMatch(/^\d+(\.\d+)?s$/);
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { computeEnergyFlow, formatPower } from './energyFlow';
+import { computeEnergyFlow, dotDurationS, formatPower } from './energyFlow';
 
 describe('formatPower', () => {
   it('shows whole watts below 1 kW', () => {
@@ -111,5 +111,14 @@ describe('computeEnergyFlow', () => {
     for (const connection of [flow.pv, flow.grid, flow.battery, flow.load]) {
       expect(connection).toMatchObject({ value: '--', active: false });
     }
+  });
+});
+
+describe('dotDurationS', () => {
+  it('runs the dots faster the more power flows, within limits', () => {
+    expect(dotDurationS(100)).toBeLessThan(dotDurationS(20));
+    expect(dotDurationS(3000)).toBeLessThan(dotDurationS(300));
+    expect(dotDurationS(1_000_000)).toBe(0.4);
+    expect(dotDurationS(undefined)).toBe(2.5);
   });
 });

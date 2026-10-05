@@ -98,3 +98,14 @@ export function computeEnergyFlow(
     },
   };
 }
+
+const SLOWEST_DOTS_S = 2.5;
+const FASTEST_DOTS_S = 0.4;
+
+/** Seconds for the dots to move one gap: faster for more watts, on a log
+ * scale so 100 W and 3 kW both look alive. */
+export function dotDurationS(watts: number | undefined): number {
+  if (watts === undefined || watts <= 10) return SLOWEST_DOTS_S;
+  const seconds = 3 - 0.7 * Math.log10(watts);
+  return Math.round(Math.min(SLOWEST_DOTS_S, Math.max(FASTEST_DOTS_S, seconds)) * 100) / 100;
+}

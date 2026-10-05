@@ -1,5 +1,5 @@
 import { BatteryMedium, Cpu, House, SolarPanel, UtilityPole, type LucideIcon } from 'lucide-react';
-import type { EnergyFlow } from './energyFlow';
+import { dotDurationS, type EnergyFlow } from './energyFlow';
 import type { FlowFreshness } from './freshness';
 
 interface NodeLayout {
@@ -77,7 +77,12 @@ export default function EnergyFlowDiagram({ flow, freshness = 'live', age }: Pro
           >
             <path d={path} stroke="#4A5866" strokeWidth="3" fill="none" strokeLinecap="round" />
             {active && (
-              <path d={path} className="flow-dots" data-direction={connection.direction} />
+              <path
+                d={path}
+                className="flow-dots"
+                data-direction={connection.direction}
+                style={{ animationDuration: `${dotDurationS(connection.watts)}s` }}
+              />
             )}
           </g>
         );
