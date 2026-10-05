@@ -19,6 +19,9 @@ export interface InMemoryLoggerOptions {
   isWritable: (address: number) => boolean;
   /** Supplies a value for a register that was never set (default 0). */
   valueFor?: (address: number) => number;
+  /** If set, a read touching a register that was never set answers this
+   * exception code instead of inventing a value. */
+  unsetReadException?: number;
   /** Called after a write is stored, for logging. */
   onWrite?: (address: number, values: readonly number[]) => void;
 }
@@ -59,6 +62,12 @@ export class InMemoryLogger {
     if (request.kind === 'read') {
       const rejected = this.rejectedReads.get(request.address);
       if (rejected !== undefined) return encodeErrorReply(request, rejected);
+      const unset = this.options.unsetReadException;
+      if (unset !== undefined) {
+        for (let i = 0; i < request.count; i++) {
+          if (!this.registers.has(request.address + i)) return encodeErrorReply(request, unset);
+        }
+      }
       return encodeReply(request, this.get(request.address, request.count));
     }
 
