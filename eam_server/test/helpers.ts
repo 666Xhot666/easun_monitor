@@ -27,7 +27,7 @@ export async function createTestApp(
 export async function resetDatabase(app: INestApplication): Promise<void> {
   const prisma = app.get(PrismaService);
   await prisma.$executeRawUnsafe(
-    'TRUNCATE inverter_logs, inverter_profiles, refresh_tokens, users RESTART IDENTITY CASCADE',
+    'TRUNCATE inverter_settings_snapshots, inverter_logs, inverter_profiles, refresh_tokens, users RESTART IDENTITY CASCADE',
   );
 }
 

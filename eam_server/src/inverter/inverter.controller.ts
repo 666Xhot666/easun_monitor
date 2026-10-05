@@ -31,6 +31,7 @@ import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { TelemetryStore } from '../telemetry/telemetry.store';
+import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
@@ -55,6 +56,7 @@ export class InverterController {
     private readonly telemetry: TelemetryStore,
     private readonly registers: RegisterMap,
     private readonly settings: SettingsService,
+    private readonly settingsHistory: SettingsHistory,
   ) {}
 
   /**
@@ -295,6 +297,27 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     return settingsConstraints(await this.requireOwnedProfile(profileId, user.userId));
+  }
+
+  /**
+   * Every distinct settings state read from the inverter, newest first;
+   * optionally limited to readings between `from` and `to` (ISO 8601).
+   */
+  @Get(':profileId/settings/history')
+  async getSettingsHistory(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    await this.requireOwnedProfile(profileId, user.userId);
+    const parse = (value: string | undefined, name: string) => {
+      if (value === undefined) return undefined;
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) throw new BadRequestException(`\`${name}\` must be a date`);
+      return date;
+    };
+    return this.settingsHistory.list(profileId, { from: parse(from, 'from'), to: parse(to, 'to') });
   }
 
   /** Re-reads the settings from the inverter now. */

@@ -1,5 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SettingsHistory } from '../telemetry/settings-history';
 import { LoggerLinks } from './link/logger-links';
 import type { Reading } from './registers/register-map';
 import { checkSettings, type SettingsCheck } from './settings-rules/settings-rules';
@@ -42,9 +43,11 @@ export class SettingsService {
   /** Reads in progress, so concurrent refreshes share one device read. */
   private readonly inFlight = new Map<string, Promise<SettingsSnapshot>>();
   private readonly maxAgeMs: number;
+  private readonly logger = new Logger(SettingsService.name);
 
   constructor(
     private readonly links: LoggerLinks,
+    private readonly history: SettingsHistory,
     config: ConfigService,
   ) {
     const configured = Number(config.get<string>('SETTINGS_MAX_AGE_MS'));
@@ -60,21 +63,33 @@ export class SettingsService {
     return this.refresh(profile);
   }
 
-  /** Reads every settings register from the inverter now. */
-  refresh(profile: LoggerAddress): Promise<SettingsSnapshot> {
+  /**
+   * Reads every settings register from the inverter now and records the
+   * result in the settings history. `written`: the settings the app has
+   * just written; that read-back never shares a read already in progress,
+   * which could predate the write.
+   */
+  refresh(profile: LoggerAddress, written?: Record<string, number>): Promise<SettingsSnapshot> {
     const key = cacheKey(profile);
-    let read = this.inFlight.get(key);
+    let read = written ? undefined : this.inFlight.get(key);
     if (!read) {
       read = (async () => {
         const values = await this.links.get(profile.ipAddress, profile.port).read(['settings']);
         const snapshot = { values, readAt: new Date().toISOString() };
         this.cache.set(key, snapshot);
+        await this.history.record(profile.id, values, new Date(snapshot.readAt), written).catch((error: unknown) => {
+          // History is for analysis; never fail a settings read over it.
+          this.logger.error(`Couldn't record settings history: ${error instanceof Error ? error.message : String(error)}`);
+        });
         return snapshot;
-      })().finally(() => this.inFlight.delete(key));
+      })().finally(() => {
+        if (this.inFlight.get(key) === read) this.inFlight.delete(key);
+      });
       this.inFlight.set(key, read);
     }
     return read;
   }
+
 
   /**
    * Checks changed settings against the settings rules and the inverter's
@@ -97,7 +112,7 @@ export class SettingsService {
       throw new SettingsRuleError(check);
     }
     await this.links.get(profile.ipAddress, profile.port).write(changes);
-    return this.refresh(profile);
+    return this.refresh(profile, changes);
   }
 }
 
