@@ -88,7 +88,8 @@ export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSe
   const other = writable.filter((d) => !placed.has(d));
   if (other.length) sections.push({ title: 'Other', registers: other });
   sections.push({ title: ADVANCED, registers: settings.filter((d) => d.writable && d.risk) });
-  sections.push({ title: 'Device information', registers: settings.filter((d) => !d.writable) });
+  sections.push({ title: 'Device information', registers: settings.filter((d) => !d.writable && d.verified !== false) });
+  sections.push({ title: 'Unverified registers', registers: settings.filter((d) => d.verified === false) });
   return sections.filter((s) => s.registers.length > 0);
 }
 

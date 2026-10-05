@@ -97,6 +97,16 @@ describe('groupIntoSections', () => {
     ]);
   });
 
+  it('keeps unverified registers out of the normal sections, in their own last section', () => {
+    const sections = groupIntoSections([
+      ...defs,
+      { name: 'Unverified404', label: 'Unverified 404', address: 404, type: 'uint16', group: 'settings', verified: false },
+    ]);
+    expect(sections.map((s) => s.title).slice(-2)).toEqual(['Device information', 'Unverified registers']);
+    expect(sections[sections.length - 1].registers.map((r) => r.name)).toEqual(['Unverified404']);
+    expect(sections.find((s) => s.title === 'Device information')!.registers.map((r) => r.name)).toEqual(['RatedPower']);
+  });
+
   it("orders settings like the manual's setting programs, not by address", () => {
     const setting = (name: string, address: number): RegisterDefinition => ({
       name, label: name, address, type: 'uint16', group: 'settings', writable: true,

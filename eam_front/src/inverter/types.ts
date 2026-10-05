@@ -20,6 +20,8 @@ export interface RegisterDefinition {
   options?: readonly string[];
   group: 'telemetry' | 'settings' | 'status';
   writable?: boolean;
+  /** false: seen on the device but not yet identified; never written. */
+  verified?: boolean;
   min?: number;
   max?: number;
   /** The only values a numeric setting accepts (e.g. 220/230/240 V). */
