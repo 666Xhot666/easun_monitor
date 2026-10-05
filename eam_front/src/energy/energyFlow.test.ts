@@ -92,4 +92,24 @@ describe('computeEnergyFlow', () => {
   it('dims the grid when mains is down', () => {
     expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, MainsVoltage: 0 }).grid.available).toBe(false);
   });
+
+  it('shows "--" for a missing field on that connection only', () => {
+    const payload: Record<string, number> = { ...NIGHT_ON_BATTERY };
+    delete payload.PVPower;
+    delete payload.BatterySoc;
+    const flow = computeEnergyFlow(payload);
+
+    expect(flow.pv).toMatchObject({ value: '--', active: false });
+    expect(flow.battery.value).toBe('--');
+    expect(flow.grid.value).toBe('0W');
+    expect(flow.load).toMatchObject({ value: '278W', active: true });
+  });
+
+  it('idles every line with "--" when there is no reading', () => {
+    const flow = computeEnergyFlow(null);
+
+    for (const connection of [flow.pv, flow.grid, flow.battery, flow.load]) {
+      expect(connection).toMatchObject({ value: '--', active: false });
+    }
+  });
 });
