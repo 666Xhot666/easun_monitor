@@ -120,13 +120,21 @@ export class AuthService {
   }
 
   /**
-   * Issues tokens for an existing account without a password, for dev-mode
-   * auto-login only; the caller is responsible for the dev-mode gate.
-   * Null when no such account exists.
+   * Issues tokens for `email` without a password, for dev-mode auto-login
+   * only; the caller is responsible for the dev-mode gate. On a fresh
+   * install the account is created first, with a random password nobody
+   * knows, so there is no registration step.
    */
-  async devLogin(email: string): Promise<IssuedTokens | null> {
-    const user = await this.prisma.user.findUnique({ where: { email } });
-    return user ? this.issueTokens(user.id, user.email) : null;
+  async devLogin(email: string): Promise<IssuedTokens> {
+    const user =
+      (await this.prisma.user.findUnique({ where: { email } })) ??
+      (await this.prisma.user.create({
+        data: {
+          email,
+          passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_SALT_ROUNDS),
+        },
+      }));
+    return this.issueTokens(user.id, user.email);
   }
 
   /**

@@ -63,7 +63,7 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `JWT_EXPIRES_IN` | 15m | Access-token lifetime; sessions renew from a refresh cookie. |
 | `REFRESH_TOKEN_TTL_DAYS` | 30 | How long a sign-in lasts without use. |
 | `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
-| `DEV_AUTO_LOGIN_EMAIL` | | Existing account that dev auto-login signs in as. |
+| `DEV_AUTO_LOGIN_EMAIL` | | Account dev auto-login signs in as; created if it doesn't exist. |
 | `DEV_SERIAL_SNIFF` | false | Development only: enable the serial capture panel at `/dev/serial`. |
 | `SERIAL_RX_PORT` | | Port of the tap on the logger's RX pad (responses), e.g. `/dev/cu.usbserial-…`. |
 | `SERIAL_TX_PORT` | | Port of the tap on the logger's TX pad (requests). |
@@ -88,10 +88,11 @@ fault or warning bits set, e.g. `MOCK_WARNING_CODE=16640 node scripts/mock-inver
 Both tools work only when `NODE_ENV` is not `production` **and** their flag is
 set; otherwise their routes answer 404.
 
-**Auto-login.** With `DEV_AUTO_LOGIN=true` and `DEV_AUTO_LOGIN_EMAIL` set to an
-existing account, a dev build of the frontend signs in as that account when it
-loads without a session. It uses your own account rather than a separate
-system user, so you see your inverters.
+**Auto-login.** With `DEV_AUTO_LOGIN=true` and `DEV_AUTO_LOGIN_EMAIL` set, a
+dev build of the frontend signs in as that account when it loads without a
+session, with no password. On a fresh install the account is created on the
+spot (with a random password nobody needs), so there is no registration step.
+Use your own email, so it is your account that owns the paired inverters.
 
 **Serial capture.** For checking registers against the real device, two taps
 on the Wi-Fi logger's TTL-side pads listen to its conversation with the

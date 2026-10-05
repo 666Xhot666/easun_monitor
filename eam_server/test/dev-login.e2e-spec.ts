@@ -63,10 +63,23 @@ describe('Dev-mode auto-login (e2e)', () => {
     expect(res.headers['set-cookie']).toBeUndefined();
   });
 
-  it('refuses when the configured account does not exist', async () => {
-    await withEnv(
-      { NODE_ENV: 'development', DEV_AUTO_LOGIN: 'true', DEV_AUTO_LOGIN_EMAIL: 'nobody@example.com' },
-      () => devLogin().expect(404),
+  it('creates the configured account on a fresh install, so no one has to register first', async () => {
+    const res = await withEnv(
+      { NODE_ENV: 'development', DEV_AUTO_LOGIN: 'true', DEV_AUTO_LOGIN_EMAIL: 'newcomer@example.com' },
+      () => devLogin().expect(200),
+    );
+    expect(res.body.user.email).toBe('newcomer@example.com');
+
+    const again = await withEnv(
+      { NODE_ENV: 'development', DEV_AUTO_LOGIN: 'true', DEV_AUTO_LOGIN_EMAIL: 'newcomer@example.com' },
+      () => devLogin().expect(200),
+    );
+    expect(again.body.user.id).toBe(res.body.user.id);
+  });
+
+  it('does nothing without a configured account', async () => {
+    await withEnv({ NODE_ENV: 'development', DEV_AUTO_LOGIN: 'true', DEV_AUTO_LOGIN_EMAIL: undefined }, () =>
+      devLogin().expect(404),
     );
   });
 });
