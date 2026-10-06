@@ -59,7 +59,7 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `SETTINGS_REFRESH_MS` | 300000 | How often inverter settings are re-read. |
 | `INVERTER_TIMEOUT_MS` | 3000 | Timeout for the handshake, connect and each reply. |
 | `ALLOW_PUBLIC_LOGGER_HOSTS` | false | Only LAN, loopback and link-local loggers are allowed unless true. |
-| `ALLOW_REGISTRATION` | false | Allow more accounts after the first. |
+| `ALLOW_REGISTRATION` | false | Allow more accounts after the first (sign-up with a household invite works regardless). |
 | `JWT_EXPIRES_IN` | 15m | Access-token lifetime; sessions renew from a refresh cookie. |
 | `REFRESH_TOKEN_TTL_DAYS` | 30 | How long a sign-in lasts without use. |
 | `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
@@ -71,6 +71,26 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `DEV_CAPTURE_DIR` | .dev-captures | Where captures are saved, one JSON-lines file each. |
 
 The `DEV_*` options do nothing when `NODE_ENV=production`, whatever their value.
+
+## Households
+
+Inverters, panel types and BMS devices belong to a household. Members have a
+role:
+
+- **Admin**: everything, including members and invites. A user is admin of
+  one household at most.
+- **Reader**: sees everything, changes nothing. A reader can belong to several
+  households.
+
+A new account gets its own household as admin. To add someone, an admin opens
+**Household** on the dashboard and creates an invite with a role. The invite
+is a code or a `/join/<code>` link, single-use, valid for 7 days.
+
+- Signing up with an invite code joins that household instead of creating
+  one. This works even with `ALLOW_REGISTRATION=false`.
+- An existing user who joins gives up their own household if it has no
+  inverters. With inverters, they can join other households only as a reader.
+- A household always keeps at least one admin.
 
 ## Developing without the inverter
 
