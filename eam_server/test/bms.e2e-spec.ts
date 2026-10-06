@@ -371,4 +371,64 @@ describe('BMS devices (e2e)', () => {
         .expect(404);
     });
   });
+
+  describe('exporting readings', () => {
+    it('downloads the stored readings of a range as CSV, oldest first, in the given time zone', async () => {
+      const { device } = await addDevice();
+      const t0 = new Date('2026-10-06T10:00:00Z').getTime();
+      await prisma.bmsLog.createMany({
+        data: Array.from({ length: 2500 }, (_, i) => ({
+          bmsDeviceId: device.id,
+          timestamp: new Date(t0 + i * 30_000),
+          payload: {
+            ...reading(new Date(t0 + i * 30_000)),
+            stateOfChargePct: i % 100,
+          } as object,
+        })),
+      });
+      const base = `/api/inverter/profiles/${profileId}/bms/${device.id}/export`;
+      const range = `from=${new Date(t0).toISOString()}&to=${new Date(t0 + 2500 * 30_000).toISOString()}`;
+
+      const res = await call('get', `${base}?${range}&tz=Europe/Kyiv`).expect(
+        200,
+      );
+
+      expect(res.headers['content-type']).toMatch(/^text\/csv/);
+      expect(res.headers['content-disposition']).toMatch(
+        /^attachment; filename="bms-.*\.csv"$/,
+      );
+      const lines = res.text.split('\r\n');
+      expect(lines[0]).toMatch(
+        /^\uFEFFTime \(Europe\/Kyiv\),State of charge \(%\),Pack voltage \(V\)/,
+      );
+      expect(lines[0]).toContain('Cell 16 (V)');
+      expect(lines[1].startsWith('2026-10-06 13:00:00,0,54.028,')).toBe(true);
+      expect(lines[2].startsWith('2026-10-06 13:00:30,1,')).toBe(true);
+      expect(lines).toHaveLength(2502);
+    });
+
+    it('refuses bad ranges and time zones, and other users', async () => {
+      const { device } = await addDevice();
+      const base = `/api/inverter/profiles/${profileId}/bms/${device.id}/export`;
+      const day = `from=2026-10-06T00:00:00.000Z&to=2026-10-07T00:00:00.000Z`;
+      await call('get', `${base}?${day}&tz=Mars/Olympus`).expect(400);
+      await call(
+        'get',
+        `${base}?from=2026-09-01T00:00:00.000Z&to=2026-10-07T00:00:00.000Z`,
+      ).expect(400);
+      await call('get', `${base}?${day}`, strangerToken).expect(404);
+    });
+
+    it('exports just the header row when nothing is stored', async () => {
+      const { device } = await addDevice();
+      const res = await call(
+        'get',
+        `/api/inverter/profiles/${profileId}/bms/${device.id}/export?from=2026-10-06T00:00:00.000Z&to=2026-10-07T00:00:00.000Z`,
+      ).expect(200);
+      expect(res.text.split('\r\n')).toEqual([
+        '\uFEFFTime (UTC),State of charge (%),Pack voltage (V),Current (A),Power (W),Remaining capacity (Ah),Nominal capacity (Ah),Cycles,Lowest cell (V),Highest cell (V),Cell spread (mV),Lowest cell no.,Highest cell no.,Balancing,Balance current (A),Charge MOSFET,Discharge MOSFET,Alarms',
+        '',
+      ]);
+    });
+  });
 });

@@ -41,6 +41,36 @@ export class BmsStore {
     return row ? (row.payload as unknown as BmsReading) : null;
   }
 
+  /**
+   * Every stored reading in [from, to), oldest first, `batchSize` at a time
+   * so a long export never holds the whole range in memory.
+   */
+  async *readingBatches(
+    bmsDeviceId: number,
+    from: Date,
+    to: Date,
+    batchSize = 1000,
+  ): AsyncGenerator<BmsReading[]> {
+    let after: Date | null = null;
+    for (;;) {
+      const rows: { timestamp: Date; payload: unknown }[] =
+        await this.prisma.bmsLog.findMany({
+          where: {
+            bmsDeviceId,
+            // Timestamps are unique per device, so the last one is the cursor.
+            timestamp: after ? { gt: after, lt: to } : { gte: from, lt: to },
+          },
+          orderBy: { timestamp: 'asc' },
+          take: batchSize,
+          select: { timestamp: true, payload: true },
+        });
+      if (rows.length === 0) return;
+      yield rows.map((row) => row.payload as BmsReading);
+      if (rows.length < batchSize) return;
+      after = rows[rows.length - 1].timestamp;
+    }
+  }
+
   async rollUp(): Promise<void> {
     const updated = await rollUpSeries(this.prisma, BMS_SERIES);
     this.logger.debug(`BMS hourly rollups refreshed (${updated} hour(s))`);
