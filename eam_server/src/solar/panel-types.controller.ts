@@ -3,7 +3,12 @@ import {
   Body,
   ConflictException,
   Controller,
+  Delete,
   Get,
+  NotFoundException,
+  Param,
+  ParseIntPipe,
+  Patch,
   Post,
   UseGuards,
 } from '@nestjs/common';
@@ -36,6 +41,40 @@ export class PanelTypesController {
     return this.rejectDuplicateName(() =>
       this.prisma.panelType.create({ data: { ...dto, userId: user.userId } }),
     );
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: PanelTypeDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwned(id, user.userId);
+    checkDatasheet(dto);
+    return this.rejectDuplicateName(() =>
+      this.prisma.panelType.update({ where: { id }, data: dto }),
+    );
+  }
+
+  @Delete(':id')
+  async remove(
+    @Param('id', ParseIntPipe) id: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwned(id, user.userId);
+    await this.prisma.panelType.delete({ where: { id } });
+    return { success: true as const };
+  }
+
+  /** 404s for another user's panel type, the same as for a missing one. */
+  private async requireOwned(id: number, userId: number) {
+    const panelType = await this.prisma.panelType.findFirst({
+      where: { id, userId },
+    });
+    if (!panelType) {
+      throw new NotFoundException('Panel type not found');
+    }
+    return panelType;
   }
 
   private async rejectDuplicateName<T>(write: () => Promise<T>): Promise<T> {

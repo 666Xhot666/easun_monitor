@@ -77,4 +77,33 @@ describe('Panel types (e2e)', () => {
       .send({ ...longi, name: 'Twin' })
       .expect(409);
   });
+
+  it('edits and deletes its own panel types only', async () => {
+    const { body: mine } = await call('post', '/api/panel-types')
+      .send({ ...longi, name: 'Editable' })
+      .expect(201);
+
+    const edited = await call('patch', `/api/panel-types/${mine.id}`)
+      .send({ ...longi, name: 'Edited', maxPowerW: 455 })
+      .expect(200);
+    expect(edited.body).toMatchObject({
+      id: mine.id,
+      name: 'Edited',
+      maxPowerW: 455,
+    });
+    await call('patch', `/api/panel-types/${mine.id}`)
+      .send({ ...longi, vmpV: 60 })
+      .expect(400);
+
+    await call('patch', `/api/panel-types/${mine.id}`, strangerToken)
+      .send(longi)
+      .expect(404);
+    await call('delete', `/api/panel-types/${mine.id}`, strangerToken).expect(
+      404,
+    );
+
+    await call('delete', `/api/panel-types/${mine.id}`).expect(200);
+    const { body } = await call('get', '/api/panel-types').expect(200);
+    expect(body.map((t: { id: number }) => t.id)).not.toContain(mine.id);
+  });
 });
