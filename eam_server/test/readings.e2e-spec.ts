@@ -13,6 +13,7 @@ describe('Readings log (e2e)', () => {
   let store: TelemetryStore;
   let prisma: PrismaService;
   let token: string;
+  let strangerToken: string;
   let profileId: number;
   let otherProfileId: number;
 
@@ -20,11 +21,10 @@ describe('Readings log (e2e)', () => {
     app = await createTestApp();
     store = app.get(TelemetryStore);
     prisma = app.get(PrismaService);
-  });
-
-  beforeEach(async () => {
+    // Users and profiles are made once: registration is rate-limited.
     await resetDatabase(app);
     token = await registerUser(app, 'owner@example.com');
+    strangerToken = await registerUser(app, 'stranger@example.com');
     const create = (ipAddress: string) =>
       request(app.getHttpServer())
         .post('/api/inverter/setup')
@@ -34,6 +34,8 @@ describe('Readings log (e2e)', () => {
     profileId = (await create('192.168.1.50')).body.id;
     otherProfileId = (await create('192.168.1.51')).body.id;
   });
+
+  beforeEach(() => prisma.inverterLog.deleteMany());
 
   afterAll(() => app.close());
 
@@ -104,9 +106,51 @@ describe('Readings log (e2e)', () => {
 
     it("hides another user's readings", async () => {
       await seed(profileId, t0, 3);
-      const stranger = await registerUser(app, 'stranger@example.com');
+      await get(`/api/inverter/${profileId}/readings?${range}`, strangerToken).expect(404);
+    });
+  });
 
-      await get(`/api/inverter/${profileId}/readings?${range}`, stranger).expect(404);
+  describe('GET /api/inverter/:profileId/readings/export', () => {
+    const get = (path: string, auth = token) =>
+      request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${auth}`);
+    const range = (minutes: number) =>
+      `from=${new Date(t0).toISOString()}&to=${new Date(t0 + minutes * MINUTE).toISOString()}`;
+
+    it('downloads the range as CSV, oldest first, in the given time zone', async () => {
+      await seed(profileId, t0, 3);
+      await seed(otherProfileId, t0, 3);
+
+      const res = await get(`/api/inverter/${profileId}/readings/export?${range(10)}&tz=Europe/Rome`).expect(200);
+
+      expect(res.headers['content-type']).toMatch(/^text\/csv/);
+      expect(res.headers['content-disposition']).toMatch(/^attachment; filename="readings-.*\.csv"$/);
+      const lines = res.text.split('\r\n');
+      expect(lines[0]).toMatch(/^\uFEFFTime \(Europe\/Rome\),/);
+      expect(lines.slice(1, 4).map((l) => l.slice(0, 19))).toEqual([
+        '2026-10-05 02:00:00',
+        '2026-10-05 02:01:00',
+        '2026-10-05 02:02:00',
+      ]);
+      expect(lines[1]).toContain(',Mains,');
+      expect(lines).toHaveLength(5); // header, 3 rows, trailing empty
+    });
+
+    it('streams every reading of a long range', async () => {
+      await seed(profileId, t0, 2500);
+
+      const res = await get(`/api/inverter/${profileId}/readings/export?${range(3000)}`).expect(200);
+
+      expect(res.text.split('\r\n')).toHaveLength(2502);
+      expect(res.text.split('\r\n')[0]).toMatch(/Time \(UTC\)/);
+    });
+
+    it('refuses unknown time zones and ranges over 31 days', async () => {
+      await get(`/api/inverter/${profileId}/readings/export?${range(10)}&tz=Mars/Olympus`).expect(400);
+      await get(`/api/inverter/${profileId}/readings/export?${range(32 * 24 * 60)}`).expect(400);
+    });
+
+    it("hides another user's readings", async () => {
+      await get(`/api/inverter/${profileId}/readings/export?${range(10)}`, strangerToken).expect(404);
     });
   });
 });

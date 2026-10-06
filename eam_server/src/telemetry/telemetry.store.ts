@@ -23,6 +23,9 @@ export interface ReadingsQuery {
   before?: Date;
 }
 
+/** A reading row before its payload is narrowed. */
+type StoredRow = Omit<StoredReading, 'payload'> & { payload: Prisma.JsonValue };
+
 /** One poll cycle's reading, as stored. */
 export interface StoredReading {
   id: number;
@@ -111,6 +114,43 @@ export class TelemetryStore {
       ...row,
       payload: row.payload as ReadingPayload,
     }));
+  }
+
+  /**
+   * Every reading in [from, to), oldest first, fetched `batchSize` at a
+   * time so a long export never holds the whole range in memory.
+   */
+  async *readingBatches(
+    profileId: number,
+    from: Date,
+    to: Date,
+    batchSize = 1000,
+  ): AsyncGenerator<StoredReading[]> {
+    let after: { timestamp: Date; id: number } | null = null;
+    for (;;) {
+      const rows: StoredRow[] = await this.prisma.inverterLog.findMany({
+        where: {
+          inverterProfileId: profileId,
+          timestamp: { gte: from, lt: to },
+          ...(after && {
+            OR: [
+              { timestamp: { gt: after.timestamp } },
+              { timestamp: after.timestamp, id: { gt: after.id } },
+            ],
+          }),
+        },
+        orderBy: [{ timestamp: 'asc' }, { id: 'asc' }],
+        take: batchSize,
+        select: { id: true, timestamp: true, payload: true },
+      });
+      if (rows.length === 0) return;
+      yield rows.map((row) => ({
+        ...row,
+        payload: row.payload as ReadingPayload,
+      }));
+      if (rows.length < batchSize) return;
+      after = rows[rows.length - 1];
+    }
   }
 
   async history(profileId: number, query: HistoryQuery): Promise<History> {

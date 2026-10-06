@@ -13,8 +13,10 @@ import {
   Patch,
   Post,
   Query,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoggerLinks } from './link/logger-links';
 import { RegisterMap, RegisterValueError } from './registers/register-map';
@@ -31,6 +33,8 @@ import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { ReadingsQueryDto } from './dto/readings-query.dto';
+import { ReadingsExportQueryDto } from './dto/readings-export-query.dto';
+import { ReadingsCsv } from '../telemetry/readings-csv';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
@@ -291,6 +295,41 @@ export class InverterController {
       limit: query.limit ?? DEFAULT_READINGS_PAGE,
       before: query.before,
     });
+  }
+
+  /**
+   * Readings in a range as a CSV download, oldest first, streamed in
+   * batches. Times are wall-clock time in `tz` (default UTC).
+   */
+  @Get(':profileId/readings/export')
+  async exportReadings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Query() query: ReadingsExportQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res() res: Response,
+  ): Promise<void> {
+    await this.requireOwnedProfile(profileId, user.userId);
+    checkReadingsSpan(query.from, query.to);
+    const timeZone = query.tz ?? 'UTC';
+    let csv: ReadingsCsv;
+    try {
+      csv = new ReadingsCsv(this.registers, timeZone);
+    } catch {
+      throw new BadRequestException(`Unknown time zone "${timeZone}"`);
+    }
+
+    const day = (date: Date) => date.toISOString().slice(0, 10);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="readings-${profileId}-${day(query.from)}-${day(query.to)}.csv"`,
+    );
+    // The byte-order mark makes Excel read the file as UTF-8 (°C, ·).
+    res.write('\uFEFF' + csv.header());
+    for await (const batch of this.telemetry.readingBatches(profileId, query.from, query.to)) {
+      res.write(batch.map((reading) => csv.row(reading)).join(''));
+    }
+    res.end();
   }
 
   // -----------------------------------------------------------------
