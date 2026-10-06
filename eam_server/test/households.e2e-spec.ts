@@ -139,5 +139,23 @@ describe('Households (e2e)', () => {
         .expect(403);
       expect(res.body.message).toMatch(/household/i);
     });
+
+    it('also refuses them a panel type', async () => {
+      const guestToken = (
+        await request(app.getHttpServer())
+          .post('/api/auth/login')
+          .send({
+            email: 'guest@example.com',
+            password: 'correct-horse-battery',
+          })
+          .expect(200)
+      ).body.accessToken;
+
+      await request(app.getHttpServer())
+        .post('/api/panel-types')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .send({ ...longi, name: 'Guest panel' })
+        .expect(403);
+    });
   });
 });

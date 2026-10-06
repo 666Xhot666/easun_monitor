@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   ConflictException,
+  ForbiddenException,
   Controller,
   Delete,
   Get,
@@ -47,6 +48,11 @@ export class PanelTypesController {
   ) {
     checkDatasheet(dto);
     const householdId = await this.households.adminHouseholdId(user.userId);
+    if (householdId === null) {
+      throw new ForbiddenException(
+        'Only a household admin can add panel types, and you have no household of your own',
+      );
+    }
     return this.rejectDuplicateName(() =>
       this.prisma.panelType.create({
         data: {
