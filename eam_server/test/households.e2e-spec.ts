@@ -79,4 +79,65 @@ describe('Households (e2e)', () => {
       ).householdId,
     ).toBe(householdId);
   });
+
+  describe('GET /api/auth/me', () => {
+    it("lists the user's households and the inverters of all of them, with the user's role", async () => {
+      const readerToken = await registerUser(app, 'me-reader@example.com');
+      const reader = await prisma.user.findUniqueOrThrow({
+        where: { email: 'me-reader@example.com' },
+      });
+      const ownerUser = await owner();
+      const householdId = ownerUser.memberships[0].householdId;
+      await prisma.membership.create({
+        data: { userId: reader.id, householdId, role: 'READER' },
+      });
+
+      const me = (
+        await request(app.getHttpServer())
+          .get('/api/auth/me')
+          .set('Authorization', `Bearer ${readerToken}`)
+          .expect(200)
+      ).body;
+
+      expect(me.adminHouseholdId).toEqual(expect.any(Number));
+      expect(me.households).toEqual(
+        expect.arrayContaining([
+          { id: householdId, name: 'Home', role: 'READER' },
+          { id: me.adminHouseholdId, name: 'Home', role: 'ADMIN' },
+        ]),
+      );
+      expect(me.inverterProfiles).toEqual([
+        expect.objectContaining({
+          householdId,
+          role: 'READER',
+          name: sampleProfile.name,
+        }),
+      ]);
+
+      const ownMe = (await call('get', '/api/auth/me').expect(200)).body;
+      expect(ownMe.inverterProfiles).toEqual([
+        expect.objectContaining({ householdId, role: 'ADMIN' }),
+      ]);
+    });
+  });
+
+  describe('pairing an inverter', () => {
+    it('is refused to a user without a household of their own', async () => {
+      const guestToken = await registerUser(app, 'guest@example.com');
+      const guest = await prisma.user.findUniqueOrThrow({
+        where: { email: 'guest@example.com' },
+        include: { memberships: true },
+      });
+      await prisma.household.delete({
+        where: { id: guest.memberships[0].householdId },
+      });
+
+      const res = await request(app.getHttpServer())
+        .post('/api/inverter/setup')
+        .set('Authorization', `Bearer ${guestToken}`)
+        .send({ ...sampleProfile, ipAddress: '192.168.1.77' })
+        .expect(403);
+      expect(res.body.message).toMatch(/household/i);
+    });
+  });
 });

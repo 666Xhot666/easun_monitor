@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   ConflictException,
+  ForbiddenException,
   ServiceUnavailableException,
   Controller,
   Delete,
@@ -127,6 +128,11 @@ export class InverterController {
   ) {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
     const householdId = await this.households.adminHouseholdId(user.userId);
+    if (householdId === null) {
+      throw new ForbiddenException(
+        'Only a household admin can add an inverter, and you have no household of your own',
+      );
+    }
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.create({
         data: {

@@ -51,6 +51,32 @@ function hashRefreshToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
+/** The inverter profile fields /me returns. */
+const PROFILE_FIELDS = {
+  id: true,
+  name: true,
+  ipAddress: true,
+  port: true,
+  ratedPowerWatts: true,
+  batteryNominalVoltage: true,
+  batteryCapacityAh: true,
+  batteryType: true,
+  lowBatteryCutoffVoltage: true,
+  bulkChargeVoltage: true,
+  floatChargeVoltage: true,
+  pvPanelTypeId: true,
+  pvPanelsInSeries: true,
+  pvStrings: true,
+  pvMaxVocV: true,
+  pvMpptMinV: true,
+  pvMpptMaxV: true,
+  pvMaxPowerW: true,
+  pvMaxCurrentA: true,
+  householdId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
 /** A new user's own household, with the user as its admin. */
 const OWN_HOUSEHOLD = {
   create: { role: 'ADMIN' as const, household: { create: { name: 'Home' } } },
@@ -201,6 +227,10 @@ export class AuthService {
    * inverter it has paired, so the frontend route guard can decide
    * unauthenticated / needs-setup / dashboard-ready in one round trip.
    */
+  /**
+   * The user, their households with their role in each, and the inverters
+   * of all those households, each tagged with that role.
+   */
   async getMe(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -208,30 +238,20 @@ export class AuthService {
         id: true,
         email: true,
         createdAt: true,
-        inverterProfiles: {
-          orderBy: { updatedAt: 'desc' },
+        memberships: {
+          orderBy: { createdAt: 'asc' },
           select: {
-            id: true,
-            name: true,
-            ipAddress: true,
-            port: true,
-            ratedPowerWatts: true,
-            batteryNominalVoltage: true,
-            batteryCapacityAh: true,
-            batteryType: true,
-            lowBatteryCutoffVoltage: true,
-            bulkChargeVoltage: true,
-            floatChargeVoltage: true,
-            pvPanelTypeId: true,
-            pvPanelsInSeries: true,
-            pvStrings: true,
-            pvMaxVocV: true,
-            pvMpptMinV: true,
-            pvMpptMaxV: true,
-            pvMaxPowerW: true,
-            pvMaxCurrentA: true,
-            createdAt: true,
-            updatedAt: true,
+            role: true,
+            household: {
+              select: {
+                id: true,
+                name: true,
+                inverterProfiles: {
+                  orderBy: { updatedAt: 'desc' },
+                  select: PROFILE_FIELDS,
+                },
+              },
+            },
           },
         },
       },
@@ -245,7 +265,20 @@ export class AuthService {
       throw new UnauthorizedException('Account no longer exists');
     }
 
-    return user;
+    const { memberships, ...rest } = user;
+    return {
+      ...rest,
+      adminHouseholdId:
+        memberships.find((m) => m.role === 'ADMIN')?.household.id ?? null,
+      households: memberships.map((m) => ({
+        id: m.household.id,
+        name: m.household.name,
+        role: m.role,
+      })),
+      inverterProfiles: memberships.flatMap((m) =>
+        m.household.inverterProfiles.map((p) => ({ ...p, role: m.role })),
+      ),
+    };
   }
 
   private async issueTokens(
