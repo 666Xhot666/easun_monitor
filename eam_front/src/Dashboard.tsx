@@ -11,6 +11,7 @@ import { describeDeviceStatus, useDeviceStatus } from './inverter/useDeviceStatu
 import { useRegisters } from './inverter/useRegisters';
 import ReadingPanel from './inverter/ReadingPanel';
 import EnergyFlowPanel from './energy/EnergyFlowPanel';
+import EnergyTotals from './energy/EnergyTotals';
 import PvArrayTile from './solar/PvArrayTile';
 import { computeArray } from './solar/pvArray';
 import { usePanelTypes } from './solar/usePanelTypes';
@@ -258,9 +259,12 @@ export default function Dashboard() {
           <div className="lg:col-span-2">
             <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} pvRatedW={pvRatedW} />
           </div>
-          {panelTypes && (
-            <PvArrayTile profileId={activeProfile.id} profile={activeProfile} panelTypes={panelTypes} reading={reading} />
-          )}
+          <div className="space-y-6">
+            {panelTypes && (
+              <PvArrayTile profileId={activeProfile.id} profile={activeProfile} panelTypes={panelTypes} reading={reading} />
+            )}
+            <EnergyTotals profileId={activeProfile.id} />
+          </div>
         </div>
         {reading && (
           <ReadingPanel
