@@ -181,5 +181,57 @@ describe('BMS devices (e2e)', () => {
         await prisma.bmsLog.count({ where: { bmsDeviceId: device.id } }),
       ).toBe(2);
     });
+
+    it('rejects implausible values', async () => {
+      const { token: deviceToken } = await addDevice();
+      const at = new Date(Date.now() - 1000);
+      await ingest(deviceToken, reading(at, { stateOfChargePct: 150 })).expect(
+        400,
+      );
+      await ingest(
+        deviceToken,
+        reading(at, { cellVoltagesV: [3.3, 9.1] }),
+      ).expect(400);
+      await ingest(deviceToken, reading(at, { packVoltageV: -2 })).expect(400);
+      await ingest(deviceToken, { ...reading(at), extra: 1 }).expect(400);
+    });
+
+    it('rejects readings from the future or older than an hour', async () => {
+      const { token: deviceToken } = await addDevice();
+      await ingest(deviceToken, reading(new Date(Date.now() + 120_000))).expect(
+        400,
+      );
+      await ingest(
+        deviceToken,
+        reading(new Date(Date.now() - 2 * 3_600_000)),
+      ).expect(400);
+      await ingest(
+        deviceToken,
+        reading(new Date(Date.now() - 10 * 60_000)),
+      ).expect(202);
+    });
+
+    it('stores a re-sent reading only once', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      const at = new Date(Date.now() - 1000);
+      await ingest(deviceToken, reading(at)).expect(202, { stored: true });
+      await ingest(deviceToken, reading(at)).expect(202, { stored: false });
+      expect(
+        await prisma.bmsLog.count({ where: { bmsDeviceId: device.id } }),
+      ).toBe(1);
+    });
+
+    it('limits how often one device may post', async () => {
+      const { token: deviceToken } = await addDevice();
+      const statuses: number[] = [];
+      for (let i = 0; i < 125; i++) {
+        statuses.push(
+          (await ingest(deviceToken, reading(new Date(Date.now() - 1000 + i))))
+            .status,
+        );
+      }
+      expect(statuses.slice(0, 120).every((s) => s === 202)).toBe(true);
+      expect(statuses.slice(120)).toEqual([429, 429, 429, 429, 429]);
+    });
   });
 });
