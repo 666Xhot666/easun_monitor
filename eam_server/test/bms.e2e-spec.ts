@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { decodeCellInfo } from '../src/bms/jk/cell-info';
 import { referenceFrame } from '../src/bms/jk/testing/reference-frames';
 import type { BmsReading } from '../src/bms/reading';
+import { BmsStore } from '../src/bms/bms.store';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   createTestApp,
@@ -232,6 +233,79 @@ describe('BMS devices (e2e)', () => {
       }
       expect(statuses.slice(0, 120).every((s) => s === 202)).toBe(true);
       expect(statuses.slice(120)).toEqual([429, 429, 429, 429, 429]);
+    });
+  });
+
+  describe('reading it back', () => {
+    const base = (bmsId: number) =>
+      `/api/inverter/profiles/${profileId}/bms/${bmsId}`;
+
+    it('serves the newest reading, live while it is under 30 s old', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      await call('get', `${base(device.id)}/latest`).expect(404);
+
+      await ingest(deviceToken, reading(new Date(Date.now() - 2_000))).expect(
+        202,
+      );
+      const live = await call('get', `${base(device.id)}/latest`).expect(200);
+      expect(live.body).toMatchObject({
+        status: 'live',
+        reading: { stateOfChargePct: 100 },
+      });
+      expect(live.body.ageSeconds).toBeLessThan(30);
+
+      const { device: other, token: otherToken } = await addDevice();
+      await ingest(otherToken, reading(new Date(Date.now() - 45_000))).expect(
+        202,
+      );
+      const stale = await call('get', `${base(other.id)}/latest`).expect(200);
+      expect(stale.body.status).toBe('stale');
+      expect(stale.body.ageSeconds).toBeGreaterThanOrEqual(45);
+
+      await call('get', `${base(device.id)}/latest`, strangerToken).expect(404);
+    });
+
+    it('serves history from stored readings, and hourly averages for long ranges', async () => {
+      const { device } = await addDevice();
+      const t0 = new Date('2026-10-01T00:00:00Z').getTime();
+      // Three days, one reading every 30 s, SOC rising 0..99 within each hour.
+      await prisma.bmsLog.createMany({
+        data: Array.from({ length: 3 * 24 * 120 }, (_, i) => ({
+          bmsDeviceId: device.id,
+          timestamp: new Date(t0 + i * 30_000),
+          payload: {
+            stateOfChargePct: (i % 120) * (99 / 119),
+            packVoltageV: 26.5,
+            cellVoltagesV: [3.3, 3.31],
+          },
+        })),
+      });
+
+      const hour = await call(
+        'get',
+        `${base(device.id)}/history?from=${new Date(t0).toISOString()}&to=${new Date(t0 + 3_600_000).toISOString()}&points=60&fields=stateOfChargePct`,
+      ).expect(200);
+      expect(hour.body.source).toBe('raw');
+      expect(hour.body.points).toHaveLength(60);
+      expect(Object.keys(hour.body.points[0].values)).toEqual([
+        'stateOfChargePct',
+      ]);
+
+      await app.get(BmsStore).rollUp();
+      const days = await call(
+        'get',
+        `${base(device.id)}/history?from=${new Date(t0).toISOString()}&to=${new Date(t0 + 3 * 86_400_000).toISOString()}&points=72`,
+      ).expect(200);
+      expect(days.body.source).toBe('hourly');
+      expect(days.body.points).toHaveLength(72);
+      expect(days.body.points[0].values.stateOfChargePct).toBeCloseTo(49.5, 1);
+      expect(days.body.points[0].values.packVoltageV).toBeCloseTo(26.5, 3);
+
+      await call(
+        'get',
+        `${base(device.id)}/history?from=${new Date(t0).toISOString()}`,
+        strangerToken,
+      ).expect(404);
     });
   });
 });

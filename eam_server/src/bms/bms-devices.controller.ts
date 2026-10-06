@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -6,14 +7,24 @@ import {
   Param,
   ParseIntPipe,
   Post,
+  Query,
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
+import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
+import { BmsIngestService } from './bms-ingest.service';
+import { BmsStore } from './bms.store';
 import { CreateBmsDeviceDto } from './dto/create-bms-device.dto';
 import { newIngestToken } from './ingest-token';
+
+/** A reading older than this is stale, never shown as current. */
+const STALE_AFTER_MS = 30_000;
+const DEFAULT_HISTORY_POINTS = 300;
+const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
+const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
 
 /** Everything about a device but its token hash. */
 export const BMS_DEVICE_FIELDS = {
@@ -30,7 +41,11 @@ export const BMS_DEVICE_FIELDS = {
 @Controller('api/inverter/profiles/:profileId/bms')
 @UseGuards(AuthGuard('jwt'))
 export class BmsDevicesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly ingest: BmsIngestService,
+    private readonly store: BmsStore,
+  ) {}
 
   @Get()
   async list(
@@ -65,6 +80,72 @@ export class BmsDevicesController {
       select: BMS_DEVICE_FIELDS,
     });
     return { device, token };
+  }
+
+  /**
+   * The newest reading with its age. "stale" once it is older than 30 s:
+   * a stale reading is never to be shown as current.
+   */
+  @Get(':bmsId/latest')
+  async latest(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    const reading =
+      this.ingest.latestFor(bmsId)?.reading ?? (await this.store.newest(bmsId));
+    if (!reading) throw new NotFoundException('No BMS reading yet');
+    const ageSeconds = Math.max(
+      0,
+      Math.round((Date.now() - Date.parse(reading.timestamp)) / 1000),
+    );
+    return {
+      reading,
+      ageSeconds,
+      status: ageSeconds * 1000 <= STALE_AFTER_MS ? 'live' : 'stale',
+    };
+  }
+
+  /** Averaged history over a range, like the inverter's history. */
+  @Get(':bmsId/history')
+  async history(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @Query() query: HistoryQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    const to = query.to ?? new Date();
+    const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
+    const span = to.getTime() - from.getTime();
+    if (span <= 0) throw new BadRequestException('`from` must be before `to`');
+    if (span > MAX_HISTORY_SPAN_MS) {
+      throw new BadRequestException(
+        'A history range can cover at most 5 years',
+      );
+    }
+    return this.store.history(bmsId, {
+      from,
+      to,
+      maxPoints: query.points ?? DEFAULT_HISTORY_POINTS,
+      fields: query.fields,
+    });
+  }
+
+  private async requireOwnedDevice(
+    profileId: number,
+    bmsId: number,
+    userId: number,
+  ): Promise<void> {
+    const owned = await this.prisma.bmsDevice.count({
+      where: {
+        id: bmsId,
+        inverterProfileId: profileId,
+        inverterProfile: { userId },
+      },
+    });
+    if (!owned) throw new NotFoundException('BMS not found');
   }
 
   /** 404s for another user's inverter, the same as for a missing one. */
