@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { BatteryMedium, ScrollText, Settings, Sun } from 'lucide-react';
+import { BatteryMedium, ScrollText, Settings, Sun, Users } from 'lucide-react';
 import axios from './lib/apiClient';
 import HistoryChart from './HistoryChart';
 import { useAuth } from './auth/useAuth';
@@ -200,6 +200,14 @@ export default function Dashboard() {
                 Battery
               </Link>
             )}
+            <Link
+              to={`/dashboard/${activeProfile.id}/household`}
+              title="Members and invites"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              <Users className="h-3.5 w-3.5" />
+              Household
+            </Link>
             <Link
               to={`/dashboard/${activeProfile.id}/solar`}
               title="Solar panels and how they are wired"

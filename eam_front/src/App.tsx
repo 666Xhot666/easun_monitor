@@ -13,6 +13,8 @@ import InverterSettings from './pages/InverterSettings'
 import ReadingsLogPage from './pages/ReadingsLogPage'
 import SolarArrayPage from './pages/SolarArrayPage'
 import BatteryPage from './pages/BatteryPage'
+import HouseholdPage from './pages/HouseholdPage'
+import JoinPage from './pages/JoinPage'
 import Dashboard from './Dashboard'
 import DevSerialSniff from './pages/DevSerialSniff'
 
@@ -40,8 +42,12 @@ function App() {
             <Route path="/dashboard/:profileId/logs" element={<ReadingsLogPage />} />
             <Route path="/dashboard/:profileId/solar" element={<SolarArrayPage />} />
             <Route path="/dashboard/:profileId/battery" element={<BatteryPage />} />
+            <Route path="/dashboard/:profileId/household" element={<HouseholdPage />} />
           </Route>
         </Route>
+
+        {/* Signed in or not: the page offers joining, signing up or signing in. */}
+        <Route path="/join/:code" element={<JoinPage />} />
 
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
