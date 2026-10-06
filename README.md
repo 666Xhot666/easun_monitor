@@ -216,17 +216,15 @@ the default 5 seconds. Until the logger has read a register at least once, the
 service answers it with an error instead of a made-up value, so nothing false
 is stored.
 
-To keep it running on a Mac (started at login, restarted whenever it exits,
-the Mac kept awake on AC power), install it as a launchd agent instead. Run
-this from the repository root, in a shell where `node` is the one to use,
-after `npx nest build` in `eam_server`:
+To run it as a launchd agent (starts at login, restarts when it exits, keeps
+the Mac awake on AC power), build it (`npx nest build` in `eam_server`) and
+run from the repository root:
 
 ```bash
 SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B scripts/install-serial-logger-agent.sh
 ```
 
-It logs to `~/serial-logger.log`, one timestamped line per event and a status
-line every minute. The script's header shows how to uninstall it.
+Log: `~/serial-logger.log`. Uninstall: see the script's header.
 
 Serial mode is read-only: settings writes are refused, and nothing is written
 to the taps or the inverter. The service keeps saving the two-tap capture files
@@ -236,41 +234,32 @@ program can open a serial port, so stop the serial logger before using the
 
 ## Battery (BMS) reader
 
-The BMS reader reads a JK BMS over Bluetooth, read-only, and posts its
-readings (state of charge, pack voltage and current, every cell, temperatures,
-balancing, alarms) to the server. It runs natively on a Mac within Bluetooth
-range of the battery (Docker on macOS can't reach Bluetooth); an ESP32 will
-later post the same readings to the same endpoint.
+Reads a JK BMS over Bluetooth (read-only) and posts its readings to the
+server. Runs natively on a Mac within Bluetooth range of the battery.
 
 ```bash
 cd eam_server
-npm run bms-reader -- --scan          # list nearby peripherals: name, id, signal
-npm run bms-reader                    # read and deliver, reconnecting forever
+npx prisma generate                   # once after cloning, and after schema changes
+npm run bms-reader -- --scan          # list nearby peripherals: signal, id, name
+npm run bms-reader                    # read and deliver
 npm run bms-reader -- --decode .dev-captures/bms/<file>.jsonl   # re-decode a capture
 ```
 
-Settings are listed in `.env.example` (`BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
-`BMS_INGEST_URL`, `BMS_INGEST_TOKEN`). The reader takes them from the
-environment first, then `eam_server/.env`, then the repository's `.env`, and
-prints which files it read and which BMS it looks for. A JK BMS often
-advertises its serial number rather than a `JK-` name: use the id from
-`--scan` (`BMS_ID`) or a name prefix (`BMS_NAME`). Without `BMS_INGEST_URL`
-the reader only reads and captures. macOS asks for Bluetooth permission for the terminal or
-IDE that starts it; a scan that finds nothing at all usually means that
-permission is missing. The BMS takes one Bluetooth connection at a time: while
-the reader is connected, the JK phone app cannot connect (confirmed on a
-JK-PB2A16S20P). Stop the reader to use the phone app.
+Settings (see `.env.example`): `BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
+`BMS_INGEST_URL`, `BMS_INGEST_TOKEN`, `BMS_SEND_INTERVAL_MS`. Read from the
+environment, then `eam_server/.env`, then the repository's `.env`.
 
-The reader only ever sends the two read requests (cell info and device info);
-its Bluetooth adapter refuses any other bytes, so it cannot change BMS
-settings or switch the charge/discharge MOSFETs. On any error or disconnect it
-reconnects with backoff (1 s doubling to 30 s), and asks again when no frame
-arrives for 30 s. Each session also writes `.dev-captures/bms/<start>.jsonl`
-with every raw frame, so a decoder fix can be checked against old captures.
+- `BMS_ID`: the id shown by `--scan`. `BMS_NAME`: a name prefix (default `JK-`).
+- `BMS_INGEST_URL` and `BMS_INGEST_TOKEN`: shown when the BMS is added in
+  Settings > Battery monitor (BMS). Without them the reader only captures.
+- macOS asks for Bluetooth permission for the terminal app on first use. It
+  cannot be granted over SSH.
+- The JK phone app cannot connect while the reader is connected.
+- Each session writes `.dev-captures/bms/<start>.jsonl` with the raw frames.
 
-The protocol is ported from
-[syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0)
-at commit `59c994e`; its test frames are the decoder's test vectors.
+The decoder is ported from
+[syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0),
+commit `59c994e`.
 
 ## Tests
 
@@ -305,3 +294,7 @@ cd eam_server && DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@lo
 - **Known limit**: the connection direction (server dials the logger) is
   confirmed against the simulator; confirming it on a real Wi-Fi Plug Pro is
   still open.
+
+## License
+
+BSD 3-Clause, see [LICENSE](LICENSE).
