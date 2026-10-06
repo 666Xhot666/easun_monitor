@@ -12,6 +12,16 @@ export interface InverterProfile {
   lowBatteryCutoffVoltage: number | null;
   bulkChargeVoltage: number | null;
   floatChargeVoltage: number | null;
+  /** The solar array: one panel type, panels in series per string, parallel strings. */
+  pvPanelTypeId: number | null;
+  pvPanelsInSeries: number | null;
+  pvStrings: number | null;
+  /** The inverter's PV input limits, from its datasheet. */
+  pvMaxVocV: number | null;
+  pvMpptMinV: number | null;
+  pvMpptMaxV: number | null;
+  pvMaxPowerW: number | null;
+  pvMaxCurrentA: number | null;
   createdAt: string;
   updatedAt: string;
 }
