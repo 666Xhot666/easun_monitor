@@ -11,6 +11,9 @@ import { describeDeviceStatus, useDeviceStatus } from './inverter/useDeviceStatu
 import { useRegisters } from './inverter/useRegisters';
 import ReadingPanel from './inverter/ReadingPanel';
 import EnergyFlowPanel from './energy/EnergyFlowPanel';
+import PvArrayTile from './solar/PvArrayTile';
+import { computeArray } from './solar/pvArray';
+import { usePanelTypes } from './solar/usePanelTypes';
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
@@ -93,6 +96,12 @@ export default function Dashboard() {
   const registers = useRegisters();
   const deviceStatus = useDeviceStatus(activeProfile?.id ?? 0);
   const deviceProblem = deviceStatus ? describeDeviceStatus(deviceStatus) : null;
+  const { panelTypes } = usePanelTypes();
+  const panel = panelTypes?.find((t) => t.id === activeProfile?.pvPanelTypeId);
+  const pvRatedW =
+    panel && activeProfile?.pvPanelsInSeries && activeProfile.pvStrings
+      ? computeArray(panel, { inSeries: activeProfile.pvPanelsInSeries, strings: activeProfile.pvStrings }).powerW
+      : undefined;
   const [switcherError, setSwitcherError] = useState<string | null>(null);
 
   async function handleDeleteProfile(id: number) {
@@ -237,8 +246,13 @@ export default function Dashboard() {
       </header>
 
       <main className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-8">
-          <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} />
+        <div className="mb-8 grid items-center gap-6 lg:grid-cols-3">
+          <div className="lg:col-span-2">
+            <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} pvRatedW={pvRatedW} />
+          </div>
+          {panelTypes && (
+            <PvArrayTile profileId={activeProfile.id} profile={activeProfile} panelTypes={panelTypes} reading={reading} />
+          )}
         </div>
         {reading && (
           <ReadingPanel
