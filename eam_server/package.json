@@ -21,7 +21,8 @@
     "test:e2e": "node --experimental-vm-modules node_modules/jest/bin/jest.js --config ./test/jest-e2e.json --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "serial-logger": "nest build && node dist/serial-logger/main"
+    "serial-logger": "nest build && node dist/serial-logger/main",
+    "bms-reader": "nest build && node dist/bms-reader/main"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

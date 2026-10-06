@@ -234,6 +234,40 @@ in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
 program can open a serial port, so stop the serial logger before using the
 `/dev/serial` capture panel, and the other way round.
 
+## Battery (BMS) reader
+
+The BMS reader reads a JK BMS over Bluetooth, read-only, and posts its
+readings (state of charge, pack voltage and current, every cell, temperatures,
+balancing, alarms) to the server. It runs natively on a Mac within Bluetooth
+range of the battery (Docker on macOS can't reach Bluetooth); an ESP32 will
+later post the same readings to the same endpoint.
+
+```bash
+cd eam_server
+npm run bms-reader -- --scan          # list nearby peripherals: name, id, signal
+npm run bms-reader                    # read and deliver, reconnecting forever
+npm run bms-reader -- --decode .dev-captures/bms/<file>.jsonl   # re-decode a capture
+```
+
+Settings are in `.env.example` (`BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
+`BMS_INGEST_URL`, `BMS_INGEST_TOKEN`). Without `BMS_INGEST_URL` the reader only
+reads and captures. macOS asks for Bluetooth permission for the terminal or
+IDE that starts it; a scan that finds nothing at all usually means that
+permission is missing. Close the JK phone app first; whether the phone app can
+connect while the reader is attached is checked on the first run (see
+`docs/bms-first-run.md`).
+
+The reader only ever sends the two read requests (cell info and device info);
+its Bluetooth adapter refuses any other bytes, so it cannot change BMS
+settings or switch the charge/discharge MOSFETs. On any error or disconnect it
+reconnects with backoff (1 s doubling to 30 s), and asks again when no frame
+arrives for 30 s. Each session also writes `.dev-captures/bms/<start>.jsonl`
+with every raw frame, so a decoder fix can be checked against old captures.
+
+The protocol is ported from
+[syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0)
+at commit `59c994e`; its test frames are the decoder's test vectors.
+
 ## Tests
 
 ```bash

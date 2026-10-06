@@ -11,6 +11,14 @@ describe('formatLogLine', () => {
 
   it('names the exact instant, whatever the machine time zone', () => {
     const [date, time] = formatLogLine('x', at).split(' ');
-    expect(Date.parse(`${date}T${time}`)).toBe(Date.parse('2026-10-05T19:17:03Z'));
+    expect(Date.parse(`${date}T${time}`)).toBe(
+      Date.parse('2026-10-05T19:17:03Z'),
+    );
+  });
+
+  it('names another service when given one', () => {
+    expect(formatLogLine('scan', at, 'bms-reader')).toMatch(
+      / \[bms-reader\] scan$/,
+    );
   });
 });
