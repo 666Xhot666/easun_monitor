@@ -343,4 +343,32 @@ describe('BMS devices (e2e)', () => {
       await ingest(deviceToken, reading(new Date())).expect(401);
     });
   });
+
+  describe('using the BMS in the energy flow', () => {
+    it('is off for a new device and can be switched on by its owner only', async () => {
+      const { device } = await addDevice();
+      const base = `/api/inverter/profiles/${profileId}/bms/${device.id}`;
+      const list = async () =>
+        (
+          await call('get', `/api/inverter/profiles/${profileId}/bms`).expect(
+            200,
+          )
+        ).body;
+
+      expect((await list())[0]).toMatchObject({ useForEnergyFlow: false });
+
+      const { body } = await call('patch', base)
+        .send({ useForEnergyFlow: true })
+        .expect(200);
+      expect(body).toMatchObject({ id: device.id, useForEnergyFlow: true });
+      expect(body).not.toHaveProperty('tokenHash');
+      expect((await list())[0]).toMatchObject({ useForEnergyFlow: true });
+
+      await call('patch', base).send({ useForEnergyFlow: 'yes' }).expect(400);
+      await call('patch', base).send({ tokenHash: 'x' }).expect(400);
+      await call('patch', base, strangerToken)
+        .send({ useForEnergyFlow: false })
+        .expect(404);
+    });
+  });
 });

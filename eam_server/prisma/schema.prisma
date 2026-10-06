@@ -234,6 +234,10 @@ model BmsDevice {
   tokenHash   String  @unique
   /// When the last reading arrived (not only the stored ones).
   lastSeenAt  DateTime?
+  /// Show this BMS's live values for the battery in the energy flow instead
+  /// of the inverter's estimate. Off until the owner has confirmed the
+  /// current's sign on the real unit (docs/bms-first-run.md, step 7).
+  useForEnergyFlow Boolean @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
   UseGuards,
@@ -19,6 +20,7 @@ import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
 import { BmsIngestService } from './bms-ingest.service';
 import { BmsStore } from './bms.store';
 import { CreateBmsDeviceDto } from './dto/create-bms-device.dto';
+import { UpdateBmsDeviceDto } from './dto/update-bms-device.dto';
 import { newIngestToken } from './ingest-token';
 
 /** A reading older than this is stale, never shown as current. */
@@ -34,6 +36,7 @@ export const BMS_DEVICE_FIELDS = {
   sourceType: true,
   bluetoothId: true,
   lastSeenAt: true,
+  useForEnergyFlow: true,
   createdAt: true,
   inverterProfileId: true,
 } as const;
@@ -81,6 +84,22 @@ export class BmsDevicesController {
       select: BMS_DEVICE_FIELDS,
     });
     return { device, token };
+  }
+
+  /** Renames the device or switches its use in the energy flow. */
+  @Patch(':bmsId')
+  async update(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @Body() dto: UpdateBmsDeviceDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    return this.prisma.bmsDevice.update({
+      where: { id: bmsId },
+      data: dto,
+      select: BMS_DEVICE_FIELDS,
+    });
   }
 
   /** Replaces the device's ingest token (shown once); the old one stops working. */
