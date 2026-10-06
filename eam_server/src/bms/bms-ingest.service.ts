@@ -1,0 +1,92 @@
+import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { hashIngestToken } from './ingest-token';
+import type { BmsReading } from './reading';
+
+const DEFAULT_STORE_INTERVAL_MS = 30_000;
+
+export interface LatestBmsReading {
+  reading: BmsReading;
+  receivedAt: Date;
+}
+
+/**
+ * Takes readings from BMS producers. The BMS streams about one frame a
+ * second; storing all of them would be noise, so at most one reading per
+ * BMS_STORE_INTERVAL_MS (default 30 s, the inverter's cadence) is stored per
+ * device, while the newest is always kept in memory for the live view.
+ */
+@Injectable()
+export class BmsIngestService {
+  private readonly latest = new Map<number, LatestBmsReading>();
+  private readonly lastStoredAt = new Map<number, number>();
+  private readonly storeIntervalMs: number;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    config: ConfigService,
+  ) {
+    const configured = Number(config.get<string>('BMS_STORE_INTERVAL_MS'));
+    this.storeIntervalMs =
+      configured > 0 ? configured : DEFAULT_STORE_INTERVAL_MS;
+  }
+
+  /** The device a bearer token belongs to, or null. */
+  async deviceForToken(token: string): Promise<{ id: number } | null> {
+    return this.prisma.bmsDevice.findUnique({
+      where: { tokenHash: hashIngestToken(token) },
+      select: { id: true },
+    });
+  }
+
+  async ingest(
+    deviceId: number,
+    reading: BmsReading,
+    now = new Date(),
+  ): Promise<{ stored: boolean }> {
+    const at = Date.parse(reading.timestamp);
+    const current = this.latest.get(deviceId);
+    if (!current || Date.parse(current.reading.timestamp) < at) {
+      this.latest.set(deviceId, { reading, receivedAt: now });
+    }
+    await this.prisma.bmsDevice.update({
+      where: { id: deviceId },
+      data: { lastSeenAt: now },
+    });
+
+    const last =
+      this.lastStoredAt.get(deviceId) ?? (await this.newestStoredAt(deviceId));
+    if (last !== null && at - last < this.storeIntervalMs)
+      return { stored: false };
+    try {
+      await this.prisma.bmsLog.create({
+        data: {
+          bmsDeviceId: deviceId,
+          timestamp: new Date(at),
+          payload: reading as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (error) {
+      if ((error as { code?: string }).code === 'P2002')
+        return { stored: false }; // already stored
+      throw error;
+    }
+    this.lastStoredAt.set(deviceId, Math.max(at, last ?? at));
+    return { stored: true };
+  }
+
+  latestFor(deviceId: number): LatestBmsReading | null {
+    return this.latest.get(deviceId) ?? null;
+  }
+
+  private async newestStoredAt(deviceId: number): Promise<number | null> {
+    const row = await this.prisma.bmsLog.findFirst({
+      where: { bmsDeviceId: deviceId },
+      orderBy: { timestamp: 'desc' },
+      select: { timestamp: true },
+    });
+    return row ? row.timestamp.getTime() : null;
+  }
+}

@@ -2,6 +2,9 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { createHash } from 'node:crypto';
+import { decodeCellInfo } from '../src/bms/jk/cell-info';
+import { referenceFrame } from '../src/bms/jk/testing/reference-frames';
+import type { BmsReading } from '../src/bms/reading';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
   createTestApp,
@@ -100,6 +103,83 @@ describe('BMS devices (e2e)', () => {
         `/api/inverter/profiles/${profileId}/bms`,
         strangerToken,
       ).expect(404);
+    });
+  });
+
+  /** A realistic reading: the reference's v19 frame, decoded, at `at`. */
+  const reading = (
+    at: Date,
+    overrides: Partial<BmsReading> = {},
+  ): BmsReading => ({
+    timestamp: at.toISOString(),
+    source: 'mac-ble',
+    decoderVersion: 'jk-ble/1',
+    ...decodeCellInfo(referenceFrame('CELL_INFO_JK02_32S_V19'), 'JK02_32S'),
+    ...overrides,
+  });
+
+  const addDevice = async () =>
+    (
+      await call('post', `/api/inverter/profiles/${profileId}/bms`)
+        .send({ name: 'Pack', sourceType: 'mac-ble' })
+        .expect(201)
+    ).body as { device: { id: number }; token: string };
+
+  const ingest = (deviceToken: string | null, body: unknown) => {
+    const req = request(app.getHttpServer()).post('/api/bms/ingest');
+    return (
+      deviceToken === null
+        ? req
+        : req.set('Authorization', `Bearer ${deviceToken}`)
+    ).send(body as object);
+  };
+
+  describe('POST /api/bms/ingest', () => {
+    it('needs the device token', async () => {
+      await ingest(null, reading(new Date())).expect(401);
+      await ingest('not-a-token', reading(new Date())).expect(401);
+    });
+
+    it('stores a reading for the device the token belongs to and marks it seen', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      const at = new Date(Date.now() - 1000);
+
+      const { body } = await ingest(deviceToken, reading(at)).expect(202);
+
+      expect(body).toEqual({ stored: true });
+      const rows = await prisma.bmsLog.findMany({
+        where: { bmsDeviceId: device.id },
+      });
+      expect(rows).toHaveLength(1);
+      expect(rows[0].timestamp.toISOString()).toBe(at.toISOString());
+      expect(rows[0].payload).toMatchObject({
+        stateOfChargePct: 100,
+        currentA: -0.727,
+        cellVoltagesV: expect.any(Array),
+      });
+      const seen = await prisma.bmsDevice.findUniqueOrThrow({
+        where: { id: device.id },
+      });
+      expect(seen.lastSeenAt).not.toBeNull();
+    });
+
+    it('stores at most one reading per 30 s, accepting the rest for the live view', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      const t0 = Date.now() - 60_000;
+
+      await ingest(deviceToken, reading(new Date(t0))).expect(202, {
+        stored: true,
+      });
+      await ingest(deviceToken, reading(new Date(t0 + 5_000))).expect(202, {
+        stored: false,
+      });
+      await ingest(deviceToken, reading(new Date(t0 + 31_000))).expect(202, {
+        stored: true,
+      });
+
+      expect(
+        await prisma.bmsLog.count({ where: { bmsDeviceId: device.id } }),
+      ).toBe(2);
     });
   });
 });
