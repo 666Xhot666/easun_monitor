@@ -12,6 +12,7 @@ import SetupWizard from './pages/SetupWizard'
 import InverterSettings from './pages/InverterSettings'
 import ReadingsLogPage from './pages/ReadingsLogPage'
 import SolarArrayPage from './pages/SolarArrayPage'
+import BatteryPage from './pages/BatteryPage'
 import Dashboard from './Dashboard'
 import DevSerialSniff from './pages/DevSerialSniff'
 
@@ -38,6 +39,7 @@ function App() {
             <Route path="/dashboard/:profileId/settings" element={<InverterSettings />} />
             <Route path="/dashboard/:profileId/logs" element={<ReadingsLogPage />} />
             <Route path="/dashboard/:profileId/solar" element={<SolarArrayPage />} />
+            <Route path="/dashboard/:profileId/battery" element={<BatteryPage />} />
           </Route>
         </Route>
 

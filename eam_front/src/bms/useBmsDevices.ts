@@ -16,6 +16,8 @@ export function useBmsDevices(profileId: number) {
     }
   }, [profileId]);
   useEffect(() => {
+    // No profile selected yet (the dashboard passes 0 while redirecting).
+    if (profileId <= 0) return;
     let cancelled = false;
     fetchDevices(profileId)
       .then((data) => {

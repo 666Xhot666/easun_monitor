@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ScrollText, Settings, Sun } from 'lucide-react';
+import { BatteryMedium, ScrollText, Settings, Sun } from 'lucide-react';
 import axios from './lib/apiClient';
 import HistoryChart from './HistoryChart';
 import { useAuth } from './auth/useAuth';
@@ -15,6 +15,15 @@ import EnergyTotals from './energy/EnergyTotals';
 import PvArrayTile from './solar/PvArrayTile';
 import { computeArray } from './solar/pvArray';
 import { usePanelTypes } from './solar/usePanelTypes';
+import { useBmsDevices } from './bms/useBmsDevices';
+import { useBmsLatest } from './bms/useBmsLatest';
+
+/**
+ * Show the BMS's live battery values in the energy flow instead of the
+ * inverter's estimate. Off until the current's sign has been confirmed on
+ * the real BMS (docs/bms-first-run.md, step 7).
+ */
+const USE_BMS_FOR_ENERGY_FLOW = false;
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
@@ -98,6 +107,9 @@ export default function Dashboard() {
   const deviceStatus = useDeviceStatus(activeProfile?.id ?? 0);
   const deviceProblem = deviceStatus ? describeDeviceStatus(deviceStatus) : null;
   const { panelTypes } = usePanelTypes();
+  const { devices: bmsDevices } = useBmsDevices(activeProfile?.id ?? 0);
+  const bms = bmsDevices?.[0] ?? null;
+  const bmsLatest = useBmsLatest(activeProfile?.id ?? 0, USE_BMS_FOR_ENERGY_FLOW && bms ? bms.id : null);
   const panel = panelTypes?.find((t) => t.id === activeProfile?.pvPanelTypeId);
   const pvRatedW =
     panel && activeProfile?.pvPanelsInSeries && activeProfile.pvStrings
@@ -179,6 +191,16 @@ export default function Dashboard() {
             />
           </div>
           <div className="flex items-center gap-3 text-sm">
+            {bms && (
+              <Link
+                to={`/dashboard/${activeProfile.id}/battery`}
+                title="The battery as its BMS reports it"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+              >
+                <BatteryMedium className="h-3.5 w-3.5" />
+                Battery
+              </Link>
+            )}
             <Link
               to={`/dashboard/${activeProfile.id}/solar`}
               title="Solar panels and how they are wired"
@@ -257,7 +279,7 @@ export default function Dashboard() {
       <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-8 grid items-center gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2">
-            <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} pvRatedW={pvRatedW} />
+            <EnergyFlowPanel reading={reading} pollMs={DEFAULT_POLL_MS} pvRatedW={pvRatedW} bms={bmsLatest} />
           </div>
           <div className="space-y-6">
             {panelTypes && (
