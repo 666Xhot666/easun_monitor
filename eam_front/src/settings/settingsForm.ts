@@ -71,7 +71,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'LcdBacklight', // 20
     ],
   },
-  { title: 'Power control', names: ['EnergySavingMode', 'AutoACOutput', 'TurnOnMode'] },
+  { title: 'Power on/off and energy saving', names: ['EnergySavingMode', 'AutoACOutput', 'TurnOnMode'] },
 ];
 
 const settingsOf = (definitions: RegisterDefinition[]) =>

@@ -62,7 +62,7 @@ describe('groupIntoSections', () => {
       ['Output and source priority', ['OutputPriority', 'OutputVoltageSet']],
       ['Battery and charging', ['MaxChargingCurrent']],
       ['Equalization', ['BatteryEqualizationTime']],
-      ['Power control', ['TurnOnMode']],
+      ['Power on/off and energy saving', ['TurnOnMode']],
       ['Device information', ['RatedPower']],
     ]);
   });
@@ -73,7 +73,7 @@ describe('groupIntoSections', () => {
     });
     const sections = groupIntoSections([...defs, risky('RemoteSwitch', 420), risky('OutputMode', 300)]);
     expect(sections.map((s) => s.title)).toEqual([
-      'Output and source priority', 'Battery and charging', 'Equalization', 'Power control', 'Advanced', 'Device information',
+      'Output and source priority', 'Battery and charging', 'Equalization', 'Power on/off and energy saving', 'Advanced', 'Device information',
     ]);
     expect(sections[4].registers.map((r) => r.name)).toEqual(['OutputMode', 'RemoteSwitch']);
   });
@@ -93,7 +93,7 @@ describe('groupIntoSections', () => {
     expect(sections.map((s) => [s.title, s.registers.map((r) => r.name)])).toEqual([
       ['Battery and charging', ['TimeFromCVToFloating', 'LowDcProtectionSocGrid', 'SocRecoveryMains', 'OffGridSocProtection']],
       ['Display and sound', ['BeepsWhilePrimarySourceInterrupted']],
-      ['Power control', ['AutoACOutput']],
+      ['Power on/off and energy saving', ['AutoACOutput']],
     ]);
   });
 
