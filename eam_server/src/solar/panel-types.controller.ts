@@ -57,7 +57,6 @@ export class PanelTypesController {
       this.prisma.panelType.create({
         data: {
           ...dto,
-          userId: user.userId,
           householdId,
         },
       }),

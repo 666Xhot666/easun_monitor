@@ -136,7 +136,6 @@ export class InverterController {
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.create({
         data: {
-          userId: user.userId,
           householdId,
           name: dto.name,
           ipAddress: dto.ipAddress,

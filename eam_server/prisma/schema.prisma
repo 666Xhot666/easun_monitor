@@ -33,10 +33,8 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  inverterProfiles InverterProfile[]
-  refreshTokens    RefreshToken[]
-  panelTypes       PanelType[]
-  memberships      Membership[]
+  refreshTokens RefreshToken[]
+  memberships   Membership[]
 
   @@map("users")
 }
@@ -114,15 +112,12 @@ model PanelType {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  householdId Int?
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId Int
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   inverterProfiles InverterProfile[]
 
-  @@unique([userId, name])
+  @@unique([householdId, name])
   @@map("panel_types")
 }
 
@@ -191,11 +186,8 @@ model InverterProfile {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  userId Int
-  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  householdId Int?
-  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
+  householdId Int
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   logs              InverterLog[]
   hourlyLogs        InverterLogHourly[]
@@ -204,7 +196,7 @@ model InverterProfile {
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
-  @@index([userId])
+  @@index([householdId])
   @@map("inverter_profiles")
 }
 

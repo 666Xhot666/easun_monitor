@@ -40,8 +40,7 @@ export class HouseholdsService {
     const profile = await this.prisma.inverterProfile.findUnique({
       where: { id: profileId },
     });
-    if (!profile?.householdId)
-      throw new NotFoundException('No such inverter profile');
+    if (!profile) throw new NotFoundException('No such inverter profile');
     await this.requireHousehold(
       profile.householdId,
       userId,
@@ -56,8 +55,7 @@ export class HouseholdsService {
     const panelType = await this.prisma.panelType.findUnique({
       where: { id: panelTypeId },
     });
-    if (!panelType?.householdId)
-      throw new NotFoundException('Panel type not found');
+    if (!panelType) throw new NotFoundException('Panel type not found');
     await this.requireHousehold(
       panelType.householdId,
       userId,

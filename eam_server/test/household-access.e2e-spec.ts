@@ -74,7 +74,7 @@ describe('Household access: admin, reader, stranger (e2e)', () => {
       where: { id: profileId },
     });
     await prisma.membership.create({
-      data: { userId: reader.id, householdId: householdId!, role: 'READER' },
+      data: { userId: reader.id, householdId, role: 'READER' },
     });
   });
 
