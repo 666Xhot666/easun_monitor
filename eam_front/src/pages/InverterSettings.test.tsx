@@ -1,3 +1,4 @@
+import { AuthContext, type AuthContextValue } from '../auth/context';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -32,6 +33,7 @@ function renderPage(
   handler: (method: string, url: string, body: unknown) => Reply,
   constraints: unknown = noConstraints,
   panelSettings: unknown[] = [],
+  role: 'ADMIN' | 'READER' = 'ADMIN',
 ) {
   const server = fakeServer((config) =>
     config.url === '/api/inverter/registers'
@@ -44,12 +46,15 @@ function renderPage(
         ? { status: 200, data: constraints }
         : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
   );
+  const auth = { user: { inverterProfiles: [{ id: 7, role }] } } as unknown as AuthContextValue;
   render(
-    <MemoryRouter initialEntries={['/dashboard/7/settings']}>
-      <Routes>
-        <Route path="/dashboard/:profileId/settings" element={<InverterSettings />} />
-      </Routes>
-    </MemoryRouter>,
+    <AuthContext.Provider value={auth}>
+      <MemoryRouter initialEntries={['/dashboard/7/settings']}>
+        <Routes>
+          <Route path="/dashboard/:profileId/settings" element={<InverterSettings />} />
+        </Routes>
+      </MemoryRouter>
+    </AuthContext.Provider>,
   );
   return server;
 }
@@ -308,5 +313,16 @@ describe('InverterSettings page', () => {
 
     expect(await screen.findByRole('heading', { name: 'Battery monitor (BMS)' })).toBeInTheDocument();
     expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
+  });
+
+  it('shows a reader the settings without letting them change anything', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) }), noConstraints, [], 'READER').restore;
+
+    expect(await screen.findByLabelText('Output priority')).toBeDisabled();
+    expect(screen.getByLabelText('Output voltage')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
+    expect(screen.getByText('Read-only: only a household admin can change settings.')).toBeInTheDocument();
+    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add BMS' })).not.toBeInTheDocument();
   });
 });

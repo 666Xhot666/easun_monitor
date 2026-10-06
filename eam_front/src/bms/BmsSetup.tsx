@@ -16,13 +16,15 @@ interface Props {
   profileId: number;
   /** Clock, injectable for tests. */
   now?: () => number;
+  /** Readers: the list only, no changes. */
+  readOnly?: boolean;
 }
 
 /**
  * The inverter's battery monitors (BMS): add one, see when it last reported,
  * replace a lost ingest token, remove it. A token is shown only once.
  */
-export default function BmsSetup({ profileId, now = Date.now }: Props) {
+export default function BmsSetup({ profileId, now = Date.now, readOnly = false }: Props) {
   const { devices, reload } = useBmsDevices(profileId);
   const [name, setName] = useState('Battery');
   const [sourceType, setSourceType] = useState<BmsDevice['sourceType']>('mac-ble');
@@ -116,30 +118,34 @@ export default function BmsSetup({ profileId, now = Date.now }: Props) {
                       type="checkbox"
                       aria-label={`Use ${device.name} for the energy flow`}
                       checked={device.useForEnergyFlow}
-                      disabled={busy}
+                      disabled={busy || readOnly}
                       onChange={(e) => setEnergyFlowSource(device, e.target.checked)}
                     />
                     Use for the battery in the energy flow
                   </label>
                 </div>
-                <button
-                  type="button"
-                  aria-label={`New token for ${device.name}`}
-                  disabled={busy}
-                  onClick={() => replaceToken(device)}
-                  className={smallButton}
-                >
-                  New token
-                </button>
-                <button
-                  type="button"
-                  aria-label={`Remove ${device.name}`}
-                  disabled={busy}
-                  onClick={() => remove(device)}
-                  className={smallButton}
-                >
-                  Remove
-                </button>
+                {!readOnly && (
+                  <>
+                    <button
+                      type="button"
+                      aria-label={`New token for ${device.name}`}
+                      disabled={busy}
+                      onClick={() => replaceToken(device)}
+                      className={smallButton}
+                    >
+                      New token
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${device.name}`}
+                      disabled={busy}
+                      onClick={() => remove(device)}
+                      className={smallButton}
+                    >
+                      Remove
+                    </button>
+                  </>
+                )}
               </li>
             ))}
           </ul>
@@ -167,40 +173,42 @@ export default function BmsSetup({ profileId, now = Date.now }: Props) {
           </section>
         )}
 
-        {devices && devices.length > 0 && (
+        {!readOnly && devices && devices.length > 0 && (
           <p className="text-xs text-gray-500 dark:text-gray-400">
             Turn on the energy flow only once the current's sign is confirmed on the real BMS (first run, step 7):
             positive while charging, negative while discharging.
           </p>
         )}
 
-        <form onSubmit={add} className="grid gap-3 sm:grid-cols-3 sm:items-end">
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
-          </label>
-          <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
-            Reads it
-            <select
-              value={sourceType}
-              onChange={(e) => setSourceType(e.target.value as BmsDevice['sourceType'])}
-              className={inputClass}
+        {!readOnly && (
+          <form onSubmit={add} className="grid gap-3 sm:grid-cols-3 sm:items-end">
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Name
+              <input value={name} onChange={(e) => setName(e.target.value)} className={inputClass} />
+            </label>
+            <label className="block text-xs font-medium text-gray-600 dark:text-gray-300">
+              Reads it
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value as BmsDevice['sourceType'])}
+                className={inputClass}
+              >
+                {SOURCES.map((s) => (
+                  <option key={s.value} value={s.value}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
             >
-              {SOURCES.map((s) => (
-                <option key={s.value} value={s.value}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={busy}
-            className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-          >
-            Add BMS
-          </button>
-        </form>
+              Add BMS
+            </button>
+          </form>
+        )}
         {error && (
           <p role="alert" className="text-sm text-red-600 dark:text-red-400">
             {error}

@@ -14,6 +14,7 @@ import {
 } from '../settings/settingsForm';
 import LithiumSetupHelper from '../settings/LithiumSetupHelper';
 import BmsSetup from '../bms/BmsSetup';
+import { useAuth } from '../auth/useAuth';
 import { checkSettings, NO_CONSTRAINTS, type Bounds, type SettingsConstraints } from '../settings/settingsRules';
 
 /** GET/PATCH /api/inverter/:profileId/settings response. */
@@ -36,6 +37,9 @@ type SaveState =
  */
 export default function InverterSettings() {
   const { profileId } = useParams<{ profileId: string }>();
+  const { user } = useAuth();
+  // Readers see everything and change nothing; the server enforces the same.
+  const readOnly = user?.inverterProfiles.find((p) => p.id === Number(profileId))?.role !== 'ADMIN';
   const registers = useRegisters();
 
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
@@ -211,15 +215,17 @@ export default function InverterSettings() {
               <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
               Refresh from inverter
             </button>
-            <button
-              type="button"
-              onClick={() => void save()}
-              disabled={changeCount === 0 || hasErrors || saving}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Send className="h-4 w-4" />
-              {saving ? 'Saving…' : changeCount === 1 ? 'Save 1 change' : `Save ${changeCount} changes`}
-            </button>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={() => void save()}
+                disabled={changeCount === 0 || hasErrors || saving}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+              >
+                <Send className="h-4 w-4" />
+                {saving ? 'Saving…' : changeCount === 1 ? 'Save 1 change' : `Save ${changeCount} changes`}
+              </button>
+            )}
           </div>
         </div>
       </header>
@@ -257,7 +263,13 @@ export default function InverterSettings() {
 
         {loadState === 'ready' && registers && (
           <div className="space-y-8">
-            <LithiumSetupHelper onPropose={propose} />
+            {readOnly ? (
+              <p className="text-sm text-gray-500 dark:text-gray-400">
+                Read-only: only a household admin can change settings.
+              </p>
+            ) : (
+              <LithiumSetupHelper onPropose={propose} />
+            )}
             {groupIntoSections(registers).map((section) => (
               <section key={section.title}>
                 <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
@@ -279,7 +291,7 @@ export default function InverterSettings() {
                         .filter((p) => p.affects?.includes(definition.name))
                         .map((p) => p.program)}
                       defaultValue={constraints.defaults[definition.name] ?? definition.default}
-                      disabled={saving}
+                      disabled={saving || readOnly}
                       onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
                     />
                   ))}
@@ -291,7 +303,7 @@ export default function InverterSettings() {
         )}
         {/* Independent of the inverter: set up even while it is unreachable. */}
         <div className="mt-8">
-          <BmsSetup profileId={Number(profileId)} />
+          <BmsSetup profileId={Number(profileId)} readOnly={readOnly} />
         </div>
       </main>
     </div>
