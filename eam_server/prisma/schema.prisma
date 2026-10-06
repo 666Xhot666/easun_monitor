@@ -35,6 +35,8 @@ model User {
 
   refreshTokens RefreshToken[]
   memberships   Membership[]
+  telegramLink  TelegramLink?
+  telegramCodes TelegramLinkCode[]
 
   @@map("users")
 }
@@ -334,4 +336,31 @@ model BmsLogHourly {
 
   @@id([bmsDeviceId, hour])
   @@map("bms_log_hourly")
+}
+
+/// A Telegram chat linked to a user: the bot answers and alerts there with
+/// the user's read rights. One chat per user.
+model TelegramLink {
+  id        Int      @id @default(autoincrement())
+  /// Telegram chat id, as text (it can exceed 32 bits).
+  chatId    String   @unique
+  createdAt DateTime @default(now())
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_links")
+}
+
+/// A one-time code a user sends to the bot (/start <code>) to link a chat.
+model TelegramLinkCode {
+  id        Int      @id @default(autoincrement())
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("telegram_link_codes")
 }
