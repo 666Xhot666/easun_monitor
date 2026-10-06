@@ -12,6 +12,12 @@ import {
   type TelegramUpdate,
 } from './telegram-client';
 import { TelegramLinksService } from './telegram-links.service';
+import { HouseholdsService } from '../households/households.service';
+import { RegisterMap } from '../inverter/registers/register-map';
+import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
+import { PrismaService } from '../prisma/prisma.service';
+import { TelemetryStore } from '../telemetry/telemetry.store';
+import { dayStart, formatEnergy, formatStatus } from './messages';
 
 const POLL_TIMEOUT_SECONDS = 30;
 const RETRY_AFTER_ERROR_MS = 5_000;
@@ -30,12 +36,21 @@ export class TelegramBot
 {
   private readonly logger = new Logger(TelegramBot.name);
   private running = false;
+  private readonly map = new RegisterMap(SMG_II_REGISTERS);
 
   constructor(
     @Inject(TELEGRAM_CLIENT) private readonly client: TelegramClient | null,
     private readonly links: TelegramLinksService,
     private readonly config: ConfigService,
+    private readonly households: HouseholdsService,
+    private readonly prisma: PrismaService,
+    private readonly telemetry: TelemetryStore,
   ) {}
+
+  /** The IANA time zone that defines "today" (TIME_ZONE, default UTC). */
+  get timeZone(): string {
+    return this.config.get<string>('TIME_ZONE') || 'UTC';
+  }
 
   onApplicationBootstrap(): void {
     if (!this.client || !this.config.get<string>('TELEGRAM_BOT_TOKEN')) return;
@@ -82,7 +97,62 @@ export class TelegramBot
       return;
     }
     const userId = await this.links.userForChat(chatId);
-    await this.send(chatId, userId === null ? HOW_TO_LINK : HELP);
+    if (userId === null) {
+      await this.send(chatId, HOW_TO_LINK);
+    } else if (command === '/status') {
+      await this.send(chatId, await this.status(userId));
+    } else if (command === '/energy') {
+      await this.send(chatId, await this.energy(userId));
+    } else {
+      await this.send(chatId, HELP);
+    }
+  }
+
+  /** The inverters of all the user's households. */
+  private async profilesOf(userId: number) {
+    return this.prisma.inverterProfile.findMany({
+      where: {
+        householdId: { in: await this.households.householdIds(userId) },
+      },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+  }
+
+  private async status(userId: number): Promise<string> {
+    const profiles = await this.profilesOf(userId);
+    if (profiles.length === 0) return 'No inverters in your households yet.';
+    const now = new Date();
+    const parts = await Promise.all(
+      profiles.map(async (p) => {
+        const latest = await this.telemetry.latest(p.id);
+        return formatStatus(
+          p.name,
+          this.map,
+          latest
+            ? {
+                timestamp: latest.timestamp,
+                payload: latest.payload as Record<string, number>,
+              }
+            : null,
+          now,
+        );
+      }),
+    );
+    return parts.join('\n\n');
+  }
+
+  private async energy(userId: number): Promise<string> {
+    const profiles = await this.profilesOf(userId);
+    if (profiles.length === 0) return 'No inverters in your households yet.';
+    const from = dayStart(new Date(), this.timeZone);
+    const to = new Date(from.getTime() + 24 * 3_600_000);
+    const parts = await Promise.all(
+      profiles.map(async (p) =>
+        formatEnergy(p.name, await this.telemetry.energy(p.id, { from, to })),
+      ),
+    );
+    return parts.join('\n');
   }
 
   private async poll(): Promise<void> {

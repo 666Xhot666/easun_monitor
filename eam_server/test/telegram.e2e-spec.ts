@@ -6,7 +6,13 @@ import {
   type TelegramClient,
 } from '../src/telegram/telegram-client';
 import { TelegramBot } from '../src/telegram/telegram-bot';
-import { createTestApp, registerUser, resetDatabase } from './helpers';
+import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  createTestApp,
+  registerUser,
+  resetDatabase,
+  sampleProfile,
+} from './helpers';
 
 /** Records what the bot sends instead of calling Telegram. */
 class FakeTelegram implements TelegramClient {
@@ -107,6 +113,38 @@ describe('Telegram (e2e)', () => {
       expect((await as('get', '/api/telegram/link').expect(200)).body).toEqual({
         linked: false,
       });
+    });
+
+    it("answers /status and /energy for the user's inverters", async () => {
+      const { code } = (await as('post', '/api/telegram/link-code').expect(201))
+        .body;
+      await bot.handleUpdate(message(5151, `/start ${code}`));
+      const profile = (
+        await as('post', '/api/inverter/setup').send(sampleProfile).expect(201)
+      ).body;
+      await app.get(PrismaService).inverterLog.create({
+        data: {
+          inverterProfileId: profile.id,
+          payload: { OperationMode: 3, PVPower: 500, BatterySoc: 77 },
+        },
+      });
+      telegram.sent = [];
+
+      await bot.handleUpdate(message(5151, '/status'));
+      await bot.handleUpdate(message(5151, '/energy'));
+
+      expect(telegram.sent[0].text).toMatch(
+        new RegExp(`^${profile.name}: Off-grid`),
+      );
+      expect(telegram.sent[0].text).toContain('Battery 77 %');
+      expect(telegram.sent[1].text).toMatch(
+        new RegExp(`^${profile.name} today: PV `),
+      );
+    });
+
+    it('asks an unlinked chat to link first instead of answering /status', async () => {
+      await bot.handleUpdate(message(9999, '/status'));
+      expect(telegram.sent[0].text).toMatch(/Settings/);
     });
   });
 });
