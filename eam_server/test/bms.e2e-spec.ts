@@ -231,7 +231,7 @@ describe('BMS devices (e2e)', () => {
             .status,
         );
       }
-      expect(statuses.slice(0, 120).every((s) => s === 202)).toBe(true);
+      expect(statuses.slice(0, 120)).toEqual(Array(120).fill(202));
       expect(statuses.slice(120)).toEqual([429, 429, 429, 429, 429]);
     });
   });
