@@ -38,6 +38,8 @@ function renderPage(
       ? { status: 200, data: registers }
       : config.url === '/api/inverter/panel-settings'
         ? { status: 200, data: panelSettings }
+        : config.url === '/api/inverter/profiles/7/bms'
+        ? { status: 200, data: [] }
         : config.url === '/api/inverter/7/settings/constraints'
         ? { status: 200, data: constraints }
         : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
@@ -299,5 +301,12 @@ describe('InverterSettings page', () => {
     await waitFor(() => expect(screen.getByLabelText('Output voltage')).toHaveValue(225));
     expect(server.sent.find((c) => c.method === 'post')?.url).toBe('/api/inverter/7/settings/refresh');
     expect(within(screen.getByRole('status')).getByText(/Read from the inverter/)).toBeInTheDocument();
+  });
+
+  it('offers the battery monitor setup, whatever the inverter does', async () => {
+    restore = renderPage(() => ({ status: 503, data: { statusCode: 503, message: 'Inverter unreachable' } })).restore;
+
+    expect(await screen.findByRole('heading', { name: 'Battery monitor (BMS)' })).toBeInTheDocument();
+    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
   });
 });

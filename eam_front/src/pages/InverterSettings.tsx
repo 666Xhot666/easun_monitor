@@ -13,6 +13,7 @@ import {
   type FormValues,
 } from '../settings/settingsForm';
 import LithiumSetupHelper from '../settings/LithiumSetupHelper';
+import BmsSetup from '../bms/BmsSetup';
 import { checkSettings, NO_CONSTRAINTS, type Bounds, type SettingsConstraints } from '../settings/settingsRules';
 
 /** GET/PATCH /api/inverter/:profileId/settings response. */
@@ -288,6 +289,10 @@ export default function InverterSettings() {
             {panelSettings.length > 0 && <PanelSettings settings={panelSettings} />}
           </div>
         )}
+        {/* Independent of the inverter: set up even while it is unreachable. */}
+        <div className="mt-8">
+          <BmsSetup profileId={Number(profileId)} />
+        </div>
       </main>
     </div>
   );
