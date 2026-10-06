@@ -1,3 +1,5 @@
+import { utilization } from '../solar/pvArray';
+
 /** Power as shown on a flow line: "278W", "1.2kW" above 1000 W, "--" when
  * unknown. Always the magnitude; the line's dots show the direction. */
 export function formatPower(watts: number | undefined): string {
@@ -33,6 +35,8 @@ export interface EnergyFlow {
 export interface EnergyFlowOptions {
   /** Below this many watts a line counts as idle, so noise doesn't flicker. */
   deadbandW?: number;
+  /** The solar array's rated power; adds utilization to the PV value. */
+  pvRatedW?: number;
 }
 
 const DEFAULT_DEADBAND_W = 10;
@@ -54,6 +58,7 @@ export function computeEnergyFlow(
 
   const pvW = read('PVPower');
   const pvActive = isActive(pvW);
+  const pvShare = pvActive ? utilization(pvW, options.pvRatedW) : undefined;
 
   const gridW = read('AverageMainsPower');
   const mainsV = read('MainsVoltage');
@@ -69,7 +74,7 @@ export function computeEnergyFlow(
 
   return {
     pv: {
-      value: formatPower(pvW),
+      value: pvShare === undefined ? formatPower(pvW) : `${formatPower(pvW)} · ${pvShare}%`,
       active: pvActive,
       direction: 'toInverter',
       available: pvActive,

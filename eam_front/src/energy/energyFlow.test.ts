@@ -89,6 +89,12 @@ describe('computeEnergyFlow', () => {
     expect(flow.grid).toMatchObject({ value: '600W', active: true, direction: 'toInverter' });
   });
 
+  it("adds PV utilization of the array's rating while PV produces", () => {
+    expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, PVPower: 1404 }, { pvRatedW: 2700 }).pv.value).toBe('1.4kW · 52%');
+    expect(computeEnergyFlow(NIGHT_ON_BATTERY, { pvRatedW: 2700 }).pv.value).toBe('0W');
+    expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, PVPower: 1404 }).pv.value).toBe('1.4kW');
+  });
+
   it('dims the grid when mains is down', () => {
     expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, MainsVoltage: 0 }).grid.available).toBe(false);
   });

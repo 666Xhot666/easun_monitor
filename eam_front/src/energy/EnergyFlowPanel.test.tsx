@@ -41,4 +41,11 @@ describe('EnergyFlowPanel', () => {
     expect(screen.getByTestId('flow-value-battery')).toHaveTextContent('--');
     expect(screen.getByTestId('flow-freshness')).toHaveTextContent('Offline');
   });
+
+  it("shows PV utilization when the array's rating is known", () => {
+    const sunny = { ...reading(3_000), payload: { ...reading(3_000).payload, PVPower: 1404 } };
+    render(<EnergyFlowPanel reading={sunny} pollMs={5_000} pvRatedW={2700} now={() => NOW} />);
+
+    expect(screen.getByTestId('flow-value-pv')).toHaveTextContent('1.4kW · 52%');
+  });
 });
