@@ -104,7 +104,7 @@ README's "Battery (BMS) reader" section.
 | BMS name / id / signal | `512262449000576-14` / `1679979376e9b5d0eee5474324a68382` (reader Mac) / -73 dBm |
 | Model, hardware, software | JK-PB2A16S20P, 19U, 19.28 |
 | `BMS_PROTOCOL` that decodes correctly | JK02_32S |
-| Phone app comparison (differences) | |
+| Comparison with the main pack's display | Matches |
 | BMS pack voltage vs inverter battery voltage | At rest BMS 27.59-27.60 V, inverter 27.4 V: BMS 0.19-0.20 V higher (193 readings, 2026-10-06 18:55-20:36). Inverter value has 0.1 V resolution and refreshes about every 5 min in serial mode. |
 | BMS SOC vs inverter SOC | BMS 100 % throughout. Inverter 100 %, except 90 % for about 5 min after an 18.5 A discharge at 19:09. |
 | Current sign (charging / discharging) | Positive while charging, negative while discharging; matches the BMS display |
