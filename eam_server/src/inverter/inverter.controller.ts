@@ -30,6 +30,7 @@ import { PairTestDto } from './dto/pair-test.dto';
 import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
 import { HistoryQueryDto } from './dto/history-query.dto';
+import { ReadingsQueryDto } from './dto/readings-query.dto';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
@@ -42,6 +43,9 @@ const DEFAULT_HISTORY_POINTS = 300;
 const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
 /** Longest range one history request may cover. */
 const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
+const DEFAULT_READINGS_PAGE = 100;
+/** The longest range the readings log lists or exports at once. */
+const MAX_READINGS_SPAN_MS = 31 * 24 * 60 * 60 * 1000;
 
 @Controller('api/inverter')
 @UseGuards(AuthGuard('jwt'))
@@ -272,6 +276,23 @@ export class InverterController {
     });
   }
 
+  /** Raw readings in a range, newest first, a page at a time. */
+  @Get(':profileId/readings')
+  async getReadings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Query() query: ReadingsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedProfile(profileId, user.userId);
+    checkReadingsSpan(query.from, query.to);
+    return this.telemetry.readings(profileId, {
+      from: query.from,
+      to: query.to,
+      limit: query.limit ?? DEFAULT_READINGS_PAGE,
+      before: query.before,
+    });
+  }
+
   // -----------------------------------------------------------------
   // Settings — read from and written to the inverter itself.
   // -----------------------------------------------------------------
@@ -446,5 +467,15 @@ export class InverterController {
         `Failed to sync polling after a profile change: ${message}`,
       );
     }
+  }
+}
+
+function checkReadingsSpan(from: Date, to: Date): void {
+  const span = to.getTime() - from.getTime();
+  if (span <= 0) {
+    throw new BadRequestException('`from` must be before `to`');
+  }
+  if (span > MAX_READINGS_SPAN_MS) {
+    throw new BadRequestException('A readings range can cover at most 31 days');
   }
 }

@@ -73,4 +73,40 @@ describe('Readings log (e2e)', () => {
       expect(second.map((r) => r.payload.PVPower)).toEqual([5, 4, 3, 2]);
     });
   });
+
+  describe('GET /api/inverter/:profileId/readings', () => {
+    const get = (path: string, auth = token) =>
+      request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${auth}`);
+    const range = `from=${new Date(t0).toISOString()}&to=${new Date(t0 + 10 * MINUTE).toISOString()}`;
+
+    it('returns a page of readings in the range, newest first', async () => {
+      await seed(profileId, t0, 10);
+
+      const { body } = await get(`/api/inverter/${profileId}/readings?${range}&limit=3`).expect(200);
+
+      expect(body.map((r: { payload: { PVPower: number } }) => r.payload.PVPower)).toEqual([9, 8, 7]);
+      expect(body[0]).toEqual({
+        id: expect.any(Number),
+        timestamp: new Date(t0 + 9 * MINUTE).toISOString(),
+        payload: { PVPower: 9, OperationMode: 2 },
+      });
+
+      const next = await get(`/api/inverter/${profileId}/readings?${range}&limit=3&before=${body[2].timestamp}`).expect(200);
+      expect(next.body.map((r: { payload: { PVPower: number } }) => r.payload.PVPower)).toEqual([6, 5, 4]);
+    });
+
+    it('needs a range of at most 31 days', async () => {
+      await get(`/api/inverter/${profileId}/readings`).expect(400);
+      const to = new Date(t0 + 32 * 24 * 60 * MINUTE).toISOString();
+      await get(`/api/inverter/${profileId}/readings?from=${new Date(t0).toISOString()}&to=${to}`).expect(400);
+      await get(`/api/inverter/${profileId}/readings?${range}&limit=501`).expect(400);
+    });
+
+    it("hides another user's readings", async () => {
+      await seed(profileId, t0, 3);
+      const stranger = await registerUser(app, 'stranger@example.com');
+
+      await get(`/api/inverter/${profileId}/readings?${range}`, stranger).expect(404);
+    });
+  });
 });

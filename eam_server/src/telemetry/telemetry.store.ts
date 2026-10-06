@@ -91,17 +91,26 @@ export class TelemetryStore {
    * Raw readings in [from, to), newest first, at most `limit`. Pass the
    * oldest timestamp already shown as `before` to get the next page.
    */
-  async readings(profileId: number, query: ReadingsQuery): Promise<StoredReading[]> {
+  async readings(
+    profileId: number,
+    query: ReadingsQuery,
+  ): Promise<StoredReading[]> {
     const rows = await this.prisma.inverterLog.findMany({
       where: {
         inverterProfileId: profileId,
-        timestamp: { gte: query.from, lt: query.before && query.before < query.to ? query.before : query.to },
+        timestamp: {
+          gte: query.from,
+          lt: query.before && query.before < query.to ? query.before : query.to,
+        },
       },
       orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
       take: query.limit,
       select: { id: true, timestamp: true, payload: true },
     });
-    return rows.map((row) => ({ ...row, payload: row.payload as ReadingPayload }));
+    return rows.map((row) => ({
+      ...row,
+      payload: row.payload as ReadingPayload,
+    }));
   }
 
   async history(profileId: number, query: HistoryQuery): Promise<History> {
