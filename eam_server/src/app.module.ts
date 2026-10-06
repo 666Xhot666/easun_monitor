@@ -4,6 +4,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
+import { SolarModule } from './solar/solar.module';
 import { InverterModule } from './inverter/inverter.module';
 import { AuthModule } from './auth/auth.module';
 import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
@@ -26,6 +27,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     AuthModule,
     SerialSniffModule,
     InverterModule,
+    SolarModule,
   ],
   controllers: [AppController],
   providers: [AppService],

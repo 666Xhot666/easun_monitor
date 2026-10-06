@@ -35,8 +35,33 @@ model User {
 
   inverterProfiles InverterProfile[]
   refreshTokens    RefreshToken[]
+  panelTypes       PanelType[]
 
   @@map("users")
+}
+
+/// A solar panel model from its datasheet, in one user's list, reused by
+/// all of that user's inverters. Values are at standard test conditions.
+model PanelType {
+  id        Int    @id @default(autoincrement())
+  name      String
+  /// Rated power (Pmax).
+  maxPowerW Float
+  /// Voltage and current at the maximum power point.
+  vmpV      Float
+  impA      Float
+  /// Open-circuit voltage and short-circuit current.
+  vocV      Float
+  iscA      Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+  @@map("panel_types")
 }
 
 /// An issued refresh token. Opaque (a random value, not a JWT) and
