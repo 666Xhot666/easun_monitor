@@ -69,6 +69,12 @@ export default function BmsSetup({ profileId, now = Date.now }: Props) {
     }, "Couldn't make a new token.");
   };
 
+  const setEnergyFlowSource = (device: BmsDevice, on: boolean) => {
+    void act(async () => {
+      await axios.patch(`/api/inverter/profiles/${profileId}/bms/${device.id}`, { useForEnergyFlow: on });
+    }, "Couldn't change the energy flow source.");
+  };
+
   const remove = (device: BmsDevice) => {
     if (!window.confirm(`Remove ${device.name} and all its stored readings?`)) return;
     void act(async () => {
@@ -105,6 +111,16 @@ export default function BmsSetup({ profileId, now = Date.now }: Props) {
                       ? `Last reading ${formatAge(now() - Date.parse(device.lastSeenAt))} ago`
                       : 'No reading yet'}
                   </p>
+                  <label className="mt-1 flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
+                    <input
+                      type="checkbox"
+                      aria-label={`Use ${device.name} for the energy flow`}
+                      checked={device.useForEnergyFlow}
+                      disabled={busy}
+                      onChange={(e) => setEnergyFlowSource(device, e.target.checked)}
+                    />
+                    Use for the battery in the energy flow
+                  </label>
                 </div>
                 <button
                   type="button"
@@ -149,6 +165,13 @@ export default function BmsSetup({ profileId, now = Date.now }: Props) {
               Done
             </button>
           </section>
+        )}
+
+        {devices && devices.length > 0 && (
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            Turn on the energy flow only once the current's sign is confirmed on the real BMS (first run, step 7):
+            positive while charging, negative while discharging.
+          </p>
         )}
 
         <form onSubmit={add} className="grid gap-3 sm:grid-cols-3 sm:items-end">

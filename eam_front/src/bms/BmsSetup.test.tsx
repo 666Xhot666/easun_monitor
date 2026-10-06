@@ -14,6 +14,7 @@ const device = (overrides: Partial<BmsDevice> = {}): BmsDevice => ({
   lastSeenAt: new Date(NOW - 4_000).toISOString(),
   createdAt: '2026-10-06T10:00:00.000Z',
   inverterProfileId: 7,
+  useForEnergyFlow: false,
   ...overrides,
 });
 
@@ -119,5 +120,28 @@ describe('BmsSetup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add BMS' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('name should not be empty');
+  });
+
+  it('switches the energy flow over to the BMS values', async () => {
+    let devices = [device()];
+    const server = renderSetup((method, _url, body) => {
+      if (method === 'patch') {
+        devices = [device(body as Partial<BmsDevice>)];
+        return { status: 200, data: devices[0] };
+      }
+      return { status: 200, data: devices };
+    });
+    restore = server.restore;
+
+    const box = await screen.findByRole('checkbox', { name: 'Use House battery for the energy flow' });
+    expect(box).not.toBeChecked();
+    expect(screen.getByText(/once the current's sign is confirmed/)).toBeInTheDocument();
+
+    await userEvent.click(box);
+
+    const patch = server.sent.find((c) => c.method === 'patch');
+    expect(patch?.url).toBe('/api/inverter/profiles/7/bms/3');
+    expect(JSON.parse(patch?.data)).toEqual({ useForEnergyFlow: true });
+    expect(await screen.findByRole('checkbox', { name: 'Use House battery for the energy flow' })).toBeChecked();
   });
 });

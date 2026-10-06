@@ -8,6 +8,8 @@ export interface BmsDevice {
   lastSeenAt: string | null;
   createdAt: string;
   inverterProfileId: number;
+  /** The energy flow shows this BMS's live battery values instead of the inverter's. */
+  useForEnergyFlow: boolean;
 }
 
 export interface BmsTemperature {

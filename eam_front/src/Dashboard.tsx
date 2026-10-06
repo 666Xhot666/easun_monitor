@@ -18,12 +18,6 @@ import { usePanelTypes } from './solar/usePanelTypes';
 import { useBmsDevices } from './bms/useBmsDevices';
 import { useBmsLatest } from './bms/useBmsLatest';
 
-/**
- * Show the BMS's live battery values in the energy flow instead of the
- * inverter's estimate. Off until the current's sign has been confirmed on
- * the real BMS (docs/bms-first-run.md, step 7).
- */
-const USE_BMS_FOR_ENERGY_FLOW = false;
 
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
@@ -109,7 +103,7 @@ export default function Dashboard() {
   const { panelTypes } = usePanelTypes();
   const { devices: bmsDevices } = useBmsDevices(activeProfile?.id ?? 0);
   const bms = bmsDevices?.[0] ?? null;
-  const bmsLatest = useBmsLatest(activeProfile?.id ?? 0, USE_BMS_FOR_ENERGY_FLOW && bms ? bms.id : null);
+  const bmsLatest = useBmsLatest(activeProfile?.id ?? 0, bms?.useForEnergyFlow ? bms.id : null);
   const panel = panelTypes?.find((t) => t.id === activeProfile?.pvPanelTypeId);
   const pvRatedW =
     panel && activeProfile?.pvPanelsInSeries && activeProfile.pvStrings
