@@ -216,6 +216,18 @@ the default 5 seconds. Until the logger has read a register at least once, the
 service answers it with an error instead of a made-up value, so nothing false
 is stored.
 
+To keep it running on a Mac (started at login, restarted whenever it exits,
+the Mac kept awake on AC power), install it as a launchd agent instead. Run
+this from the repository root, in a shell where `node` is the one to use,
+after `npx nest build` in `eam_server`:
+
+```bash
+SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B scripts/install-serial-logger-agent.sh
+```
+
+It logs to `~/serial-logger.log`, one timestamped line per event and a status
+line every minute. The script's header shows how to uninstall it.
+
 Serial mode is read-only: settings writes are refused, and nothing is written
 to the taps or the inverter. The service keeps saving the two-tap capture files
 in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
