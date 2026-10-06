@@ -12,6 +12,7 @@ import { startLoggerServer } from '../inverter/link/logger-server';
 import { CaptureStore } from '../inverter/serial-sniff/capture-store';
 import type { PortStatus } from '../inverter/serial-sniff/serial-capture';
 import { openSerialTap } from '../inverter/serial-sniff/serial-port-tap';
+import { formatLogLine } from './log-line';
 import { createSerialLogger } from './serial-logger';
 
 const formatPort = (status: PortStatus, name: string): string => {
@@ -31,7 +32,7 @@ const main = async (): Promise<void> => {
   const txPath = env.SERIAL_TX_PORT;
 
   if (!rxPath || !txPath) {
-    console.error('[serial-logger] Set SERIAL_RX_PORT and SERIAL_TX_PORT to the two tap devices, e.g. /dev/cu.usbserial-…');
+    console.error(formatLogLine('Set SERIAL_RX_PORT and SERIAL_TX_PORT to the two tap devices, e.g. /dev/cu.usbserial-…'));
     process.exit(1);
   }
 
@@ -46,7 +47,7 @@ const main = async (): Promise<void> => {
   const udpPort = number('SERIAL_LOGGER_UDP_PORT', 58899);
 
   const log = (message: string): void => {
-    console.log(`[serial-logger] ${message}`);
+    console.log(formatLogLine(message));
   };
 
   const { logger, capture } = createSerialLogger({
@@ -90,6 +91,6 @@ const main = async (): Promise<void> => {
 };
 
 main().catch((error: unknown) => {
-  console.error('[serial-logger]', error instanceof Error ? error.message : error);
+  console.error(formatLogLine(error instanceof Error ? (error.stack ?? error.message) : String(error)));
   process.exit(1);
 });
