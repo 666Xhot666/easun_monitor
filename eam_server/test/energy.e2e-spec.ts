@@ -95,6 +95,59 @@ describe('Energy totals (e2e)', () => {
       );
     });
 
+    it('leaves out gaps longer than 10 minutes instead of guessing across them', async () => {
+      // 1000 W for 10 minutes, the logger offline for 2 hours, then 1000 W for 10 minutes.
+      await seed(profileId, t0, MINUTE, 11, () => ({ PVPower: 1000 }));
+      await seed(profileId, t0 + 2 * HOUR + 10 * MINUTE, MINUTE, 11, () => ({
+        PVPower: 1000,
+      }));
+
+      const energy = await store.energy(profileId, range(3));
+
+      expect(energy.pvKWh).toBeCloseTo(20 / 60, 6);
+      expect(energy.coveredSeconds).toBe(20 * 60);
+    });
+
+    it('bridges a few missed polls', async () => {
+      await seed(profileId, t0, MINUTE, 2, () => ({ PVPower: 600 }));
+      await seed(profileId, t0 + 10 * MINUTE, MINUTE, 1, () => ({
+        PVPower: 600,
+      })); // 9 minutes after the last
+
+      expect((await store.energy(profileId, range(1))).pvKWh).toBeCloseTo(
+        0.1,
+        6,
+      );
+    });
+
+    it('counts grid import only, and never negative PV or load', async () => {
+      await seed(profileId, t0, MINUTE, 61, (i) =>
+        i < 30
+          ? { PVPower: -5, AverageMainsPower: -400, OutputActivePower: -3 }
+          : { PVPower: 1200, AverageMainsPower: 600, OutputActivePower: 1800 },
+      );
+
+      const energy = await store.energy(profileId, range(2));
+
+      // The 30th minute ramps from the clamped 0 up: half a minute at full power.
+      expect(energy.pvKWh).toBeCloseTo((1200 * 30.5) / 60 / 1000, 6);
+      expect(energy.gridKWh).toBeCloseTo((600 * 30.5) / 60 / 1000, 6);
+      expect(energy.outputKWh).toBeCloseTo((1800 * 30.5) / 60 / 1000, 6);
+    });
+
+    it('skips a field only where a reading lacks it', async () => {
+      await seed(profileId, t0, MINUTE, 61, (i): Record<string, number> =>
+        i >= 30 && i < 40
+          ? { OutputActivePower: 600 }
+          : { PVPower: 600, OutputActivePower: 600 },
+      );
+
+      const energy = await store.energy(profileId, range(2));
+
+      expect(energy.outputKWh).toBeCloseTo(0.6, 6);
+      expect(energy.pvKWh).toBeCloseTo((600 * 49) / 60 / 1000, 6); // 11 one-minute pairs touch a reading without PV
+    });
+
     it('is zero with no readings', async () => {
       expect(await store.energy(profileId, range(1))).toEqual({
         pvKWh: 0,

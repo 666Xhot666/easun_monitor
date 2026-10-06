@@ -67,6 +67,8 @@ const BUCKETS = [
   86400, 172800, 604800, 1209600, 2592000,
 ];
 const HOUR_SECONDS = 3600;
+/** Readings further apart than this are not integrated across. */
+const MAX_ENERGY_GAP_SECONDS = 600;
 /** How often the hourly rollups catch up with new readings. */
 const ROLLUP_INTERVAL_MS = 10 * 60_000;
 
@@ -169,7 +171,9 @@ export class TelemetryStore {
   /**
    * Energy over [from, to), integrated from consecutive raw readings with
    * the trapezoid rule: each pair adds the average of its two powers times
-   * the time between them.
+   * the time between them. Pairs more than 10 minutes apart are left out
+   * (`coveredSeconds` says how much was integrated), negative PV and load
+   * count as zero, and only grid import counts.
    */
   async energy(
     profileId: number,
@@ -177,11 +181,19 @@ export class TelemetryStore {
   ): Promise<EnergyTotals> {
     const [row] = await this.prisma.$queryRaw<EnergyRow[]>`
       WITH r AS (
+        -- Negative PV or load is sensor noise; negative grid power would be
+        -- export, which is not import. CASE, not GREATEST: GREATEST(NULL, 0)
+        -- is 0, and a missing value must stay missing.
         SELECT extract(epoch FROM l."timestamp") AS t,
-               (l.payload ->> 'PVPower')::float8 AS pv,
-               (l.payload ->> 'AverageMainsPower')::float8 AS grid,
-               (l.payload ->> 'OutputActivePower')::float8 AS output
+               CASE WHEN p.pv < 0 THEN 0 ELSE p.pv END AS pv,
+               CASE WHEN p.grid < 0 THEN 0 ELSE p.grid END AS grid,
+               CASE WHEN p.output < 0 THEN 0 ELSE p.output END AS output
         FROM inverter_logs l
+        CROSS JOIN LATERAL (
+          SELECT (l.payload ->> 'PVPower')::float8 AS pv,
+                 (l.payload ->> 'AverageMainsPower')::float8 AS grid,
+                 (l.payload ->> 'OutputActivePower')::float8 AS output
+        ) p
         WHERE l."inverterProfileId" = ${profileId}
           AND l."timestamp" >= ${range.from.toISOString()}::timestamp
           AND l."timestamp" < ${range.to.toISOString()}::timestamp
@@ -193,12 +205,16 @@ export class TelemetryStore {
                (output + lag(output) OVER w) / 2 AS output
         FROM r
         WINDOW w AS (ORDER BY t)
+      ),
+      -- Longer silences (logger offline, server down) are left out, not guessed.
+      covered AS (
+        SELECT * FROM pairs WHERE dt <= ${MAX_ENERGY_GAP_SECONDS}
       )
       SELECT coalesce(sum(pv * dt), 0) / 3.6e6 AS "pvKWh",
              coalesce(sum(grid * dt), 0) / 3.6e6 AS "gridKWh",
              coalesce(sum(output * dt), 0) / 3.6e6 AS "outputKWh",
              coalesce(sum(dt), 0) AS "coveredSeconds"
-      FROM pairs`;
+      FROM covered`;
     return {
       pvKWh: Number(row.pvKWh),
       gridKWh: Number(row.gridKWh),
