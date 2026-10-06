@@ -8,11 +8,13 @@ import { daysRange } from './days';
 
 const TODAY = '2026-10-06';
 
-function renderExport(handler: (config: InternalAxiosRequestConfig) => Reply) {
+function renderExport(handler: (config: InternalAxiosRequestConfig) => Reply, bmsId: number | null = null) {
   const server = fakeServer((config) =>
-    config.url === '/api/inverter/7/readings/export' ? handler(config) : { status: 404 },
+    config.url === '/api/inverter/7/readings/export' || config.url === '/api/inverter/profiles/7/bms/3/export'
+      ? handler(config)
+      : { status: 404 },
   );
-  render(<ReadingsExport profileId={7} today={TODAY} />);
+  render(<ReadingsExport profileId={7} today={TODAY} bmsId={bmsId} />);
   return server;
 }
 
@@ -82,5 +84,23 @@ describe('ReadingsExport', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't export the readings.");
     expect(saved).toEqual([]);
+  });
+
+  it("exports the battery's BMS readings when chosen", async () => {
+    const server = renderExport(() => ({ status: 200, data: new Blob(['Time']) }), 3);
+    restore = server.restore;
+
+    await userEvent.selectOptions(screen.getByLabelText('Data'), 'bms');
+    await setRange('2026-10-01', '2026-10-05');
+    await userEvent.click(screen.getByRole('button', { name: 'Export CSV' }));
+
+    await vi.waitFor(() => expect(saved).toEqual([{ name: 'bms-2026-10-01-to-2026-10-05.csv', href: 'blob:csv' }]));
+    expect(server.sent[0].url).toBe('/api/inverter/profiles/7/bms/3/export');
+  });
+
+  it('offers only the inverter data without a BMS', () => {
+    restore = renderExport(() => ({ status: 200, data: new Blob() })).restore;
+
+    expect(screen.queryByLabelText('Data')).not.toBeInTheDocument();
   });
 });

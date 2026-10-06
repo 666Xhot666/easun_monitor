@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import { useRegisters } from '../inverter/useRegisters';
+import { useBmsDevices } from '../bms/useBmsDevices';
 import ReadingsExport from '../readings/ReadingsExport';
 import ReadingsLog from '../readings/ReadingsLog';
 
@@ -8,6 +9,7 @@ export default function ReadingsLogPage() {
   const { profileId: profileIdParam } = useParams<{ profileId: string }>();
   const profileId = Number(profileIdParam);
   const registers = useRegisters();
+  const { devices: bmsDevices } = useBmsDevices(profileId);
   const logged = registers?.filter((d) => d.group === 'telemetry' || d.group === 'status');
 
   return (
@@ -22,7 +24,7 @@ export default function ReadingsLogPage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
-        <ReadingsExport profileId={profileId} />
+        <ReadingsExport profileId={profileId} bmsId={bmsDevices?.[0]?.id ?? null} />
         {logged ? (
           <ReadingsLog profileId={profileId} registers={logged} />
         ) : (

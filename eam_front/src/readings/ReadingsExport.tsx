@@ -28,12 +28,16 @@ function save(blob: Blob, name: string) {
 interface Props {
   profileId: number;
   today?: Day;
+  /** The inverter's BMS, when there is one: its readings can be exported too. */
+  bmsId?: number | null;
 }
 
 /** Downloads the readings of a range of whole days as CSV, times in the browser's time zone. */
-export default function ReadingsExport({ profileId, today = toDay(new Date()) }: Props) {
+export default function ReadingsExport({ profileId, today = toDay(new Date()), bmsId = null }: Props) {
   const [first, setFirst] = useState<Day>(today);
   const [last, setLast] = useState<Day>(today);
+  const [source, setSource] = useState<'inverter' | 'bms'>('inverter');
+  const fromBms = source === 'bms' && bmsId !== null;
   const [exporting, setExporting] = useState(false);
   const [failed, setFailed] = useState(false);
   const problem = rangeProblem(first, last);
@@ -42,11 +46,14 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()) }:
     setExporting(true);
     setFailed(false);
     try {
-      const { data } = await axios.get<Blob>(`/api/inverter/${profileId}/readings/export`, {
+      const url = fromBms
+        ? `/api/inverter/profiles/${profileId}/bms/${bmsId}/export`
+        : `/api/inverter/${profileId}/readings/export`;
+      const { data } = await axios.get<Blob>(url, {
         params: { ...daysRange(first, last), tz: Intl.DateTimeFormat().resolvedOptions().timeZone },
         responseType: 'blob',
       });
-      save(data, `readings-${first}-to-${last}.csv`);
+      save(data, `${fromBms ? 'bms' : 'readings'}-${first}-to-${last}.csv`);
     } catch {
       setFailed(true);
     } finally {
@@ -64,6 +71,19 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()) }:
         Export
       </h2>
       <div className="flex flex-wrap items-end gap-3">
+        {bmsId !== null && (
+          <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+            Data
+            <select
+              value={source}
+              onChange={(e) => setSource(e.target.value as 'inverter' | 'bms')}
+              className={inputClass}
+            >
+              <option value="inverter">Inverter</option>
+              <option value="bms">Battery (BMS)</option>
+            </select>
+          </label>
+        )}
         <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
           From
           <input type="date" value={first} max={today} onChange={(e) => setFirst(e.target.value)} className={inputClass} />
