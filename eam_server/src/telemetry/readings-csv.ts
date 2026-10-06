@@ -2,15 +2,8 @@ import type {
   RegisterDefinition,
   RegisterMap,
 } from '../inverter/registers/register-map';
+import { csvLine, wallClock } from './csv';
 import type { ReadingPayload } from './telemetry.store';
-
-const LINE_END = '\r\n';
-
-/** Quotes a cell when it holds a comma, quote or line break. */
-const cell = (text: string): string =>
-  /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-
-const line = (cells: string[]): string => cells.map(cell).join(',') + LINE_END;
 
 /** Decimals that match a register's resolution: 0.1 -> 1, 0.01 -> 2. */
 const decimalsFor = (definition: RegisterDefinition): number => {
@@ -26,7 +19,6 @@ const decimalsFor = (definition: RegisterDefinition): number => {
  */
 export class ReadingsCsv {
   private readonly columns: RegisterDefinition[];
-  // sv-SE formats as "2026-10-05 21:17:34".
   private readonly time: Intl.DateTimeFormat;
 
   constructor(
@@ -36,27 +28,18 @@ export class ReadingsCsv {
     this.columns = map
       .list()
       .filter((d) => d.group === 'telemetry' || d.group === 'status');
-    this.time = new Intl.DateTimeFormat('sv-SE', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hourCycle: 'h23',
-    });
+    this.time = wallClock(timeZone);
   }
 
   header(): string {
-    return line([
+    return csvLine([
       `Time (${this.timeZone})`,
       ...this.columns.map((d) => (d.unit ? `${d.label} (${d.unit})` : d.label)),
     ]);
   }
 
   row(reading: { timestamp: Date; payload: ReadingPayload }): string {
-    return line([
+    return csvLine([
       this.time.format(reading.timestamp),
       ...this.columns.map((d) => this.format(d, reading.payload[d.name])),
     ]);
