@@ -297,4 +297,4 @@ cd eam_server && DATABASE_URL="postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@lo
 
 ## License
 
-BSD 3-Clause, see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
