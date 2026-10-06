@@ -23,6 +23,19 @@ export interface ReadingsQuery {
   before?: Date;
 }
 
+/** Energy over a range, from integrating the readings' power. */
+export interface EnergyTotals {
+  pvKWh: number;
+  /** Energy imported from the grid. */
+  gridKWh: number;
+  /** Energy delivered to the loads. */
+  outputKWh: number;
+  /** Time between readings that was integrated (gaps left out). */
+  coveredSeconds: number;
+}
+
+type EnergyRow = Record<keyof EnergyTotals, number | string>;
+
 /** A reading row before its payload is narrowed. */
 type StoredRow = Omit<StoredReading, 'payload'> & { payload: Prisma.JsonValue };
 
@@ -151,6 +164,47 @@ export class TelemetryStore {
       if (rows.length < batchSize) return;
       after = rows[rows.length - 1];
     }
+  }
+
+  /**
+   * Energy over [from, to), integrated from consecutive raw readings with
+   * the trapezoid rule: each pair adds the average of its two powers times
+   * the time between them.
+   */
+  async energy(
+    profileId: number,
+    range: { from: Date; to: Date },
+  ): Promise<EnergyTotals> {
+    const [row] = await this.prisma.$queryRaw<EnergyRow[]>`
+      WITH r AS (
+        SELECT extract(epoch FROM l."timestamp") AS t,
+               (l.payload ->> 'PVPower')::float8 AS pv,
+               (l.payload ->> 'AverageMainsPower')::float8 AS grid,
+               (l.payload ->> 'OutputActivePower')::float8 AS output
+        FROM inverter_logs l
+        WHERE l."inverterProfileId" = ${profileId}
+          AND l."timestamp" >= ${range.from.toISOString()}::timestamp
+          AND l."timestamp" < ${range.to.toISOString()}::timestamp
+      ),
+      pairs AS (
+        SELECT t - lag(t) OVER w AS dt,
+               (pv + lag(pv) OVER w) / 2 AS pv,
+               (grid + lag(grid) OVER w) / 2 AS grid,
+               (output + lag(output) OVER w) / 2 AS output
+        FROM r
+        WINDOW w AS (ORDER BY t)
+      )
+      SELECT coalesce(sum(pv * dt), 0) / 3.6e6 AS "pvKWh",
+             coalesce(sum(grid * dt), 0) / 3.6e6 AS "gridKWh",
+             coalesce(sum(output * dt), 0) / 3.6e6 AS "outputKWh",
+             coalesce(sum(dt), 0) AS "coveredSeconds"
+      FROM pairs`;
+    return {
+      pvKWh: Number(row.pvKWh),
+      gridKWh: Number(row.gridKWh),
+      outputKWh: Number(row.outputKWh),
+      coveredSeconds: Number(row.coveredSeconds),
+    };
   }
 
   async history(profileId: number, query: HistoryQuery): Promise<History> {
