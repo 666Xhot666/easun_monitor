@@ -308,4 +308,39 @@ describe('BMS devices (e2e)', () => {
       ).expect(404);
     });
   });
+
+  describe('managing a device', () => {
+    const base = (bmsId: number) =>
+      `/api/inverter/profiles/${profileId}/bms/${bmsId}`;
+
+    it('replaces a lost token: the new one works, the old one stops', async () => {
+      const { device, token: oldToken } = await addDevice();
+
+      const { body } = await call('post', `${base(device.id)}/token`).expect(
+        201,
+      );
+
+      expect(body.token).not.toBe(oldToken);
+      await ingest(oldToken, reading(new Date(Date.now() - 1000))).expect(401);
+      await ingest(body.token, reading(new Date(Date.now() - 1000))).expect(
+        202,
+      );
+      await call('post', `${base(device.id)}/token`, strangerToken).expect(404);
+    });
+
+    it('removes a device with its readings', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      await ingest(deviceToken, reading(new Date(Date.now() - 1000))).expect(
+        202,
+      );
+
+      await call('delete', base(device.id), strangerToken).expect(404);
+      await call('delete', base(device.id)).expect(200);
+
+      expect(
+        await prisma.bmsLog.count({ where: { bmsDeviceId: device.id } }),
+      ).toBe(0);
+      await ingest(deviceToken, reading(new Date())).expect(401);
+    });
+  });
 });

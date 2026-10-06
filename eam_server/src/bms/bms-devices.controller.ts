@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   NotFoundException,
   Param,
@@ -80,6 +81,34 @@ export class BmsDevicesController {
       select: BMS_DEVICE_FIELDS,
     });
     return { device, token };
+  }
+
+  /** Replaces the device's ingest token (shown once); the old one stops working. */
+  @Post(':bmsId/token')
+  async replaceToken(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    const { token, hash } = newIngestToken();
+    await this.prisma.bmsDevice.update({
+      where: { id: bmsId },
+      data: { tokenHash: hash },
+    });
+    return { token };
+  }
+
+  /** Removes the device and its stored readings. */
+  @Delete(':bmsId')
+  async remove(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.prisma.bmsDevice.delete({ where: { id: bmsId } });
+    return { success: true as const };
   }
 
   /**
