@@ -15,6 +15,21 @@ export interface HistoryQuery {
   fields?: string[];
 }
 
+export interface ReadingsQuery {
+  from: Date;
+  to: Date;
+  limit: number;
+  /** Only readings older than this (the last one of the previous page). */
+  before?: Date;
+}
+
+/** One poll cycle's reading, as stored. */
+export interface StoredReading {
+  id: number;
+  timestamp: Date;
+  payload: ReadingPayload;
+}
+
 export interface HistoryPoint {
   /** Bucket start, ISO 8601. */
   timestamp: string;
@@ -70,6 +85,23 @@ export class TelemetryStore {
       where: { inverterProfileId: profileId },
       orderBy: { timestamp: 'desc' },
     });
+  }
+
+  /**
+   * Raw readings in [from, to), newest first, at most `limit`. Pass the
+   * oldest timestamp already shown as `before` to get the next page.
+   */
+  async readings(profileId: number, query: ReadingsQuery): Promise<StoredReading[]> {
+    const rows = await this.prisma.inverterLog.findMany({
+      where: {
+        inverterProfileId: profileId,
+        timestamp: { gte: query.from, lt: query.before && query.before < query.to ? query.before : query.to },
+      },
+      orderBy: [{ timestamp: 'desc' }, { id: 'desc' }],
+      take: query.limit,
+      select: { id: true, timestamp: true, payload: true },
+    });
+    return rows.map((row) => ({ ...row, payload: row.payload as ReadingPayload }));
   }
 
   async history(profileId: number, query: HistoryQuery): Promise<History> {
