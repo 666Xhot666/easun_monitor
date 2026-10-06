@@ -7,7 +7,7 @@ import { configureApp } from '../src/configure-app';
 import { InMemoryLogger } from '../src/inverter/link/in-memory-logger';
 import { LOGGER_TRANSPORT_FACTORY } from '../src/inverter/link/logger-links';
 import { PollingService } from '../src/inverter/polling.service';
-import { registerUser, resetDatabase, sampleProfile } from './helpers';
+import { listenOnLoopback, registerUser, resetDatabase, sampleProfile } from './helpers';
 import { InMemoryTransport } from './support/in-memory-transport';
 
 describe('Polling through the Logger link (e2e)', () => {
@@ -25,7 +25,7 @@ describe('Polling through the Logger link (e2e)', () => {
       .compile();
     app = moduleRef.createNestApplication();
     configureApp(app);
-    await app.init();
+    await listenOnLoopback(app);
   });
 
   beforeEach(async () => {

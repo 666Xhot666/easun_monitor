@@ -20,8 +20,18 @@ export async function createTestApp(
 
   const app = moduleRef.createNestApplication<INestApplication<App>>();
   configureApp(app);
-  await app.init();
+  await listenOnLoopback(app);
   return app;
+}
+
+/**
+ * Starts the app on a free 127.0.0.1 port, which supertest then uses.
+ * Left to supertest, it listens on all interfaces but connects to
+ * 127.0.0.1, so a port some other local app holds on loopback sends
+ * the request to that app (random 401/403/404s).
+ */
+export async function listenOnLoopback(app: INestApplication): Promise<void> {
+  await app.listen(0, '127.0.0.1');
 }
 
 export async function resetDatabase(app: INestApplication): Promise<void> {
