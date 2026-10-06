@@ -9,9 +9,16 @@ const YESTERDAY = '2026-10-05';
 /** Noon today, local time: half of today has passed. */
 const NOON = () => new Date(`${TODAY}T12:00:00`).getTime();
 
-const totals = (pvKWh: number, gridKWh: number, outputKWh: number, coveredSeconds: number) => ({
+const totals = (
+  pvKWh: number,
+  gridKWh: number,
+  outputKWh: number,
+  coveredSeconds: number,
+  batteryChargeKWh = 0,
+  batteryDischargeKWh = 0,
+) => ({
   status: 200,
-  data: { pvKWh, gridKWh, outputKWh, coveredSeconds },
+  data: { pvKWh, gridKWh, outputKWh, batteryChargeKWh, batteryDischargeKWh, coveredSeconds },
 });
 
 describe('EnergyTotals', () => {
@@ -20,7 +27,7 @@ describe('EnergyTotals', () => {
 
   it("shows today's and yesterday's PV, grid and load energy", async () => {
     const server = fakeServer((config) =>
-      config.params.from === dayRange(TODAY).from ? totals(3.456, 0.8, 4.1, 12 * 3600) : totals(12.34, 2, 15.5, 24 * 3600),
+      config.params.from === dayRange(TODAY).from ? totals(3.456, 0.8, 4.1, 12 * 3600, 1.44, 0.99) : totals(12.34, 2, 15.5, 24 * 3600),
     );
     restore = server.restore;
 
@@ -32,6 +39,8 @@ describe('EnergyTotals', () => {
     expect(within(row('PV')).getByText('12.3 kWh')).toBeInTheDocument();
     expect(within(row('Grid')).getByText('0.80 kWh')).toBeInTheDocument();
     expect(within(row('Load')).getByText('15.5 kWh')).toBeInTheDocument();
+    expect(within(row('Battery charge')).getByText('1.44 kWh')).toBeInTheDocument();
+    expect(within(row('Battery discharge')).getByText('0.99 kWh')).toBeInTheDocument();
 
     expect(server.sent.map((c) => c.url)).toEqual(['/api/inverter/7/energy', '/api/inverter/7/energy']);
     expect(server.sent.map((c) => c.params.from).sort()).toEqual([dayRange(TODAY).from, dayRange(YESTERDAY).from].sort());
@@ -56,6 +65,6 @@ describe('EnergyTotals', () => {
 
     const table = await screen.findByRole('table', { name: 'Energy' });
     await within(table).findAllByText('--');
-    expect(within(table).getAllByText('--')).toHaveLength(6);
+    expect(within(table).getAllByText('--')).toHaveLength(10);
   });
 });

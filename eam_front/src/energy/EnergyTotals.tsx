@@ -7,6 +7,9 @@ interface Totals {
   pvKWh: number;
   gridKWh: number;
   outputKWh: number;
+  /** Energy into and out of the battery, at its terminals. */
+  batteryChargeKWh: number;
+  batteryDischargeKWh: number;
   /** How much of the range had readings close enough together to integrate. */
   coveredSeconds: number;
 }
@@ -15,6 +18,8 @@ const ROWS: { label: string; key: keyof Totals }[] = [
   { label: 'PV', key: 'pvKWh' },
   { label: 'Grid', key: 'gridKWh' },
   { label: 'Load', key: 'outputKWh' },
+  { label: 'Battery charge', key: 'batteryChargeKWh' },
+  { label: 'Battery discharge', key: 'batteryDischargeKWh' },
 ];
 
 /** Below this share of a day with readings, the totals say how much they cover. */
@@ -64,7 +69,7 @@ interface Props {
   now?: () => number;
 }
 
-/** Today's and yesterday's PV, grid-import and load energy, integrated by the server from the readings. */
+/** Today's and yesterday's PV, grid-import, load and battery energy, integrated by the server from the readings. */
 export default function EnergyTotals({ profileId, today = toDay(new Date()), now = Date.now }: Props) {
   const yesterday = shiftDay(today, -1);
   const todayTotals = useDayTotals(profileId, today, REFRESH_MS);
