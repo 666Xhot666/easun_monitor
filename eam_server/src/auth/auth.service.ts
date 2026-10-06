@@ -51,6 +51,11 @@ function hashRefreshToken(raw: string): string {
   return createHash('sha256').update(raw).digest('hex');
 }
 
+/** A new user's own household, with the user as its admin. */
+const OWN_HOUSEHOLD = {
+  create: { role: 'ADMIN' as const, household: { create: { name: 'Home' } } },
+};
+
 @Injectable()
 export class AuthService {
   private readonly refreshTokenTtlMs: number;
@@ -90,7 +95,7 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
     const user = await this.prisma.user.create({
-      data: { email, passwordHash },
+      data: { email, passwordHash, memberships: OWN_HOUSEHOLD },
     });
 
     // Auto-login on registration — the setup wizard immediately follows,
@@ -131,7 +136,11 @@ export class AuthService {
       (await this.prisma.user.create({
         data: {
           email,
-          passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), BCRYPT_SALT_ROUNDS),
+          passwordHash: await bcrypt.hash(
+            randomBytes(32).toString('hex'),
+            BCRYPT_SALT_ROUNDS,
+          ),
+          memberships: OWN_HOUSEHOLD,
         },
       }));
     return this.issueTokens(user.id, user.email);

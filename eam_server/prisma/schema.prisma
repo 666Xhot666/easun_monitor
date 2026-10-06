@@ -36,8 +36,46 @@ model User {
   inverterProfiles InverterProfile[]
   refreshTokens    RefreshToken[]
   panelTypes       PanelType[]
+  memberships      Membership[]
 
   @@map("users")
+}
+
+/// What a member may do in a household: ADMIN everything, READER only read.
+enum HouseholdRole {
+  ADMIN
+  READER
+}
+
+/// A home's installation: its inverters and panel types, shared by its
+/// members.
+model Household {
+  id        Int      @id @default(autoincrement())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships      Membership[]
+  inverterProfiles InverterProfile[]
+  panelTypes       PanelType[]
+
+  @@map("households")
+}
+
+/// A user's role in a household.
+model Membership {
+  id        Int           @id @default(autoincrement())
+  role      HouseholdRole
+  createdAt DateTime      @default(now())
+
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  householdId Int
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, householdId])
+  @@index([householdId])
+  @@map("household_memberships")
 }
 
 /// A solar panel model from its datasheet, in one user's list, reused by
@@ -59,6 +97,9 @@ model PanelType {
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  householdId Int?
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   inverterProfiles InverterProfile[]
 
@@ -133,6 +174,9 @@ model InverterProfile {
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  householdId Int?
+  household   Household? @relation(fields: [householdId], references: [id], onDelete: Cascade)
 
   logs              InverterLog[]
   hourlyLogs        InverterLogHourly[]
@@ -225,19 +269,19 @@ model InverterSettingsSnapshot {
 /// reader now, an ESP32 later) that authenticates with the device's ingest
 /// token, which is shown once and stored only as a hash.
 model BmsDevice {
-  id          Int     @id @default(autoincrement())
-  name        String
+  id               Int       @id @default(autoincrement())
+  name             String
   /// Which producer sends its readings: "mac-ble" or "esp32".
-  sourceType  String
+  sourceType       String
   /// The reader's Bluetooth peripheral id, for reference.
-  bluetoothId String?
-  tokenHash   String  @unique
+  bluetoothId      String?
+  tokenHash        String    @unique
   /// When the last reading arrived (not only the stored ones).
-  lastSeenAt  DateTime?
+  lastSeenAt       DateTime?
   /// Show this BMS's live values for the battery in the energy flow instead
   /// of the inverter's estimate. Off until the owner has confirmed the
   /// current's sign on the real unit (docs/bms-first-run.md, step 7).
-  useForEnergyFlow Boolean @default(false)
+  useForEnergyFlow Boolean   @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

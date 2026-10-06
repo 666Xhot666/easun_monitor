@@ -37,6 +37,7 @@ import { ReadingsExportQueryDto } from './dto/readings-export-query.dto';
 import { RangeQueryDto } from './dto/range-query.dto';
 import { ReadingsCsv } from '../telemetry/readings-csv';
 import { TelemetryStore } from '../telemetry/telemetry.store';
+import { HouseholdsService } from '../households/households.service';
 import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -63,6 +64,7 @@ export class InverterController {
     private readonly pollingService: PollingService,
     private readonly addressPolicy: LoggerAddressPolicy,
     private readonly telemetry: TelemetryStore,
+    private readonly households: HouseholdsService,
     private readonly registers: RegisterMap,
     private readonly settings: SettingsService,
     private readonly settingsHistory: SettingsHistory,
@@ -119,10 +121,12 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
+    const householdId = await this.households.adminHouseholdId(user.userId);
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.create({
         data: {
           userId: user.userId,
+          householdId,
           name: dto.name,
           ipAddress: dto.ipAddress,
           port: dto.port ?? DEFAULT_LOGGER_PORT,

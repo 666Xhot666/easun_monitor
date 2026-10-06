@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { SolarModule } from './solar/solar.module';
+import { HouseholdsModule } from './households/households.module';
 import { BmsModule } from './bms/bms.module';
 import { InverterModule } from './inverter/inverter.module';
 import { AuthModule } from './auth/auth.module';
@@ -25,6 +26,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     // registry itself still comes from this module.
     ScheduleModule.forRoot(),
     PrismaModule,
+    HouseholdsModule,
     AuthModule,
     SerialSniffModule,
     InverterModule,

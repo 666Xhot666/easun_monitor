@@ -17,12 +17,16 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { PanelTypeDto } from './dto/panel-type.dto';
+import { HouseholdsService } from '../households/households.service';
 
 /** The user's list of solar panel types, shared by all their inverters. */
 @Controller('api/panel-types')
 @UseGuards(AuthGuard('jwt'))
 export class PanelTypesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly households: HouseholdsService,
+  ) {}
 
   @Get()
   list(@CurrentUser() user: AuthenticatedUser) {
@@ -38,8 +42,15 @@ export class PanelTypesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     checkDatasheet(dto);
+    const householdId = await this.households.adminHouseholdId(user.userId);
     return this.rejectDuplicateName(() =>
-      this.prisma.panelType.create({ data: { ...dto, userId: user.userId } }),
+      this.prisma.panelType.create({
+        data: {
+          ...dto,
+          userId: user.userId,
+          householdId,
+        },
+      }),
     );
   }
 
