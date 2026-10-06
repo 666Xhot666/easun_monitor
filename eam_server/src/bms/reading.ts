@@ -28,8 +28,8 @@ export interface BmsReading {
   /**
    * Pack current in amperes. Sign: positive while charging, negative while
    * discharging, as the reference decodes it (its fixture "charging at
-   * 31.881 A" reads +31.881). Not yet confirmed on this installation's BMS:
-   * Part E of the BMS integration confirms it at a known direction.
+   * 31.881 A" reads +31.881). Confirmed by the owner on 2026-10-07 against
+   * the BMS's own display, JK-PB2A16S20P (hardware 19U, software 19.28).
    */
   currentA: number | null;
   /** packVoltageV x currentA, same sign as the current. */

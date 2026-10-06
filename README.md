@@ -257,9 +257,9 @@ advertises its serial number rather than a `JK-` name: use the id from
 `--scan` (`BMS_ID`) or a name prefix (`BMS_NAME`). Without `BMS_INGEST_URL`
 the reader only reads and captures. macOS asks for Bluetooth permission for the terminal or
 IDE that starts it; a scan that finds nothing at all usually means that
-permission is missing. Close the JK phone app first; whether the phone app can
-connect while the reader is attached is checked on the first run (see
-`docs/bms-first-run.md`).
+permission is missing. The BMS takes one Bluetooth connection at a time: while
+the reader is connected, the JK phone app cannot connect (confirmed on a
+JK-PB2A16S20P). Stop the reader to use the phone app.
 
 The reader only ever sends the two read requests (cell info and device info);
 its Bluetooth adapter refuses any other bytes, so it cannot change BMS
