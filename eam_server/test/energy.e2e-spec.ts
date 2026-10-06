@@ -157,4 +157,46 @@ describe('Energy totals (e2e)', () => {
       });
     });
   });
+
+  describe('GET /api/inverter/:profileId/energy', () => {
+    const get = (path: string, auth = token) =>
+      request(app.getHttpServer())
+        .get(path)
+        .set('Authorization', `Bearer ${auth}`);
+    const query = (hours: number) =>
+      `from=${new Date(t0).toISOString()}&to=${new Date(t0 + hours * HOUR).toISOString()}`;
+
+    it('returns the energy totals for the range', async () => {
+      await seed(profileId, t0, MINUTE, 61, () => ({
+        PVPower: 1000,
+        AverageMainsPower: 0,
+        OutputActivePower: 500,
+      }));
+
+      const { body } = await get(
+        `/api/inverter/${profileId}/energy?${query(24)}`,
+      ).expect(200);
+
+      expect(body).toEqual({
+        pvKWh: expect.closeTo(1, 6),
+        gridKWh: 0,
+        outputKWh: expect.closeTo(0.5, 6),
+        coveredSeconds: 3600,
+      });
+    });
+
+    it('needs a range of at most 31 days', async () => {
+      await get(`/api/inverter/${profileId}/energy`).expect(400);
+      await get(`/api/inverter/${profileId}/energy?${query(32 * 24)}`).expect(
+        400,
+      );
+    });
+
+    it("hides another user's energy", async () => {
+      await get(
+        `/api/inverter/${profileId}/energy?${query(24)}`,
+        strangerToken,
+      ).expect(404);
+    });
+  });
 });

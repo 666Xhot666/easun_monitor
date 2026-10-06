@@ -34,6 +34,7 @@ import { UpdateInverterDto } from './dto/update-inverter.dto';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { ReadingsQueryDto } from './dto/readings-query.dto';
 import { ReadingsExportQueryDto } from './dto/readings-export-query.dto';
+import { RangeQueryDto } from './dto/range-query.dto';
 import { ReadingsCsv } from '../telemetry/readings-csv';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import { SettingsHistory } from '../telemetry/settings-history';
@@ -305,6 +306,18 @@ export class InverterController {
     });
   }
 
+  /** PV, grid-import and load energy over a range, integrated from the readings. */
+  @Get(':profileId/energy')
+  async getEnergy(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Query() query: RangeQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedProfile(profileId, user.userId);
+    checkReadingsSpan(query.from, query.to);
+    return this.telemetry.energy(profileId, query);
+  }
+
   /**
    * Readings in a range as a CSV download, oldest first, streamed in
    * batches. Times are wall-clock time in `tz` (default UTC).
@@ -523,6 +536,6 @@ function checkReadingsSpan(from: Date, to: Date): void {
     throw new BadRequestException('`from` must be before `to`');
   }
   if (span > MAX_READINGS_SPAN_MS) {
-    throw new BadRequestException('A readings range can cover at most 31 days');
+    throw new BadRequestException('A range can cover at most 31 days');
   }
 }
