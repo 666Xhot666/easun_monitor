@@ -44,6 +44,11 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env file (e.g. `openssl rand -base64 48`)}
       JWT_EXPIRES_IN: ${JWT_EXPIRES_IN:-15m}
       ALLOW_REGISTRATION: ${ALLOW_REGISTRATION:-false}
+      # --- Telegram bot (off without a token) ---
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_LOW_SOC: ${TELEGRAM_LOW_SOC:-20}
+      TELEGRAM_SUMMARY_TIME: ${TELEGRAM_SUMMARY_TIME:-21:00}
+      TIME_ZONE: ${TIME_ZONE:-UTC}
       # --- EASUN inverter logger connection ---
       # Inverters are paired per account through the setup wizard, so there
       # is no inverter address here; these are only network defaults.

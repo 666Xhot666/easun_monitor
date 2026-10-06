@@ -6,6 +6,7 @@ import { TelemetryStore } from '../telemetry/telemetry.store';
 import { LoggerLinks } from './link/logger-links';
 import { LoggerUnavailableError } from './link/logger-link';
 import { SettingsService } from './settings.service';
+import { TelegramAlerts } from '../telegram/telegram-alerts';
 
 const INTERVAL_NAME_PREFIX = 'inverter-poll-';
 const SETTINGS_INTERVAL_PREFIX = 'inverter-settings-';
@@ -46,6 +47,7 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryStore,
     private readonly settings: SettingsService,
+    private readonly alerts: TelegramAlerts,
   ) {
     const rawInterval = this.configService.get<string>('POLLING_INTERVAL_MS');
     const parsedInterval = Number(rawInterval);
@@ -141,11 +143,14 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
         .read(['telemetry', 'status']);
       if (Object.keys(reading).length > 0) {
         await this.telemetry.record(profileId, reading);
+        void this.alerts.onReading(profileId, reading).catch((error: unknown) => this.alertFailed(error));
       }
+      void this.alerts.onLogger(profileId, true).catch((error: unknown) => this.alertFailed(error));
       this.report(profileId, 'up', `Profile #${profileId}: logger reachable`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (error instanceof LoggerUnavailableError) {
+        void this.alerts.onLogger(profileId, false).catch((error: unknown) => this.alertFailed(error));
         this.report(profileId, 'down', `Profile #${profileId}: ${message}`);
       } else {
         this.logger.error(`Poll cycle failed for profile #${profileId}: ${message}`);
@@ -167,6 +172,10 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     } catch {
       // Logger unreachable or a block refused: keep the last snapshot.
     }
+  }
+
+  private alertFailed(error: unknown): void {
+    this.logger.warn(`Telegram alert failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   private report(profileId: number, state: 'up' | 'down', message: string): void {

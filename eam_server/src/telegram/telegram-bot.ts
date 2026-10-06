@@ -23,7 +23,7 @@ const POLL_TIMEOUT_SECONDS = 30;
 const RETRY_AFTER_ERROR_MS = 5_000;
 
 const HOW_TO_LINK =
-  'To link this chat, open Settings > Telegram in the app, get a code, and send it here as /start <code>.';
+  'To link this chat, open Household in the app, get a Telegram code, and send it here as /start <code>.';
 const HELP = 'Commands: /status, /energy, /stop (unlink this chat).';
 
 /**
@@ -143,16 +143,22 @@ export class TelegramBot
   }
 
   private async energy(userId: number): Promise<string> {
+    const lines = await this.energyLines(userId, new Date());
+    return lines.length === 0
+      ? 'No inverters in your households yet.'
+      : lines.join('\n');
+  }
+
+  /** The day's energy so far, one line per inverter of the user's households. */
+  async energyLines(userId: number, now: Date): Promise<string[]> {
     const profiles = await this.profilesOf(userId);
-    if (profiles.length === 0) return 'No inverters in your households yet.';
-    const from = dayStart(new Date(), this.timeZone);
+    const from = dayStart(now, this.timeZone);
     const to = new Date(from.getTime() + 24 * 3_600_000);
-    const parts = await Promise.all(
+    return Promise.all(
       profiles.map(async (p) =>
         formatEnergy(p.name, await this.telemetry.energy(p.id, { from, to })),
       ),
     );
-    return parts.join('\n');
   }
 
   private async poll(): Promise<void> {

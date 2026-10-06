@@ -60,6 +60,10 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `INVERTER_TIMEOUT_MS` | 3000 | Timeout for the handshake, connect and each reply. |
 | `ALLOW_PUBLIC_LOGGER_HOSTS` | false | Only LAN, loopback and link-local loggers are allowed unless true. |
 | `ALLOW_REGISTRATION` | false | Allow more accounts after the first (sign-up with a household invite works regardless). |
+| `TELEGRAM_BOT_TOKEN` | | Bot token from @BotFather; the Telegram bot is off without it. |
+| `TELEGRAM_LOW_SOC` | 20 | Battery level (%) that triggers a low-battery alert. |
+| `TELEGRAM_SUMMARY_TIME` | 21:00 | When the daily evening summary is sent. |
+| `TIME_ZONE` | UTC | Time zone for the summary time and for "today" in `/energy`. |
 | `JWT_EXPIRES_IN` | 15m | Access-token lifetime; sessions renew from a refresh cookie. |
 | `REFRESH_TOKEN_TTL_DAYS` | 30 | How long a sign-in lasts without use. |
 | `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
@@ -91,6 +95,23 @@ is a code or a `/join/<code>` link, single-use, valid for 7 days.
 - An existing user who joins gives up their own household if it has no
   inverters. With inverters, they can join other households only as a reader.
 - A household always keeps at least one admin.
+
+## Telegram bot
+
+With `TELEGRAM_BOT_TOKEN` set, the server runs a Telegram bot (long polling:
+no public address needed).
+
+- **Linking:** on the Household page, get a code and send `/start <code>` to
+  the bot within 10 minutes. One chat per user; `/stop` unlinks it.
+- **Commands:** `/status` (mode, power flow, battery) and `/energy` (today's
+  totals) for every inverter in the user's households.
+- **Alerts** go to the linked chats of every member of the inverter's
+  household: new faults and warnings, faults cleared, grid lost and restored,
+  battery at or below `TELEGRAM_LOW_SOC` (again after it recovers 5 points),
+  BMS alarms, and a logger or BMS reader silent for 5 minutes and back.
+  After a server restart the first reading is the baseline.
+- **Evening summary:** the day's energy per inverter at
+  `TELEGRAM_SUMMARY_TIME`.
 
 ## Developing without the inverter
 

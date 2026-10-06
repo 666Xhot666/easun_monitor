@@ -103,7 +103,7 @@ describe('Telegram (e2e)', () => {
 
       expect(telegram.sent.map((m) => m.chatId)).toEqual(['777', '777']);
       expect(telegram.sent[0].text).toMatch(/code is not valid/i);
-      expect(telegram.sent[1].text).toMatch(/Settings/);
+      expect(telegram.sent[1].text).toMatch(/open Household/);
     });
 
     it('unlinks the chat with /stop', async () => {
@@ -144,7 +144,7 @@ describe('Telegram (e2e)', () => {
 
     it('asks an unlinked chat to link first instead of answering /status', async () => {
       await bot.handleUpdate(message(9999, '/status'));
-      expect(telegram.sent[0].text).toMatch(/Settings/);
+      expect(telegram.sent[0].text).toMatch(/open Household/);
     });
   });
 });

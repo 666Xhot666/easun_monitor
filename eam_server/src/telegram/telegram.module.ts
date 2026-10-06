@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { ConfigService } from '@nestjs/config';
+import { TelegramAlerts } from './telegram-alerts';
 import { TelegramBot } from './telegram-bot';
+import { TelegramSummary } from './telegram-summary';
 import { HttpTelegramClient, TELEGRAM_CLIENT } from './telegram-client';
 import { TelegramController } from './telegram.controller';
 import { TelegramLinksService } from './telegram-links.service';
@@ -12,6 +14,8 @@ import { TelegramLinksService } from './telegram-links.service';
   providers: [
     TelegramLinksService,
     TelegramBot,
+    TelegramAlerts,
+    TelegramSummary,
     {
       provide: TELEGRAM_CLIENT,
       inject: [ConfigService],
@@ -21,6 +25,6 @@ import { TelegramLinksService } from './telegram-links.service';
       },
     },
   ],
-  exports: [TelegramLinksService, TelegramBot],
+  exports: [TelegramLinksService, TelegramBot, TelegramAlerts],
 })
 export class TelegramModule {}

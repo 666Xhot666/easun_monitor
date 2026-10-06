@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { TelegramModule } from '../telegram/telegram.module';
 import { ConfigService } from '@nestjs/config';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { InverterController } from './inverter.controller';
@@ -13,7 +14,7 @@ import { SMG_II_REGISTERS } from './registers/smg-ii.registers';
 @Module({
   // PrismaModule is @Global, so services here can inject PrismaService
   // without importing it explicitly.
-  imports: [TelemetryModule],
+  imports: [TelemetryModule, TelegramModule],
   controllers: [InverterController],
   providers: [
     PollingService,

@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashIngestToken } from './ingest-token';
 import type { BmsReading } from './reading';
+import { TelegramAlerts } from '../telegram/telegram-alerts';
 
 const DEFAULT_STORE_INTERVAL_MS = 30_000;
 /** Clock skew allowed for a producer's timestamp. */
@@ -39,6 +40,7 @@ export class BmsIngestService {
   constructor(
     private readonly prisma: PrismaService,
     config: ConfigService,
+    private readonly alerts: TelegramAlerts,
   ) {
     const configured = Number(config.get<string>('BMS_STORE_INTERVAL_MS'));
     this.storeIntervalMs =
@@ -71,6 +73,9 @@ export class BmsIngestService {
     const current = this.latest.get(deviceId);
     if (!current || Date.parse(current.reading.timestamp) < at) {
       this.latest.set(deviceId, { reading, receivedAt: now });
+      void this.alerts
+        .onBmsReading(deviceId, reading.alarms ?? [])
+        .catch(() => undefined);
     }
     await this.prisma.bmsDevice.update({
       where: { id: deviceId },
