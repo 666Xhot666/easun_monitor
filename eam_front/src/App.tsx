@@ -10,6 +10,7 @@ import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SetupWizard from './pages/SetupWizard'
 import InverterSettings from './pages/InverterSettings'
+import ReadingsLogPage from './pages/ReadingsLogPage'
 import Dashboard from './Dashboard'
 import DevSerialSniff from './pages/DevSerialSniff'
 
@@ -34,6 +35,7 @@ function App() {
             <Route path="/dashboard" element={<DashboardIndexRedirect />} />
             <Route path="/dashboard/:profileId" element={<Dashboard />} />
             <Route path="/dashboard/:profileId/settings" element={<InverterSettings />} />
+            <Route path="/dashboard/:profileId/logs" element={<ReadingsLogPage />} />
           </Route>
         </Route>
 
