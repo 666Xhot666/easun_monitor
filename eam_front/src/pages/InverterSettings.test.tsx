@@ -212,13 +212,12 @@ describe('InverterSettings page', () => {
     });
   });
 
-  it('keeps risky settings collapsed and confirms each one with its consequence', async () => {
+  it('shows risky settings with the others and confirms each one with its consequence', async () => {
     const server = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, RemoteSwitch: 1 }) }));
     restore = server.restore;
     await screen.findByLabelText('Output priority');
-    expect(screen.queryByLabelText('Remote switch')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Show advanced settings' })).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show advanced settings' }));
     await userEvent.selectOptions(screen.getByLabelText('Remote switch'), '0');
     vi.mocked(window.confirm).mockReturnValueOnce(false);
     await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));

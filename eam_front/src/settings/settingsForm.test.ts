@@ -67,15 +67,25 @@ describe('groupIntoSections', () => {
     ]);
   });
 
-  it('moves risky settings to an Advanced section', () => {
+  it('places risky settings with their related settings, no Advanced section', () => {
     const risky = (name: string, address: number): RegisterDefinition => ({
       name, label: name, address, type: 'uint16', group: 'settings', writable: true, risk: 'Cuts power',
     });
-    const sections = groupIntoSections([...defs, risky('RemoteSwitch', 420), risky('OutputMode', 300)]);
-    expect(sections.map((s) => s.title)).toEqual([
-      'Output and source priority', 'Battery and charging', 'Equalization', 'Power on/off and energy saving', 'Advanced', 'Device information',
+    const sections = groupIntoSections([
+      ...defs.filter((d) => d.name !== 'TurnOnMode'),
+      risky('OutputMode', 300),
+      risky('BatteryOvervoltageProtection', 323),
+      risky('TurnOnMode', 406),
+      risky('RemoteSwitch', 420),
+      risky('OutputControl', 460),
     ]);
-    expect(sections[4].registers.map((r) => r.name)).toEqual(['OutputMode', 'RemoteSwitch']);
+    expect(sections.map((s) => [s.title, s.registers.map((r) => r.name)])).toEqual([
+      ['Output and source priority', ['OutputMode', 'OutputPriority', 'OutputVoltageSet']],
+      ['Battery and charging', ['MaxChargingCurrent', 'BatteryOvervoltageProtection']],
+      ['Equalization', ['BatteryEqualizationTime']],
+      ['Power on/off and energy saving', ['TurnOnMode', 'RemoteSwitch', 'OutputControl']],
+      ['Device information', ['RatedPower']],
+    ]);
   });
 
   it('places the settings found on the device with their related settings', () => {

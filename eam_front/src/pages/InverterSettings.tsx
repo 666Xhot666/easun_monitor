@@ -7,7 +7,6 @@ import { decimalsFor, formatRegisterValue } from '../inverter/format';
 import type { PanelSetting, RegisterDefinition } from '../inverter/types';
 import { useRegisters } from '../inverter/useRegisters';
 import {
-  ADVANCED,
   collectChanges,
   groupIntoSections,
   toFormValues,
@@ -45,7 +44,6 @@ export default function InverterSettings() {
   const [refreshing, setRefreshing] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
   const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
-  const [showAdvanced, setShowAdvanced] = useState(false);
   const [panelSettings, setPanelSettings] = useState<PanelSetting[]>([]);
 
   const original = useMemo(
@@ -261,48 +259,30 @@ export default function InverterSettings() {
             <LithiumSetupHelper onPropose={propose} />
             {groupIntoSections(registers).map((section) => (
               <section key={section.title}>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                    {section.title}
-                  </h2>
-                  {section.title === ADVANCED && (
-                    <button
-                      type="button"
-                      aria-expanded={showAdvanced}
-                      onClick={() => setShowAdvanced((shown) => !shown)}
-                      className="text-xs font-medium text-blue-600 hover:underline dark:text-blue-400"
-                    >
-                      {showAdvanced ? 'Hide advanced settings' : 'Show advanced settings'}
-                    </button>
-                  )}
+                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  {section.title}
+                </h2>
+                <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+                  {section.registers.map((definition) => (
+                    <SettingRow
+                      key={definition.name}
+                      definition={definition}
+                      value={form[definition.name] ?? ''}
+                      current={snapshot?.values[definition.name]}
+                      changed={definition.name in changes}
+                      errors={fieldErrors[definition.name]}
+                      warnings={check.warnings[definition.name]}
+                      inactive={check.inactive[definition.name]}
+                      bounds={constraints.bounds[definition.name]}
+                      panelPrograms={panelSettings
+                        .filter((p) => p.affects?.includes(definition.name))
+                        .map((p) => p.program)}
+                      defaultValue={constraints.defaults[definition.name] ?? definition.default}
+                      disabled={saving}
+                      onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
+                    />
+                  ))}
                 </div>
-                {section.title === ADVANCED && !showAdvanced ? (
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Settings that can cut power or harm the battery. Each change asks for its own confirmation.
-                  </p>
-                ) : (
-                  <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
-                    {section.registers.map((definition) => (
-                      <SettingRow
-                        key={definition.name}
-                        definition={definition}
-                        value={form[definition.name] ?? ''}
-                        current={snapshot?.values[definition.name]}
-                        changed={definition.name in changes}
-                        errors={fieldErrors[definition.name]}
-                        warnings={check.warnings[definition.name]}
-                        inactive={check.inactive[definition.name]}
-                        bounds={constraints.bounds[definition.name]}
-                        panelPrograms={panelSettings
-                          .filter((p) => p.affects?.includes(definition.name))
-                          .map((p) => p.program)}
-                        defaultValue={constraints.defaults[definition.name] ?? definition.default}
-                        disabled={saving}
-                        onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
-                      />
-                    ))}
-                  </div>
-                )}
               </section>
             ))}
             {panelSettings.length > 0 && <PanelSettings settings={panelSettings} />}

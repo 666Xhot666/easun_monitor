@@ -12,15 +12,16 @@ export interface SettingsSection {
 /**
  * Sections as in the manual's setting programs, each listing its settings in
  * program order (number in comments). Writable settings not listed here go
- * to "Other"; settings that can cut power or harm the battery (`risk`) to
- * "Advanced"; read-only settings go last.
+ * to "Other"; read-only settings go last. Settings that can cut power or harm
+ * the battery (`risk`) sit with their related settings; the page confirms
+ * each change to them.
  */
-export const ADVANCED = 'Advanced';
 
 const SECTIONS: { title: string; names: string[] }[] = [
   {
     title: 'Output and source priority',
     names: [
+      'OutputMode',
       'OutputPriority', // 01
       'InputVoltageRange', // 03
       'OutputVoltageSet', // 08
@@ -37,6 +38,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'BatteryDischargeRecoveryMains', // 13
       'MaxChargingVoltage', // 26
       'FloatingChargingVoltage', // 27
+      'BatteryOvervoltageProtection',
       'BatteryLowVoltageProtectionOffGrid', // 29
       'TimeFromCVToFloating',
       'LowDcProtectionSocGrid',
@@ -71,7 +73,16 @@ const SECTIONS: { title: string; names: string[] }[] = [
       'LcdBacklight', // 20
     ],
   },
-  { title: 'Power on/off and energy saving', names: ['EnergySavingMode', 'AutoACOutput', 'TurnOnMode'] },
+  {
+    title: 'Power on/off and energy saving',
+    names: [
+      'EnergySavingMode',
+      'AutoACOutput',
+      'TurnOnMode',
+      'RemoteSwitch',
+      'OutputControl',
+    ],
+  },
 ];
 
 const settingsOf = (definitions: RegisterDefinition[]) =>
@@ -79,7 +90,7 @@ const settingsOf = (definitions: RegisterDefinition[]) =>
 
 export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSection[] {
   const settings = settingsOf(definitions);
-  const writable = settings.filter((d) => d.writable && !d.risk);
+  const writable = settings.filter((d) => d.writable);
   const sections = SECTIONS.map(({ title, names }) => ({
     title,
     registers: names.flatMap((name) => writable.filter((d) => d.name === name)),
@@ -87,7 +98,6 @@ export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSe
   const placed = new Set(sections.flatMap((s) => s.registers));
   const other = writable.filter((d) => !placed.has(d));
   if (other.length) sections.push({ title: 'Other', registers: other });
-  sections.push({ title: ADVANCED, registers: settings.filter((d) => d.writable && d.risk) });
   sections.push({ title: 'Device information', registers: settings.filter((d) => !d.writable && d.verified !== false) });
   sections.push({ title: 'Unverified registers', registers: settings.filter((d) => d.verified === false) });
   return sections.filter((s) => s.registers.length > 0);
