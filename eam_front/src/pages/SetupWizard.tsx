@@ -183,6 +183,20 @@ export default function SetupWizard() {
     }
   }
 
+  // Invited users have no household of their own: the server refuses them.
+  if (user && user.adminHouseholdId === null) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10 dark:bg-gray-950">
+        <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-8 text-sm text-gray-700 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+          <p>Only a household admin can add inverters. Ask an admin of your household to add one.</p>
+          <Link to="/dashboard" className="mt-4 inline-block font-medium text-blue-600 hover:underline dark:text-blue-400">
+            Back to the dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10 dark:bg-gray-950">
       <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
