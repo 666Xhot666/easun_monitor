@@ -1,15 +1,38 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
+import {
+  TELEGRAM_CLIENT,
+  type TelegramClient,
+} from '../src/telegram/telegram-client';
+import { TelegramBot } from '../src/telegram/telegram-bot';
 import { createTestApp, registerUser, resetDatabase } from './helpers';
+
+/** Records what the bot sends instead of calling Telegram. */
+class FakeTelegram implements TelegramClient {
+  sent: { chatId: string; text: string }[] = [];
+  getUpdates() {
+    return Promise.resolve([]);
+  }
+  sendMessage(chatId: string, text: string) {
+    this.sent.push({ chatId, text });
+    return Promise.resolve();
+  }
+}
 
 describe('Telegram (e2e)', () => {
   let app: INestApplication<App>;
   let token: string;
+  let telegram: FakeTelegram;
+  let bot: TelegramBot;
 
   // Few users per file: registration is rate-limited.
   beforeAll(async () => {
-    app = await createTestApp();
+    telegram = new FakeTelegram();
+    app = await createTestApp((builder) =>
+      builder.overrideProvider(TELEGRAM_CLIENT).useValue(telegram),
+    );
+    bot = app.get(TelegramBot);
     await resetDatabase(app);
     token = await registerUser(app, 'owner@example.com');
   });
@@ -43,6 +66,47 @@ describe('Telegram (e2e)', () => {
       await request(app.getHttpServer())
         .post('/api/telegram/link-code')
         .expect(401);
+    });
+  });
+
+  describe('the bot', () => {
+    const message = (chatId: number, text: string) => ({
+      update_id: 1,
+      message: { chat: { id: chatId }, text },
+    });
+
+    beforeEach(() => (telegram.sent = []));
+
+    it('links a chat with /start <code> and says to whom', async () => {
+      const { code } = (await as('post', '/api/telegram/link-code').expect(201))
+        .body;
+
+      await bot.handleUpdate(message(4242, `/start ${code}`));
+
+      expect(telegram.sent).toEqual([
+        { chatId: '4242', text: expect.stringContaining('owner@example.com') },
+      ]);
+      expect((await as('get', '/api/telegram/link').expect(200)).body).toEqual({
+        linked: true,
+      });
+    });
+
+    it('refuses a used or wrong code, and explains how to link', async () => {
+      await bot.handleUpdate(message(777, '/start NOPENOPE'));
+      await bot.handleUpdate(message(777, 'hello'));
+
+      expect(telegram.sent.map((m) => m.chatId)).toEqual(['777', '777']);
+      expect(telegram.sent[0].text).toMatch(/code is not valid/i);
+      expect(telegram.sent[1].text).toMatch(/Settings/);
+    });
+
+    it('unlinks the chat with /stop', async () => {
+      await bot.handleUpdate(message(4242, '/stop'));
+
+      expect(telegram.sent[0].text).toMatch(/unlinked/i);
+      expect((await as('get', '/api/telegram/link').expect(200)).body).toEqual({
+        linked: false,
+      });
     });
   });
 });
