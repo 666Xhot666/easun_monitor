@@ -95,6 +95,25 @@ describe('computeEnergyFlow', () => {
     expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, PVPower: 1404 }).pv.value).toBe('1.4kW');
   });
 
+  it("uses the BMS's charge and power for the battery when given, and says so", () => {
+    const discharging = computeEnergyFlow(NIGHT_ON_BATTERY, { bms: { stateOfChargePct: 91, powerW: -305 } });
+    expect(discharging.battery).toMatchObject({
+      value: '91%',
+      active: true,
+      direction: 'toInverter',
+      source: 'bms',
+      watts: 305,
+    });
+
+    const charging = computeEnergyFlow(NIGHT_ON_BATTERY, { bms: { stateOfChargePct: 40, powerW: 520 } });
+    expect(charging.battery).toMatchObject({ value: '40%', direction: 'fromInverter', source: 'bms' });
+
+    const idle = computeEnergyFlow(NIGHT_ON_BATTERY, { bms: { stateOfChargePct: 100, powerW: 4 } });
+    expect(idle.battery.active).toBe(false);
+
+    expect(computeEnergyFlow(NIGHT_ON_BATTERY).battery.source).toBe('inverter');
+  });
+
   it('dims the grid when mains is down', () => {
     expect(computeEnergyFlow({ ...NIGHT_ON_BATTERY, MainsVoltage: 0 }).grid.available).toBe(false);
   });

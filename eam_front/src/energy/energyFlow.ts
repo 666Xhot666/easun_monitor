@@ -23,6 +23,8 @@ export interface FlowConnection {
   available: boolean;
   /** Absolute power, for scaling animation speed; undefined when unknown. */
   watts?: number;
+  /** Battery only: whether the values come from the BMS or the inverter. */
+  source?: 'bms' | 'inverter';
 }
 
 export interface EnergyFlow {
@@ -37,6 +39,11 @@ export interface EnergyFlowOptions {
   deadbandW?: number;
   /** The solar array's rated power; adds utilization to the PV value. */
   pvRatedW?: number;
+  /**
+   * A live BMS reading for the battery: its state of charge and power
+   * (positive while charging). Replaces the inverter's estimate.
+   */
+  bms?: { stateOfChargePct: number | null; powerW: number | null };
 }
 
 const DEFAULT_DEADBAND_W = 10;
@@ -63,12 +70,16 @@ export function computeEnergyFlow(
   const gridW = read('AverageMainsPower');
   const mainsV = read('MainsVoltage');
 
-  // BatteryCurrentSigned is + while charging, - while discharging.
-  const soc = read('BatterySoc');
+  // BatteryCurrentSigned is + while charging, - while discharging; so is the BMS's power.
+  const fromBms = options.bms !== undefined;
   const batteryA = read('BatteryCurrentSigned');
   const batteryV = read('BatteryVoltage');
-  const batteryW =
-    batteryA !== undefined && batteryV !== undefined ? batteryA * batteryV : undefined;
+  const soc = fromBms ? (options.bms?.stateOfChargePct ?? undefined) : read('BatterySoc');
+  const batteryW = fromBms
+    ? (options.bms?.powerW ?? undefined)
+    : batteryA !== undefined && batteryV !== undefined
+      ? batteryA * batteryV
+      : undefined;
 
   const loadW = read('OutputActivePower');
 
@@ -93,6 +104,7 @@ export function computeEnergyFlow(
       direction: batteryW !== undefined && batteryW > 0 ? 'fromInverter' : 'toInverter',
       available: soc !== undefined,
       watts: batteryW === undefined ? undefined : Math.abs(batteryW),
+      source: fromBms ? 'bms' : 'inverter',
     },
     load: {
       value: formatPower(loadW),

@@ -118,6 +118,18 @@ export default function EnergyFlowDiagram({ flow, freshness = 'live', age }: Pro
             <text x={cx} y={cy + 36} textAnchor="middle" fontSize="13" fill="#C9D1D9">
               {label}
             </text>
+            {key === 'battery' && connection.source && (
+              <text
+                data-testid="flow-battery-source"
+                x={cx}
+                y={cy + 50}
+                textAnchor="middle"
+                fontSize="10"
+                fill="#8B98A5"
+              >
+                {connection.source === 'bms' ? 'BMS' : 'inverter'}
+              </text>
+            )}
             <text
               data-testid={`flow-value-${key}`}
               data-active={String(active)}

@@ -90,4 +90,13 @@ describe('EnergyFlowDiagram', () => {
     const dots = screen.getByTestId('flow-line-load').querySelector<SVGPathElement>('.flow-dots');
     expect(dots?.style.animationDuration).toMatch(/^\d+(\.\d+)?s$/);
   });
+
+  it('names where the battery values come from', () => {
+    const fromBms = { ...NIGHT_ON_BATTERY, battery: { ...NIGHT_ON_BATTERY.battery, source: 'bms' as const } };
+    const { rerender } = render(<EnergyFlowDiagram flow={fromBms} />);
+    expect(screen.getByTestId('flow-battery-source')).toHaveTextContent('BMS');
+
+    rerender(<EnergyFlowDiagram flow={{ ...NIGHT_ON_BATTERY, battery: { ...NIGHT_ON_BATTERY.battery, source: 'inverter' } }} />);
+    expect(screen.getByTestId('flow-battery-source')).toHaveTextContent('inverter');
+  });
 });

@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import EnergyFlowPanel from './EnergyFlowPanel';
 import type { LatestReading } from '../inverter/types';
+import type { BmsReading } from '../bms/types';
 
 const NOW = Date.parse('2026-10-05T12:00:00Z');
 
@@ -47,5 +48,21 @@ describe('EnergyFlowPanel', () => {
     render(<EnergyFlowPanel reading={sunny} pollMs={5_000} pvRatedW={2700} now={() => NOW} />);
 
     expect(screen.getByTestId('flow-value-pv')).toHaveTextContent('1.4kW · 52%');
+  });
+
+  it("shows the BMS's battery values while its reading is live, the inverter's otherwise", () => {
+    const bms = (status: 'live' | 'stale') => ({
+      status,
+      ageSeconds: status === 'live' ? 2 : 90,
+      reading: { stateOfChargePct: 91, powerW: -305 } as BmsReading,
+    });
+
+    const { rerender } = render(<EnergyFlowPanel reading={reading(3_000)} pollMs={5_000} bms={bms('live')} now={() => NOW} />);
+    expect(screen.getByTestId('flow-value-battery')).toHaveTextContent('91%');
+    expect(screen.getByTestId('flow-battery-source')).toHaveTextContent('BMS');
+
+    rerender(<EnergyFlowPanel reading={reading(3_000)} pollMs={5_000} bms={bms('stale')} now={() => NOW} />);
+    expect(screen.getByTestId('flow-value-battery')).toHaveTextContent('88%');
+    expect(screen.getByTestId('flow-battery-source')).toHaveTextContent('inverter');
   });
 });
