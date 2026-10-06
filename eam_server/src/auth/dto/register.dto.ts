@@ -1,4 +1,10 @@
-import { IsEmail, IsString, MinLength } from 'class-validator';
+import {
+  IsEmail,
+  IsOptional,
+  IsString,
+  MaxLength,
+  MinLength,
+} from 'class-validator';
 
 export class RegisterDto {
   @IsEmail({}, { message: 'A valid email address is required' })
@@ -11,4 +17,10 @@ export class RegisterDto {
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   password!: string;
+
+  /** A household invite: join that household instead of getting one's own. */
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  inviteCode?: string;
 }

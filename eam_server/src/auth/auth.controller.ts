@@ -15,7 +15,11 @@ import { ConfigService } from '@nestjs/config';
 import { AuthGuard } from '@nestjs/passport';
 import { ThrottlerGuard } from '@nestjs/throttler';
 import type { Request, Response } from 'express';
-import { AuthService, type AuthResult, type IssuedTokens } from './auth.service';
+import {
+  AuthService,
+  type AuthResult,
+  type IssuedTokens,
+} from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -40,7 +44,11 @@ export class AuthController {
     @Body() dto: RegisterDto,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
-    const tokens = await this.authService.register(dto.email, dto.password);
+    const tokens = await this.authService.register(
+      dto.email,
+      dto.password,
+      dto.inviteCode,
+    );
     return this.respondWithTokens(tokens, res);
   }
 
@@ -62,10 +70,14 @@ export class AuthController {
    * deployment with the flag set by mistake still gets a 404.
    */
   @Get('dev-login')
-  async devLogin(@Res({ passthrough: true }) res: Response): Promise<AuthResult> {
+  async devLogin(
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<AuthResult> {
     const notFound = () => new NotFoundException();
-    if (this.configService.get<string>('NODE_ENV') === 'production') throw notFound();
-    if (this.configService.get<string>('DEV_AUTO_LOGIN') !== 'true') throw notFound();
+    if (this.configService.get<string>('NODE_ENV') === 'production')
+      throw notFound();
+    if (this.configService.get<string>('DEV_AUTO_LOGIN') !== 'true')
+      throw notFound();
     const email = this.configService.get<string>('DEV_AUTO_LOGIN_EMAIL');
     if (!email) throw notFound();
     return this.respondWithTokens(await this.authService.devLogin(email), res);
@@ -121,7 +133,8 @@ export class AuthController {
   }
 
   private readRefreshCookie(req: Request): string | undefined {
-    const cookies = req.cookies as Record<string, string | undefined> | undefined;
+    const cookies = req.cookies as
+      Record<string, string | undefined> | undefined;
     return cookies?.[REFRESH_TOKEN_COOKIE];
   }
 

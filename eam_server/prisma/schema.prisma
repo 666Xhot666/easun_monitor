@@ -58,8 +58,27 @@ model Household {
   memberships      Membership[]
   inverterProfiles InverterProfile[]
   panelTypes       PanelType[]
+  invites          HouseholdInvite[]
 
   @@map("households")
+}
+
+/// A single-use invite to a household, stored as a hash of its code.
+model HouseholdInvite {
+  id          Int           @id @default(autoincrement())
+  role        HouseholdRole
+  codeHash    String        @unique
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    Int?
+  createdById Int?
+  createdAt   DateTime      @default(now())
+
+  householdId Int
+  household   Household @relation(fields: [householdId], references: [id], onDelete: Cascade)
+
+  @@index([householdId])
+  @@map("household_invites")
 }
 
 /// A user's role in a household.

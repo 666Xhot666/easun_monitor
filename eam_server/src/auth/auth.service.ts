@@ -1,3 +1,4 @@
+import { InvitesService } from '../households/invites.service';
 import {
   ConflictException,
   ForbiddenException,
@@ -91,6 +92,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly invites: InvitesService,
   ) {
     const configuredDays = Number(
       this.configService.get<string>('REFRESH_TOKEN_TTL_DAYS'),
@@ -104,11 +106,20 @@ export class AuthService {
       this.configService.get<string>('ALLOW_REGISTRATION') === 'true';
   }
 
-  async register(email: string, password: string): Promise<IssuedTokens> {
+  async register(
+    email: string,
+    password: string,
+    inviteCode?: string,
+  ): Promise<IssuedTokens> {
     // The first account can always be created (that's how an install is
     // set up); after that, sign-up is closed unless the operator opens it,
     // so a dashboard reachable on the LAN can't collect strangers' accounts.
-    if (!this.registrationOpen && (await this.prisma.user.count()) > 0) {
+    // An invite code is the controlled way in, so it works even when closed.
+    if (
+      !inviteCode &&
+      !this.registrationOpen &&
+      (await this.prisma.user.count()) > 0
+    ) {
       throw new ForbiddenException(
         'Registration is closed. The owner can allow new accounts with ALLOW_REGISTRATION=true.',
       );
@@ -120,9 +131,19 @@ export class AuthService {
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
-    const user = await this.prisma.user.create({
-      data: { email, passwordHash, memberships: OWN_HOUSEHOLD },
-    });
+    // With an invite, the user joins that household and gets none of their
+    // own; a bad code creates nothing.
+    const user = inviteCode
+      ? await this.prisma.$transaction(async (tx) => {
+          const created = await tx.user.create({
+            data: { email, passwordHash },
+          });
+          await this.invites.redeemIn(tx, inviteCode, created.id);
+          return created;
+        })
+      : await this.prisma.user.create({
+          data: { email, passwordHash, memberships: OWN_HOUSEHOLD },
+        });
 
     // Auto-login on registration — the setup wizard immediately follows,
     // so making the user log in a second time right after signing up

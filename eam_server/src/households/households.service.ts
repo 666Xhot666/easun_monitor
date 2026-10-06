@@ -67,6 +67,16 @@ export class HouseholdsService {
     return panelType;
   }
 
+  /** 404 unless the user is a member; 403 when a reader asks to write. */
+  async requireMember(householdId: number, userId: number, access: Access) {
+    await this.requireHousehold(
+      householdId,
+      userId,
+      access,
+      'Household not found',
+    );
+  }
+
   private async requireHousehold(
     householdId: number,
     userId: number,
