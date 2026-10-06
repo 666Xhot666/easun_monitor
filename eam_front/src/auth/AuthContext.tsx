@@ -86,10 +86,11 @@ export function AuthProvider({
   );
 
   const register = useCallback(
-    async (email: string, password: string) => {
+    async (email: string, password: string, inviteCode?: string) => {
       const { data } = await axios.post<AuthResponse>('/api/auth/register', {
         email,
         password,
+        ...(inviteCode && { inviteCode }),
       });
       await applyAuthResponse(data);
     },

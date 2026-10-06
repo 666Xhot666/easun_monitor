@@ -10,7 +10,8 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   hasInverterProfile: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string) => Promise<void>;
+  /** With an invite code the account joins that household instead of getting its own. */
+  register: (email: string, password: string, inviteCode?: string) => Promise<void>;
   logout: () => void;
   /** Revokes every session of this account (all browsers), then signs out here. */
   logoutEverywhere: () => Promise<void>;
