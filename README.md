@@ -249,9 +249,13 @@ npm run bms-reader                    # read and deliver, reconnecting forever
 npm run bms-reader -- --decode .dev-captures/bms/<file>.jsonl   # re-decode a capture
 ```
 
-Settings are in `.env.example` (`BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
-`BMS_INGEST_URL`, `BMS_INGEST_TOKEN`). Without `BMS_INGEST_URL` the reader only
-reads and captures. macOS asks for Bluetooth permission for the terminal or
+Settings are listed in `.env.example` (`BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
+`BMS_INGEST_URL`, `BMS_INGEST_TOKEN`). The reader takes them from the
+environment first, then `eam_server/.env`, then the repository's `.env`, and
+prints which files it read and which BMS it looks for. A JK BMS often
+advertises its serial number rather than a `JK-` name: use the id from
+`--scan` (`BMS_ID`) or a name prefix (`BMS_NAME`). Without `BMS_INGEST_URL`
+the reader only reads and captures. macOS asks for Bluetooth permission for the terminal or
 IDE that starts it; a scan that finds nothing at all usually means that
 permission is missing. Close the JK phone app first; whether the phone app can
 connect while the reader is attached is checked on the first run (see

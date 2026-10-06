@@ -8,15 +8,18 @@
  *   npm run bms-reader -- --scan           list nearby Bluetooth peripherals, then exit
  *   npm run bms-reader -- --decode <file>  re-decode a capture's raw frames (BMS_PROTOCOL)
  *
- * Settings (env): BMS_NAME, BMS_ID, BMS_PROTOCOL, BMS_INGEST_URL,
- * BMS_INGEST_TOKEN, BMS_SEND_INTERVAL_MS, DEV_CAPTURE_DIR. See README.
+ * Settings: BMS_NAME, BMS_ID, BMS_PROTOCOL, BMS_INGEST_URL,
+ * BMS_INGEST_TOKEN, BMS_SEND_INTERVAL_MS, DEV_CAPTURE_DIR, from the
+ * environment, then eam_server/.env, then the repository's .env. See README.
  */
+import { join } from 'node:path';
 import { CELL_INFO_FRAME, decodeCellInfo } from '../bms/jk/cell-info';
 import { DEVICE_INFO_FRAME, decodeDeviceInfo } from '../bms/jk/device-info';
 import { formatLogLine } from '../serial-logger/log-line';
 import { BmsSession, DECODER_VERSION } from './bms-session';
 import { BmsCaptureFile, readCapture } from './capture-file';
 import { readerConfig } from './config';
+import { loadEnvFiles } from './env-files';
 import { IngestClient } from './ingest-client';
 import { connectBms, scanPeripherals } from './noble-transport';
 import { reconnectLoop } from './reconnect-loop';
@@ -139,7 +142,21 @@ async function run(config: ReturnType<typeof readerConfig>): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  // eam_server/.env, then the repository's .env; inline settings win.
+  const envFiles = loadEnvFiles(
+    [join(process.cwd(), '.env'), join(process.cwd(), '..', '.env')],
+    process.env,
+  );
+  log(
+    envFiles.length
+      ? `Settings from ${envFiles.join(', ')}`
+      : 'No .env file found; using the environment only',
+  );
   const config = readerConfig(process.env);
+  log(
+    `BMS ${config.id ? `id ${config.id}` : `named ${config.name}*`}, protocol ${config.protocol}, ` +
+      `delivering to ${config.ingest ? config.ingest.url : 'nowhere (capture only)'}`,
+  );
   const args = process.argv.slice(2);
   if (args[0] === '--scan') return scan();
   if (args[0] === '--decode') {
