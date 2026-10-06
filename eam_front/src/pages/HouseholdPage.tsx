@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import HouseholdMembers from '../households/HouseholdMembers';
+import TelegramLink from '../telegram/TelegramLink';
 
 /**
  * Household page.
@@ -56,6 +57,8 @@ export default function HouseholdPage() {
             <HouseholdMembers householdId={adminHouseholdId} currentUserId={user.id} />
           </section>
         )}
+
+        <TelegramLink />
       </main>
     </div>
   );

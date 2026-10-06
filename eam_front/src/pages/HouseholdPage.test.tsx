@@ -9,7 +9,9 @@ function renderPage(adminHouseholdId: number | null) {
   const restore = fakeServer((config) =>
     config.url === '/api/households/5/members' || config.url === '/api/households/5/invites'
       ? { status: 200, data: [] }
-      : { status: 404 },
+      : config.url === '/api/telegram/link'
+        ? { status: 200, data: { linked: false } }
+        : { status: 404 },
   ).restore;
   const auth = {
     user: {
@@ -59,5 +61,11 @@ describe('HouseholdPage', () => {
     restore = renderPage(null);
 
     expect(screen.queryByRole('button', { name: 'Create invite' })).not.toBeInTheDocument();
+  });
+
+  it('lets any member link their Telegram chat', async () => {
+    restore = renderPage(null);
+
+    expect(await screen.findByRole('button', { name: 'Get a link code' })).toBeInTheDocument();
   });
 });
