@@ -30,6 +30,9 @@ export interface EnergyTotals {
   gridKWh: number;
   /** Energy delivered to the loads. */
   outputKWh: number;
+  /** Energy into and out of the battery, at its terminals. */
+  batteryChargeKWh: number;
+  batteryDischargeKWh: number;
   /** Time between readings that was integrated (gaps left out). */
   coveredSeconds: number;
 }
@@ -183,16 +186,22 @@ export class TelemetryStore {
       WITH r AS (
         -- Negative PV or load is sensor noise; negative grid power would be
         -- export, which is not import. CASE, not GREATEST: GREATEST(NULL, 0)
-        -- is 0, and a missing value must stay missing.
+        -- is 0, and a missing value must stay missing. Battery power is
+        -- voltage times the signed current (+ charging, - discharging),
+        -- split into its charging and discharging parts.
         SELECT extract(epoch FROM l."timestamp") AS t,
                CASE WHEN p.pv < 0 THEN 0 ELSE p.pv END AS pv,
                CASE WHEN p.grid < 0 THEN 0 ELSE p.grid END AS grid,
-               CASE WHEN p.output < 0 THEN 0 ELSE p.output END AS output
+               CASE WHEN p.output < 0 THEN 0 ELSE p.output END AS output,
+               CASE WHEN p.battery < 0 THEN 0 ELSE p.battery END AS charge,
+               CASE WHEN p.battery > 0 THEN 0 ELSE -p.battery END AS discharge
         FROM inverter_logs l
         CROSS JOIN LATERAL (
           SELECT (l.payload ->> 'PVPower')::float8 AS pv,
                  (l.payload ->> 'AverageMainsPower')::float8 AS grid,
-                 (l.payload ->> 'OutputActivePower')::float8 AS output
+                 (l.payload ->> 'OutputActivePower')::float8 AS output,
+                 (l.payload ->> 'BatteryVoltage')::float8
+                   * (l.payload ->> 'BatteryCurrentSigned')::float8 AS battery
         ) p
         WHERE l."inverterProfileId" = ${profileId}
           AND l."timestamp" >= ${range.from.toISOString()}::timestamp
@@ -202,7 +211,9 @@ export class TelemetryStore {
         SELECT t - lag(t) OVER w AS dt,
                (pv + lag(pv) OVER w) / 2 AS pv,
                (grid + lag(grid) OVER w) / 2 AS grid,
-               (output + lag(output) OVER w) / 2 AS output
+               (output + lag(output) OVER w) / 2 AS output,
+               (charge + lag(charge) OVER w) / 2 AS charge,
+               (discharge + lag(discharge) OVER w) / 2 AS discharge
         FROM r
         WINDOW w AS (ORDER BY t)
       ),
@@ -213,12 +224,16 @@ export class TelemetryStore {
       SELECT coalesce(sum(pv * dt), 0) / 3.6e6 AS "pvKWh",
              coalesce(sum(grid * dt), 0) / 3.6e6 AS "gridKWh",
              coalesce(sum(output * dt), 0) / 3.6e6 AS "outputKWh",
+             coalesce(sum(charge * dt), 0) / 3.6e6 AS "batteryChargeKWh",
+             coalesce(sum(discharge * dt), 0) / 3.6e6 AS "batteryDischargeKWh",
              coalesce(sum(dt), 0) AS "coveredSeconds"
       FROM covered`;
     return {
       pvKWh: Number(row.pvKWh),
       gridKWh: Number(row.gridKWh),
       outputKWh: Number(row.outputKWh),
+      batteryChargeKWh: Number(row.batteryChargeKWh),
+      batteryDischargeKWh: Number(row.batteryDischargeKWh),
       coveredSeconds: Number(row.coveredSeconds),
     };
   }

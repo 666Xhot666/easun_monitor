@@ -148,11 +148,31 @@ describe('Energy totals (e2e)', () => {
       expect(energy.pvKWh).toBeCloseTo((600 * 49) / 60 / 1000, 6); // 11 one-minute pairs touch a reading without PV
     });
 
+    it('integrates battery charge and discharge separately, from voltage and signed current', async () => {
+      // Half an hour charging at 26 V x 20 A, then half an hour discharging at 25 V x 10 A.
+      await seed(profileId, t0, MINUTE, 61, (i) =>
+        i <= 30
+          ? { BatteryVoltage: 26, BatteryCurrentSigned: i === 30 ? 0 : 20 }
+          : { BatteryVoltage: 25, BatteryCurrentSigned: -10 },
+      );
+
+      const energy = await store.energy(profileId, range(2));
+
+      // The 30th-31st minute ramps from 0 to -250 W: half a minute of discharge.
+      expect(energy.batteryChargeKWh).toBeCloseTo((520 * 29.5) / 60 / 1000, 6);
+      expect(energy.batteryDischargeKWh).toBeCloseTo(
+        (250 * 29.5) / 60 / 1000,
+        6,
+      );
+    });
+
     it('is zero with no readings', async () => {
       expect(await store.energy(profileId, range(1))).toEqual({
         pvKWh: 0,
         gridKWh: 0,
         outputKWh: 0,
+        batteryChargeKWh: 0,
+        batteryDischargeKWh: 0,
         coveredSeconds: 0,
       });
     });
@@ -181,6 +201,8 @@ describe('Energy totals (e2e)', () => {
         pvKWh: expect.closeTo(1, 6),
         gridKWh: 0,
         outputKWh: expect.closeTo(0.5, 6),
+        batteryChargeKWh: 0,
+        batteryDischargeKWh: 0,
         coveredSeconds: 3600,
       });
     });
