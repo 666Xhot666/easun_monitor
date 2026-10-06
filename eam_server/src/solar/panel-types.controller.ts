@@ -62,6 +62,14 @@ export class PanelTypesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.requireOwned(id, user.userId);
+    const users = await this.prisma.inverterProfile.count({
+      where: { pvPanelTypeId: id },
+    });
+    if (users > 0) {
+      throw new ConflictException(
+        'An inverter uses this panel type; choose another type for it first',
+      );
+    }
     await this.prisma.panelType.delete({ where: { id } });
     return { success: true as const };
   }

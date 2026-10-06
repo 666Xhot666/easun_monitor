@@ -150,6 +150,14 @@ export class InverterController {
     if (dto.ipAddress !== undefined) {
       await this.addressPolicy.assertAllowed(dto.ipAddress);
     }
+    if (typeof dto.pvPanelTypeId === 'number') {
+      const owned = await this.prisma.panelType.count({
+        where: { id: dto.pvPanelTypeId, userId: user.userId },
+      });
+      if (!owned) {
+        throw new BadRequestException('Unknown panel type');
+      }
+    }
 
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.update({ where: { id }, data: dto }),

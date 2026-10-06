@@ -60,6 +60,8 @@ model PanelType {
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  inverterProfiles InverterProfile[]
+
   @@unique([userId, name])
   @@map("panel_types")
 }
@@ -110,6 +112,21 @@ model InverterProfile {
   lowBatteryCutoffVoltage Float?
   bulkChargeVoltage       Float?
   floatChargeVoltage      Float?
+
+  /// The solar array on the PV input: one panel type, `pvPanelsInSeries`
+  /// per string, `pvStrings` strings in parallel. All null until set up.
+  pvPanelTypeId    Int?
+  pvPanelType      PanelType? @relation(fields: [pvPanelTypeId], references: [id], onDelete: Restrict)
+  pvPanelsInSeries Int?
+  pvStrings        Int?
+
+  /// The inverter's PV input limits from its datasheet, entered by the
+  /// user; the array is checked against whichever are set.
+  pvMaxVocV     Float?
+  pvMpptMinV    Float?
+  pvMpptMaxV    Float?
+  pvMaxPowerW   Float?
+  pvMaxCurrentA Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -75,4 +75,46 @@ export class UpdateInverterDto {
   @IsNumber()
   @IsPositive()
   floatChargeVoltage?: number;
+
+  // The solar array and the inverter's PV input limits: null clears one.
+
+  /** One of the user's panel types. */
+  @IsOptional()
+  @IsInt()
+  pvPanelTypeId?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  pvPanelsInSeries?: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @IsPositive()
+  pvStrings?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pvMaxVocV?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pvMpptMinV?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pvMpptMaxV?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pvMaxPowerW?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @IsPositive()
+  pvMaxCurrentA?: number | null;
 }
