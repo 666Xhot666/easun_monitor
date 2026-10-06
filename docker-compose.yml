@@ -51,6 +51,8 @@ services:
       ALLOW_PUBLIC_LOGGER_HOSTS: ${ALLOW_PUBLIC_LOGGER_HOSTS:-false}
       POLLING_INTERVAL_MS: ${POLLING_INTERVAL_MS:-5000}
       SETTINGS_REFRESH_MS: ${SETTINGS_REFRESH_MS:-300000}
+      # BMS readings: at most one stored per this interval per device.
+      BMS_STORE_INTERVAL_MS: ${BMS_STORE_INTERVAL_MS:-30000}
       # Development only (ignored when NODE_ENV=production): see README.
       DEV_AUTO_LOGIN: ${DEV_AUTO_LOGIN:-false}
       DEV_AUTO_LOGIN_EMAIL: ${DEV_AUTO_LOGIN_EMAIL:-}
