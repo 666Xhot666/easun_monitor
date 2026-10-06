@@ -62,14 +62,39 @@ describe('BmsSession', () => {
   });
   afterEach(() => jest.useRealTimers());
 
-  it('asks for device info, then cell info, once subscribed', async () => {
+  it('asks for device info once subscribed, then for cell info every 5 s until it streams', async () => {
     const { connection } = startSession();
     await jest.advanceTimersByTimeAsync(0);
+    expect(connection.writes).toEqual([buildRequest(DEVICE_INFO)]);
 
+    connection.notify(referenceFrame('DEVICE_INFO_JK02_32S_V19'));
+    await jest.advanceTimersByTimeAsync(5_000);
     expect(connection.writes).toEqual([
       buildRequest(DEVICE_INFO),
       buildRequest(CELL_INFO),
     ]);
+
+    await jest.advanceTimersByTimeAsync(5_000);
+    expect(connection.writes).toEqual([
+      buildRequest(DEVICE_INFO),
+      buildRequest(CELL_INFO),
+      buildRequest(CELL_INFO),
+    ]);
+
+    connection.notify(referenceFrame('CELL_INFO_JK02_32S_V19'));
+    await jest.advanceTimersByTimeAsync(20_000);
+    expect(connection.writes).toHaveLength(3);
+  });
+
+  it('gives up when no cell info arrives within a minute', async () => {
+    const { connection, ended } = startSession();
+    await jest.advanceTimersByTimeAsync(0);
+    connection.notify(referenceFrame('DEVICE_INFO_JK02_32S_V19'));
+
+    await jest.advanceTimersByTimeAsync(61_000);
+
+    await expect(ended).resolves.toMatch(/no cell info/i);
+    expect(connection.closed).toBe(true);
   });
 
   it('turns cell-info frames into normalized readings', async () => {
@@ -133,9 +158,10 @@ describe('BmsSession', () => {
     expect(readings).toHaveLength(1);
   });
 
-  it('asks again after 30 s without a frame, then gives up and closes', async () => {
+  it('once streaming, asks again after 30 s without a frame, then gives up and closes', async () => {
     const { connection, events, ended } = startSession();
     await jest.advanceTimersByTimeAsync(0);
+    connection.notify(referenceFrame('CELL_INFO_JK02_32S_V11'));
     connection.writes.length = 0;
 
     await jest.advanceTimersByTimeAsync(31_000);
@@ -152,6 +178,7 @@ describe('BmsSession', () => {
   it('keeps going while frames arrive', async () => {
     const { connection } = startSession();
     await jest.advanceTimersByTimeAsync(0);
+    connection.notify(referenceFrame('CELL_INFO_JK02_32S_V11'));
     connection.writes.length = 0;
 
     for (let i = 0; i < 10; i++) {

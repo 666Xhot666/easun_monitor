@@ -16,6 +16,14 @@ export const DECODER_VERSION = 'jk-ble/1';
 /** No frame for this long: ask again once; another such silence ends the session. */
 const WATCHDOG_MS = 30_000;
 const WATCHDOG_CHECK_MS = 1_000;
+/**
+ * Until cell info streams, ask for it this often (the reference asks on its
+ * 5 s update cycle until the first cell-info frame). Asking right after the
+ * device-info request, while the BMS is still answering it, gets ignored.
+ */
+const CELL_INFO_ASK_MS = 5_000;
+/** No cell info at all within this long after connecting: reconnect. */
+const FIRST_CELL_INFO_MS = 60_000;
 
 export type SessionEvent =
   /** Every valid frame, raw, for the capture files. */
@@ -40,13 +48,16 @@ export interface SessionOptions {
 
 /**
  * One connection's worth of reading a JK BMS: subscribe, ask for device info
- * and cell info once (the BMS then streams cell info by itself), decode what
- * arrives, and watch for silence. `run` resolves with the reason the session
- * ended; the caller reconnects.
+ * once, then for cell info every 5 s until the BMS starts streaming it, decode
+ * what arrives, and watch for silence. `run` resolves with the reason the
+ * session ended; the caller reconnects.
  */
 export class BmsSession {
   private lastFrameAt = 0;
   private resent = false;
+  private streaming = false;
+  private connectedAt = 0;
+  private lastCellInfoAskAt = 0;
 
   constructor(
     private readonly connection: BleConnection,
@@ -79,8 +90,9 @@ export class BmsSession {
         try {
           await this.connection.subscribe();
           this.lastFrameAt = this.options.now();
+          this.connectedAt = this.options.now();
+          this.lastCellInfoAskAt = this.options.now();
           await this.connection.write(buildRequest(DEVICE_INFO));
-          await this.connection.write(buildRequest(CELL_INFO));
         } catch (error) {
           end(
             `Setup failed: ${error instanceof Error ? error.message : String(error)}`,
@@ -88,8 +100,25 @@ export class BmsSession {
           );
           return;
         }
+        const write = (frame: Buffer) =>
+          this.connection.write(frame).catch((error: unknown) => {
+            end(
+              `Write failed: ${error instanceof Error ? error.message : String(error)}`,
+              true,
+            );
+          });
         timer = setInterval(() => {
-          if (this.options.now() - this.lastFrameAt < WATCHDOG_MS) return;
+          const now = this.options.now();
+          if (!this.streaming) {
+            if (now - this.connectedAt >= FIRST_CELL_INFO_MS) {
+              end('No cell info within 60 s of connecting', true);
+            } else if (now - this.lastCellInfoAskAt >= CELL_INFO_ASK_MS) {
+              this.lastCellInfoAskAt = now;
+              void write(buildRequest(CELL_INFO));
+            }
+            return;
+          }
+          if (now - this.lastFrameAt < WATCHDOG_MS) return;
           if (this.resent) {
             end('No frame for 60 s after asking again', true);
             return;
@@ -100,14 +129,7 @@ export class BmsSession {
             kind: 'watchdog-resend',
             detail: 'No frame for 30 s, asking for cell info again',
           });
-          this.connection
-            .write(buildRequest(CELL_INFO))
-            .catch((error: unknown) => {
-              end(
-                `Write failed: ${error instanceof Error ? error.message : String(error)}`,
-                true,
-              );
-            });
+          void write(buildRequest(CELL_INFO));
         }, WATCHDOG_CHECK_MS);
       })();
     });
@@ -124,6 +146,7 @@ export class BmsSession {
     });
     try {
       if (frameType === CELL_INFO_FRAME) {
+        this.streaming = true;
         this.options.onReading({
           timestamp: new Date(this.options.now()).toISOString(),
           source: this.options.source,
