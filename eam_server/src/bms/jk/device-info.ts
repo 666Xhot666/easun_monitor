@@ -43,7 +43,8 @@ export function decodeDeviceInfo(frame: Buffer): DeviceInfo {
     powerOnCount: frame.readUInt32LE(42),
     manufacturingDate:
       frame[78] === 0 ? null : `20${frame.subarray(78, 84).toString('latin1')}`,
-    serialNumber: text(frame, 86, 11),
+    // The reference reads 11 bytes; this unit has a 15-digit serial (to the NUL in 86-101).
+    serialNumber: text(frame, 86, 16),
   };
 }
 

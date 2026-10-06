@@ -14,9 +14,18 @@ interface ReferenceFrames {
   >;
 }
 
-const data = JSON.parse(
-  readFileSync(join(__dirname, 'syssi-frames.json'), 'utf8'),
-) as ReferenceFrames;
+const load = (file: string) =>
+  JSON.parse(readFileSync(join(__dirname, file), 'utf8')) as ReferenceFrames;
+
+/** The reference's frames, plus frames pinned from this installation's BMS
+ * (real-frames.json, passcodes zeroed). */
+const data: ReferenceFrames = {
+  source: '',
+  frames: {
+    ...load('syssi-frames.json').frames,
+    ...load('real-frames.json').frames,
+  },
+};
 
 export type ReferenceFrameName = keyof typeof data.frames & string;
 

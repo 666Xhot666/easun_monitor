@@ -35,6 +35,18 @@ describe('decodeDeviceInfo', () => {
     });
   });
 
+  it("reads this installation's BMS, with its full 15-digit serial number", () => {
+    expect(
+      decodeDeviceInfo(referenceFrame('DEVICE_INFO_REAL_PB2A16S20P_19U')),
+    ).toMatchObject({
+      model: 'JK-PB2A16S20P',
+      hardwareVersion: '19U',
+      softwareVersion: '19.28',
+      serialNumber: '512262449000576',
+      manufacturingDate: '20260728',
+    });
+  });
+
   it('never returns the passcodes the frame carries', () => {
     const decoded = JSON.stringify(
       decodeDeviceInfo(referenceFrame('DEVICE_INFO_JK02_32S_V11')),
