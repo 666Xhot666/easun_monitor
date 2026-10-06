@@ -21,6 +21,10 @@ import type { Response } from 'express';
 import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
 import { ReadingsExportQueryDto } from '../inverter/dto/readings-export-query.dto';
 import { BmsCsv } from './bms-csv';
+import {
+  HouseholdsService,
+  type Access,
+} from '../households/households.service';
 import { BmsIngestService } from './bms-ingest.service';
 import { BmsStore } from './bms.store';
 import { CreateBmsDeviceDto } from './dto/create-bms-device.dto';
@@ -55,6 +59,7 @@ export class BmsDevicesController {
     private readonly prisma: PrismaService,
     private readonly ingest: BmsIngestService,
     private readonly store: BmsStore,
+    private readonly households: HouseholdsService,
   ) {}
 
   @Get()
@@ -62,7 +67,7 @@ export class BmsDevicesController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
     return this.prisma.bmsDevice.findMany({
       where: { inverterProfileId: profileId },
       orderBy: { createdAt: 'asc' },
@@ -77,7 +82,7 @@ export class BmsDevicesController {
     @Body() dto: CreateBmsDeviceDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'write');
     const { token, hash } = newIngestToken();
     const device = await this.prisma.bmsDevice.create({
       data: {
@@ -100,7 +105,7 @@ export class BmsDevicesController {
     @Body() dto: UpdateBmsDeviceDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'write');
     return this.prisma.bmsDevice.update({
       where: { id: bmsId },
       data: dto,
@@ -115,7 +120,7 @@ export class BmsDevicesController {
     @Param('bmsId', ParseIntPipe) bmsId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'write');
     const { token, hash } = newIngestToken();
     await this.prisma.bmsDevice.update({
       where: { id: bmsId },
@@ -131,7 +136,7 @@ export class BmsDevicesController {
     @Param('bmsId', ParseIntPipe) bmsId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'write');
     await this.prisma.bmsDevice.delete({ where: { id: bmsId } });
     return { success: true as const };
   }
@@ -146,7 +151,7 @@ export class BmsDevicesController {
     @Param('bmsId', ParseIntPipe) bmsId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     const reading =
       this.ingest.latestFor(bmsId)?.reading ?? (await this.store.newest(bmsId));
     if (!reading) throw new NotFoundException('No BMS reading yet');
@@ -169,7 +174,7 @@ export class BmsDevicesController {
     @Query() query: HistoryQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     const to = query.to ?? new Date();
     const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
     const span = to.getTime() - from.getTime();
@@ -199,7 +204,7 @@ export class BmsDevicesController {
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ): Promise<void> {
-    await this.requireOwnedDevice(profileId, bmsId, user.userId);
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     const span = query.to.getTime() - query.from.getTime();
     if (span <= 0) throw new BadRequestException('`from` must be before `to`');
     if (span > MAX_EXPORT_SPAN_MS) {
@@ -235,29 +240,26 @@ export class BmsDevicesController {
     res.end();
   }
 
+  /** The profile's household rules apply to its BMS devices. */
   private async requireOwnedDevice(
     profileId: number,
     bmsId: number,
     userId: number,
+    access: Access,
   ): Promise<void> {
-    const owned = await this.prisma.bmsDevice.count({
-      where: {
-        id: bmsId,
-        inverterProfileId: profileId,
-        inverterProfile: { userId },
-      },
+    await this.households.requireProfile(profileId, userId, access);
+    const exists = await this.prisma.bmsDevice.count({
+      where: { id: bmsId, inverterProfileId: profileId },
     });
-    if (!owned) throw new NotFoundException('BMS not found');
+    if (!exists) throw new NotFoundException('BMS not found');
   }
 
   /** 404s for another user's inverter, the same as for a missing one. */
   private async requireOwnedProfile(
     profileId: number,
     userId: number,
+    access: Access,
   ): Promise<void> {
-    const owned = await this.prisma.inverterProfile.count({
-      where: { id: profileId, userId },
-    });
-    if (!owned) throw new NotFoundException('Inverter profile not found');
+    await this.households.requireProfile(profileId, userId, access);
   }
 }

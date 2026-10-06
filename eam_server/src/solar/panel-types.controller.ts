@@ -5,7 +5,6 @@ import {
   Controller,
   Delete,
   Get,
-  NotFoundException,
   Param,
   ParseIntPipe,
   Patch,
@@ -17,7 +16,10 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import { PanelTypeDto } from './dto/panel-type.dto';
-import { HouseholdsService } from '../households/households.service';
+import {
+  HouseholdsService,
+  type Access,
+} from '../households/households.service';
 
 /** The user's list of solar panel types, shared by all their inverters. */
 @Controller('api/panel-types')
@@ -29,9 +31,11 @@ export class PanelTypesController {
   ) {}
 
   @Get()
-  list(@CurrentUser() user: AuthenticatedUser) {
+  async list(@CurrentUser() user: AuthenticatedUser) {
     return this.prisma.panelType.findMany({
-      where: { userId: user.userId },
+      where: {
+        householdId: { in: await this.households.householdIds(user.userId) },
+      },
       orderBy: { name: 'asc' },
     });
   }
@@ -60,7 +64,7 @@ export class PanelTypesController {
     @Body() dto: PanelTypeDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwned(id, user.userId);
+    await this.requireOwned(id, user.userId, 'write');
     checkDatasheet(dto);
     return this.rejectDuplicateName(() =>
       this.prisma.panelType.update({ where: { id }, data: dto }),
@@ -72,7 +76,7 @@ export class PanelTypesController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwned(id, user.userId);
+    await this.requireOwned(id, user.userId, 'write');
     const users = await this.prisma.inverterProfile.count({
       where: { pvPanelTypeId: id },
     });
@@ -86,14 +90,8 @@ export class PanelTypesController {
   }
 
   /** 404s for another user's panel type, the same as for a missing one. */
-  private async requireOwned(id: number, userId: number) {
-    const panelType = await this.prisma.panelType.findFirst({
-      where: { id, userId },
-    });
-    if (!panelType) {
-      throw new NotFoundException('Panel type not found');
-    }
-    return panelType;
+  private requireOwned(id: number, userId: number, access: Access) {
+    return this.households.requirePanelType(id, userId, access);
   }
 
   private async rejectDuplicateName<T>(write: () => Promise<T>): Promise<T> {

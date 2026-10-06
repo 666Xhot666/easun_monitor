@@ -37,7 +37,10 @@ import { ReadingsExportQueryDto } from './dto/readings-export-query.dto';
 import { RangeQueryDto } from './dto/range-query.dto';
 import { ReadingsCsv } from '../telemetry/readings-csv';
 import { TelemetryStore } from '../telemetry/telemetry.store';
-import { HouseholdsService } from '../households/households.service';
+import {
+  HouseholdsService,
+  type Access,
+} from '../households/households.service';
 import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -96,7 +99,9 @@ export class InverterController {
   @Get('profiles')
   async listProfiles(@CurrentUser() user: AuthenticatedUser) {
     return this.prisma.inverterProfile.findMany({
-      where: { userId: user.userId },
+      where: {
+        householdId: { in: await this.households.householdIds(user.userId) },
+      },
       orderBy: { updatedAt: 'desc' },
     });
   }
@@ -106,7 +111,7 @@ export class InverterController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return this.requireOwnedProfile(id, user.userId);
+    return this.requireOwnedProfile(id, user.userId, 'read');
   }
 
   /**
@@ -151,13 +156,14 @@ export class InverterController {
     @Body() dto: UpdateInverterDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(id, user.userId);
+    const current = await this.requireOwnedProfile(id, user.userId, 'write');
     if (dto.ipAddress !== undefined) {
       await this.addressPolicy.assertAllowed(dto.ipAddress);
     }
     if (typeof dto.pvPanelTypeId === 'number') {
+      // The panel type must be one of this inverter's household.
       const owned = await this.prisma.panelType.count({
-        where: { id: dto.pvPanelTypeId, userId: user.userId },
+        where: { id: dto.pvPanelTypeId, householdId: current.householdId },
       });
       if (!owned) {
         throw new BadRequestException('Unknown panel type');
@@ -183,7 +189,7 @@ export class InverterController {
     @Param('id', ParseIntPipe) id: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(id, user.userId);
+    await this.requireOwnedProfile(id, user.userId, 'write');
     await this.prisma.inverterProfile.delete({ where: { id } });
     await this.syncPollingBestEffort();
     return { success: true as const };
@@ -204,12 +210,18 @@ export class InverterController {
         dto.ipAddress,
         dto.port ?? DEFAULT_LOGGER_PORT,
       );
-      return { success: true as const, latencyMs, sampledParameter: sampledRegister };
+      return {
+        success: true as const,
+        latencyMs,
+        sampledParameter: sampledRegister,
+      };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       // 400, not 500: a wrong or unreachable address is an expected,
       // user-actionable outcome of this endpoint, not a server fault.
-      throw new BadRequestException(`Couldn't verify the logger at ${dto.ipAddress}: ${message}`);
+      throw new BadRequestException(
+        `Couldn't verify the logger at ${dto.ipAddress}: ${message}`,
+      );
     }
   }
 
@@ -228,7 +240,7 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
 
     const latest = await this.telemetry.latest(profileId);
 
@@ -241,7 +253,10 @@ export class InverterController {
       ...latest,
       alerts: {
         faults: this.registers.activeFlags('FaultCode', payload.FaultCode ?? 0),
-        warnings: this.registers.activeFlags('WarningCode', payload.WarningCode ?? 0),
+        warnings: this.registers.activeFlags(
+          'WarningCode',
+          payload.WarningCode ?? 0,
+        ),
       },
     };
   }
@@ -252,9 +267,14 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const profile = await this.requireOwnedProfile(
+      profileId,
+      user.userId,
+      'read',
+    );
     const status = this.links.status(profile.ipAddress, profile.port);
-    const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+    const iso = (ms: number | null) =>
+      ms === null ? null : new Date(ms).toISOString();
     return {
       state: status.state,
       lastError: status.lastError,
@@ -273,7 +293,7 @@ export class InverterController {
     @Query() query: HistoryQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
 
     const to = query.to ?? new Date();
     const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
@@ -282,7 +302,9 @@ export class InverterController {
       throw new BadRequestException('`from` must be before `to`');
     }
     if (span > MAX_HISTORY_SPAN_MS) {
-      throw new BadRequestException('A history range can cover at most 5 years');
+      throw new BadRequestException(
+        'A history range can cover at most 5 years',
+      );
     }
 
     return this.telemetry.history(profileId, {
@@ -300,7 +322,7 @@ export class InverterController {
     @Query() query: ReadingsQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
     checkReadingsSpan(query.from, query.to);
     return this.telemetry.readings(profileId, {
       from: query.from,
@@ -317,7 +339,7 @@ export class InverterController {
     @Query() query: RangeQueryDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
     checkReadingsSpan(query.from, query.to);
     return this.telemetry.energy(profileId, query);
   }
@@ -333,7 +355,7 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
     @Res() res: Response,
   ): Promise<void> {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
     checkReadingsSpan(query.from, query.to);
     const timeZone = query.tz ?? 'UTC';
     let csv: ReadingsCsv;
@@ -351,7 +373,11 @@ export class InverterController {
     );
     // The byte-order mark makes Excel read the file as UTF-8 (°C, ·).
     res.write('\uFEFF' + csv.header());
-    for await (const batch of this.telemetry.readingBatches(profileId, query.from, query.to)) {
+    for await (const batch of this.telemetry.readingBatches(
+      profileId,
+      query.from,
+      query.to,
+    )) {
       res.write(batch.map((reading) => csv.row(reading)).join(''));
     }
     res.end();
@@ -367,7 +393,11 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const profile = await this.requireOwnedProfile(
+      profileId,
+      user.userId,
+      'read',
+    );
     return this.deviceCall(() => this.settings.get(profile));
   }
 
@@ -381,7 +411,9 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    return settingsConstraints(await this.requireOwnedProfile(profileId, user.userId));
+    return settingsConstraints(
+      await this.requireOwnedProfile(profileId, user.userId, 'read'),
+    );
   }
 
   /**
@@ -395,14 +427,18 @@ export class InverterController {
     @Query('from') from?: string,
     @Query('to') to?: string,
   ) {
-    await this.requireOwnedProfile(profileId, user.userId);
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
     const parse = (value: string | undefined, name: string) => {
       if (value === undefined) return undefined;
       const date = new Date(value);
-      if (Number.isNaN(date.getTime())) throw new BadRequestException(`\`${name}\` must be a date`);
+      if (Number.isNaN(date.getTime()))
+        throw new BadRequestException(`\`${name}\` must be a date`);
       return date;
     };
-    return this.settingsHistory.list(profileId, { from: parse(from, 'from'), to: parse(to, 'to') });
+    return this.settingsHistory.list(profileId, {
+      from: parse(from, 'from'),
+      to: parse(to, 'to'),
+    });
   }
 
   /** Re-reads the settings from the inverter now. */
@@ -411,7 +447,11 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const profile = await this.requireOwnedProfile(
+      profileId,
+      user.userId,
+      'read',
+    );
     return this.deviceCall(() => this.settings.refresh(profile));
   }
 
@@ -422,7 +462,11 @@ export class InverterController {
     @Body() dto: UpdateSettingsDto,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const profile = await this.requireOwnedProfile(
+      profileId,
+      user.userId,
+      'write',
+    );
     const entries = Object.entries(dto.changes);
     if (entries.length === 0) {
       throw new BadRequestException('No settings to change');
@@ -437,7 +481,9 @@ export class InverterController {
     } catch (error) {
       if (!(error instanceof SettingsRuleError)) throw error;
       const { errors, warnings } = error.check;
-      const lines = Object.entries(Object.keys(errors).length ? errors : warnings).map(
+      const lines = Object.entries(
+        Object.keys(errors).length ? errors : warnings,
+      ).map(
         ([name, messages]) =>
           `${this.registers.get(name)?.label ?? name}: ${messages.join('; ')}`,
       );
@@ -459,9 +505,15 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
   ) {
-    const profile = await this.requireOwnedProfile(profileId, user.userId);
+    const profile = await this.requireOwnedProfile(
+      profileId,
+      user.userId,
+      'write',
+    );
     const link = this.links.get(profile.ipAddress, profile.port);
-    const faultMode = this.registers.get('OperationMode')?.options?.indexOf('Fault');
+    const faultMode = this.registers
+      .get('OperationMode')
+      ?.options?.indexOf('Fault');
     return this.deviceCall(async () => {
       const { OperationMode } = await link.read(['telemetry']);
       if (OperationMode !== faultMode) {
@@ -477,8 +529,10 @@ export class InverterController {
     try {
       return await call();
     } catch (error) {
-      if (error instanceof RegisterValueError) throw new BadRequestException(error.message);
-      if (error instanceof LoggerFrameError) throw new ConflictException(error.message);
+      if (error instanceof RegisterValueError)
+        throw new BadRequestException(error.message);
+      if (error instanceof LoggerFrameError)
+        throw new ConflictException(error.message);
       if (error instanceof LoggerUnavailableError) {
         throw new ServiceUnavailableException(error.message);
       }
@@ -488,17 +542,9 @@ export class InverterController {
 
   // -----------------------------------------------------------------
 
-  private async requireOwnedProfile(id: number, userId: number) {
-    const profile = await this.prisma.inverterProfile.findFirst({
-      where: { id, userId },
-    });
-    if (!profile) {
-      // Same 404 whether the id doesn't exist at all or belongs to someone
-      // else — doesn't confirm to a caller that a given id exists but
-      // isn't theirs.
-      throw new NotFoundException('No such inverter profile');
-    }
-    return profile;
+  /** 404 outside the user's households, 403 when a reader writes. */
+  private requireOwnedProfile(id: number, userId: number, access: Access) {
+    return this.households.requireProfile(id, userId, access);
   }
 
   /** Maps the one-profile-per-logger constraint to a user-facing 409. */
