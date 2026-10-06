@@ -18,7 +18,6 @@ import { usePanelTypes } from './solar/usePanelTypes';
 import { useBmsDevices } from './bms/useBmsDevices';
 import { useBmsLatest } from './bms/useBmsLatest';
 
-
 function formatTimestamp(iso: string): string {
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? iso : date.toLocaleTimeString();
@@ -27,10 +26,13 @@ function formatTimestamp(iso: string): string {
 function ProfileSwitcher({
   profiles,
   activeProfileId,
+  canAdd,
   onDelete,
 }: {
   profiles: InverterProfile[];
   activeProfileId: number;
+  /** Only a household admin can pair an inverter. */
+  canAdd: boolean;
   onDelete: (id: number) => void;
 }) {
   return (
@@ -48,7 +50,7 @@ function ProfileSwitcher({
             }
           >
             <Link to={`/dashboard/${profile.id}`}>{profile.name}</Link>
-            {profiles.length > 1 && (
+            {profiles.length > 1 && profile.role === 'ADMIN' && (
               <button
                 type="button"
                 onClick={() => onDelete(profile.id)}
@@ -65,12 +67,14 @@ function ProfileSwitcher({
           </span>
         );
       })}
-      <Link
-        to="/setup"
-        className="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs font-medium text-gray-500 transition hover:border-gray-400 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-      >
-        + Add inverter
-      </Link>
+      {canAdd && (
+        <Link
+          to="/setup"
+          className="rounded-full border border-dashed border-gray-300 px-3 py-1 text-xs font-medium text-gray-500 transition hover:border-gray-400 hover:text-gray-700 dark:border-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+        >
+          + Add inverter
+        </Link>
+      )}
     </nav>
   );
 }
@@ -179,6 +183,7 @@ export default function Dashboard() {
             <ProfileSwitcher
               profiles={profiles}
               activeProfileId={activeProfile.id}
+              canAdd={user?.adminHouseholdId != null}
               onDelete={(id) => {
                 void handleDeleteProfile(id);
               }}
@@ -286,13 +291,17 @@ export default function Dashboard() {
           <ReadingPanel
             registers={registers}
             reading={reading}
-            onExitFaultMode={async () => {
-              try {
-                await axios.post(`/api/inverter/${activeProfile.id}/exit-fault-mode`);
-              } catch (error) {
-                throw new Error(extractErrorMessage(error, "Couldn't clear the fault."), { cause: error });
-              }
-            }}
+            onExitFaultMode={
+              activeProfile.role === 'ADMIN'
+                ? async () => {
+                    try {
+                      await axios.post(`/api/inverter/${activeProfile.id}/exit-fault-mode`);
+                    } catch (error) {
+                      throw new Error(extractErrorMessage(error, "Couldn't clear the fault."), { cause: error });
+                    }
+                  }
+                : undefined
+            }
           >
             <HistoryChart profileId={activeProfile.id} registers={registers} />
           </ReadingPanel>

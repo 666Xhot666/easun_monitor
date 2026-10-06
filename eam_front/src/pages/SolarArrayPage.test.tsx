@@ -13,7 +13,7 @@ const profile: InverterProfile = {
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2,
   pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null,
-  createdAt: '', updatedAt: '',
+  householdId: 1, role: 'ADMIN', createdAt: '', updatedAt: '',
 };
 const longi = { id: 1, name: 'Longi 450W', maxPowerW: 450, vmpV: 41.5, impA: 10.85, vocV: 49.5, iscA: 11.5 };
 

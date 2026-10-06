@@ -22,14 +22,23 @@ export interface InverterProfile {
   pvMpptMaxV: number | null;
   pvMaxPowerW: number | null;
   pvMaxCurrentA: number | null;
+  householdId: number;
+  /** The user's role in this inverter's household: readers cannot change anything. */
+  role: HouseholdRole;
   createdAt: string;
   updatedAt: string;
 }
+
+export type HouseholdRole = 'ADMIN' | 'READER';
 
 export interface AuthUser {
   id: number;
   email: string;
   createdAt: string;
+  /** The household this user administers, or null (invited users). */
+  adminHouseholdId: number | null;
+  households: { id: number; name: string; role: HouseholdRole }[];
+  /** The inverters of all the user's households. */
   inverterProfiles: InverterProfile[];
 }
 

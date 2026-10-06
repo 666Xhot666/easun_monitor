@@ -15,7 +15,7 @@ const profile = (overrides: Partial<InverterProfile> = {}): InverterProfile => (
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
   pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null,
-  createdAt: '', updatedAt: '',
+  householdId: 1, role: 'ADMIN', createdAt: '', updatedAt: '',
   ...overrides,
 });
 

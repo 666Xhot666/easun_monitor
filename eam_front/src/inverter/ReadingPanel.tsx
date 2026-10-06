@@ -10,7 +10,7 @@ interface Props {
   reading: LatestReading;
   /** Rendered between the alerts and the full parameter grid. */
   children?: ReactNode;
-  /** Clears the inverter's fault state; offered only in fault mode. */
+  /** Clears the inverter's fault state; offered only in fault mode, and only when given (admins). */
   onExitFaultMode?: () => Promise<void>;
 }
 
@@ -69,17 +69,19 @@ export default function ReadingPanel({ registers, reading, children, onExitFault
       </section>
 
       <section aria-label="Alerts" className="mt-4">
-        {inFaultMode && onExitFaultMode && (
+        {inFaultMode && (
           <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-300">
             <span>The inverter is in fault mode.</span>
-            <button
-              type="button"
-              onClick={() => void exitFaultMode()}
-              disabled={exiting}
-              className="rounded-lg bg-red-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
-            >
-              Exit fault mode
-            </button>
+            {onExitFaultMode && (
+              <button
+                type="button"
+                onClick={() => void exitFaultMode()}
+                disabled={exiting}
+                className="rounded-lg bg-red-600 px-3 py-1 text-sm font-medium text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                Exit fault mode
+              </button>
+            )}
             {exitError && <span role="alert">{exitError}</span>}
           </div>
         )}
