@@ -51,10 +51,12 @@ interface Props {
   panelTypes: PanelType[];
   /** Called after a save, so the profile can be reloaded. */
   onSaved: () => void;
+  /** Readers: the values only, no changes. */
+  readOnly?: boolean;
 }
 
 /** The inverter's solar array (panel type and wiring) and its PV input limits, with the array's ratings. */
-export default function SolarArrayForm({ profile, panelTypes, onSaved }: Props) {
+export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly = false }: Props) {
   const [form, setForm] = useState<Form>(() => toForm(profile));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -113,6 +115,7 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved }: Props) 
         min="0"
         step={step}
         value={form[field]}
+        disabled={readOnly}
         onChange={(e) => update(field)(e.target.value)}
         className={inputClass}
       />
@@ -126,6 +129,7 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved }: Props) 
           Panel type
           <select
             value={form.pvPanelTypeId}
+            disabled={readOnly}
             onChange={(e) => update('pvPanelTypeId')(e.target.value)}
             className={inputClass}
           >
@@ -177,13 +181,15 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved }: Props) 
       </fieldset>
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={saving}
-          className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
-        >
-          Save array
-        </button>
+        {!readOnly && (
+          <button
+            type="submit"
+            disabled={saving}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          >
+            Save array
+          </button>
+        )}
         {saved && <span className="text-sm text-green-700 dark:text-green-400">Saved.</span>}
         {error && (
           <p role="alert" className="text-sm text-red-600 dark:text-red-400">

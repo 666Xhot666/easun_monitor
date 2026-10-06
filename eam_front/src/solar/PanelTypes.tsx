@@ -7,6 +7,8 @@ import type { PanelType } from './pvArray';
 interface PanelTypesProps {
   panelTypes: PanelType[];
   onSaved: () => void;
+  /** Readers: the list only, no changes. */
+  readOnly?: boolean;
 }
 
 type FormValues = {
@@ -28,7 +30,7 @@ const blankValues = (): FormValues => ({
 });
 
 /** The user's panel types from their datasheets, with add, edit and delete. */
-export default function PanelTypes({ panelTypes, onSaved }: PanelTypesProps) {
+export default function PanelTypes({ panelTypes, onSaved, readOnly = false }: PanelTypesProps) {
   const [editing, setEditing] = useState<PanelType | 'new' | null>(null);
   const [values, setValues] = useState<FormValues>(blankValues());
   const [saving, setSaving] = useState(false);
@@ -143,10 +145,12 @@ export default function PanelTypes({ panelTypes, onSaved }: PanelTypesProps) {
                   <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.vocV} V`}</td>
                   <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.iscA} A`}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-sm">
-                    <div className="flex gap-2">
-                      <button type="button" aria-label={`Edit ${panelType.name}`} onClick={() => openEdit(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Edit</button>
-                      <button type="button" aria-label={`Delete ${panelType.name}`} onClick={() => void handleDelete(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Delete</button>
-                    </div>
+                    {!readOnly && (
+                      <div className="flex gap-2">
+                        <button type="button" aria-label={`Edit ${panelType.name}`} onClick={() => openEdit(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Edit</button>
+                        <button type="button" aria-label={`Delete ${panelType.name}`} onClick={() => void handleDelete(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Delete</button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -155,7 +159,7 @@ export default function PanelTypes({ panelTypes, onSaved }: PanelTypesProps) {
         </div>
       )}
 
-      {editing === null ? (
+      {editing === null && !readOnly ? (
         <button type="button" onClick={openNew} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700">Add panel type</button>
       ) : null}
 

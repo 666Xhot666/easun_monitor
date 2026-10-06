@@ -46,4 +46,32 @@ describe('SolarArrayPage', () => {
     expect(refreshUser).toHaveBeenCalled();
     expect(server.sent.some((c) => c.method === 'patch' && c.url === '/api/inverter/profiles/7')).toBe(true);
   });
+
+  it('shows a reader the array and panel types without letting them change anything', async () => {
+    restore = fakeServer((config) =>
+      config.url === '/api/panel-types' ? { status: 200, data: [longi] } : { status: 200, data: {} },
+    ).restore;
+    const auth = {
+      user: { id: 1, email: 'a@b.c', createdAt: '', inverterProfiles: [{ ...profile, role: 'READER' }] },
+      refreshUser: vi.fn(),
+    } as unknown as AuthContextValue;
+
+    render(
+      <AuthContext.Provider value={auth}>
+        <MemoryRouter initialEntries={['/dashboard/7/solar']}>
+          <Routes>
+            <Route path="/dashboard/:profileId/solar" element={<SolarArrayPage />} />
+          </Routes>
+        </MemoryRouter>
+      </AuthContext.Provider>,
+    );
+
+    expect(await screen.findByRole('region', { name: 'Array ratings' })).toHaveTextContent('6 panels (3S2P)');
+    expect(screen.getByLabelText('Panel type')).toBeDisabled();
+    expect(screen.getByLabelText('Panels in series per string')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Save array' })).not.toBeInTheDocument();
+    expect(screen.getByRole('row', { name: /Longi 450W/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add panel type' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit Longi 450W' })).not.toBeInTheDocument();
+  });
 });
