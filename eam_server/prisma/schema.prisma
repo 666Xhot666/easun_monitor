@@ -137,6 +137,7 @@ model InverterProfile {
   logs              InverterLog[]
   hourlyLogs        InverterLogHourly[]
   settingsSnapshots InverterSettingsSnapshot[]
+  bmsDevices        BmsDevice[]
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
@@ -217,4 +218,61 @@ model InverterSettingsSnapshot {
 
   @@index([inverterProfileId, readAt])
   @@map("inverter_settings_snapshots")
+}
+
+/// A battery management system reporting for one inverter's battery. Its
+/// readings arrive from a producer outside the server (a Mac Bluetooth
+/// reader now, an ESP32 later) that authenticates with the device's ingest
+/// token, which is shown once and stored only as a hash.
+model BmsDevice {
+  id          Int     @id @default(autoincrement())
+  name        String
+  /// Which producer sends its readings: "mac-ble" or "esp32".
+  sourceType  String
+  /// The reader's Bluetooth peripheral id, for reference.
+  bluetoothId String?
+  tokenHash   String  @unique
+  /// When the last reading arrived (not only the stored ones).
+  lastSeenAt  DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inverterProfileId Int
+  inverterProfile   InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  logs       BmsLog[]
+  hourlyLogs BmsLogHourly[]
+
+  @@index([inverterProfileId])
+  @@map("bms_devices")
+}
+
+/// One stored BMS reading: the normalized reading as JSON, at most one per
+/// storage interval per device. Kept forever, like InverterLog.
+model BmsLog {
+  id        Int      @id @default(autoincrement())
+  timestamp DateTime
+  payload   Json
+
+  bmsDeviceId Int
+  bmsDevice   BmsDevice @relation(fields: [bmsDeviceId], references: [id], onDelete: Cascade)
+
+  @@unique([bmsDeviceId, timestamp])
+  @@map("bms_logs")
+}
+
+/// Hourly averages of the numeric fields of BmsLog, kept by the roll-up
+/// job, for long history ranges (like InverterLogHourly).
+model BmsLogHourly {
+  bmsDeviceId Int
+  /// Start of the hour (UTC).
+  hour        DateTime
+  samples     Int
+  averages    Json
+
+  bmsDevice BmsDevice @relation(fields: [bmsDeviceId], references: [id], onDelete: Cascade)
+
+  @@id([bmsDeviceId, hour])
+  @@map("bms_log_hourly")
 }
