@@ -4,6 +4,7 @@ import { Interval } from '@nestjs/schedule';
 import { RegisterMap } from '../inverter/registers/register-map';
 import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import { PrismaService } from '../prisma/prisma.service';
+import { clockTime, duration } from './messages';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
 
@@ -28,8 +29,8 @@ export class TelegramAlerts {
     number,
     { since: number; reported: boolean }
   >();
-  /** BMS devices reported offline. */
-  private readonly bmsOffline = new Set<number>();
+  /** BMS devices reported silent, and their last reading before that (ms). */
+  private readonly bmsOffline = new Map<number, number>();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -71,7 +72,12 @@ export class TelegramAlerts {
     }
     if (!down) return;
     this.loggerDown.delete(profileId);
-    if (down.reported) await this.toHousehold(profileId, 'Logger back online');
+    if (down.reported) {
+      await this.toHousehold(
+        profileId,
+        `Logger back online after ${duration(now.getTime() - down.since)}`,
+      );
+    }
   }
 
   async onBmsReading(deviceId: number, alarms: string[]): Promise<void> {
@@ -93,7 +99,10 @@ export class TelegramAlerts {
       for (const [profileId, down] of this.loggerDown) {
         if (!down.reported && now.getTime() - down.since >= OFFLINE_AFTER_MS) {
           down.reported = true;
-          await this.toHousehold(profileId, 'Logger offline for 5 min');
+          await this.toHousehold(
+            profileId,
+            `Logger not answering since ${clockTime(new Date(down.since), this.bot.timeZone)}`,
+          );
         }
       }
       const devices = await this.prisma.bmsDevice.findMany({
@@ -106,19 +115,21 @@ export class TelegramAlerts {
         },
       });
       for (const device of devices) {
-        const silent =
-          now.getTime() - device.lastSeenAt!.getTime() >= OFFLINE_AFTER_MS;
-        if (silent && !this.bmsOffline.has(device.id)) {
-          this.bmsOffline.add(device.id);
+        const lastSeen = device.lastSeenAt!.getTime();
+        const silent = now.getTime() - lastSeen >= OFFLINE_AFTER_MS;
+        const silentSince = this.bmsOffline.get(device.id);
+        if (silent && silentSince === undefined) {
+          this.bmsOffline.set(device.id, lastSeen);
           await this.toHousehold(
             device.inverterProfileId,
-            'BMS reader offline for 5 min',
+            `BMS reader silent since ${clockTime(device.lastSeenAt!, this.bot.timeZone)}`,
             device.name,
           );
-        } else if (!silent && this.bmsOffline.delete(device.id)) {
+        } else if (!silent && silentSince !== undefined) {
+          this.bmsOffline.delete(device.id);
           await this.toHousehold(
             device.inverterProfileId,
-            'BMS reader back online',
+            `BMS reader back online after ${duration(lastSeen - silentSince)}`,
             device.name,
           );
         }

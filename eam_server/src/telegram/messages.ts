@@ -98,3 +98,22 @@ export function dayStart(now: Date, timeZone: string): Date {
   }
   return new Date(guess);
 }
+
+/** HH:MM of `at` in `timeZone`. */
+export function clockTime(at: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone,
+    hourCycle: 'h23',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(at);
+}
+
+/** A length of time in whole minutes (at least 1), with hours from an hour on. */
+export function duration(ms: number): string {
+  const minutes = Math.max(1, Math.round(ms / 60_000));
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} min`;
+  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
+}

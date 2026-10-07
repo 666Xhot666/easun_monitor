@@ -113,8 +113,9 @@ describe('Telegram alerts (e2e)', () => {
     expect(
       telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
     ).toEqual([
-      `${profile.name}: Logger offline for 5 min`,
-      `${profile.name}: Logger back online`,
+      // Times are in TIME_ZONE (unset in tests: UTC).
+      `${profile.name}: Logger not answering since 00:00`,
+      `${profile.name}: Logger back online after 7 min`,
     ]);
   });
 
@@ -132,7 +133,7 @@ describe('Telegram alerts (e2e)', () => {
   });
 
   it('reports BMS alarms and a silent BMS reader', async () => {
-    const now = new Date();
+    const now = new Date('2026-10-07T03:00:00Z');
     const device = await prisma.bmsDevice.create({
       data: {
         name: 'Pack',
@@ -147,16 +148,16 @@ describe('Telegram alerts (e2e)', () => {
     await alerts.checkOffline(new Date(now.getTime() + 5 * MINUTE));
     await prisma.bmsDevice.update({
       where: { id: device.id },
-      data: { lastSeenAt: new Date(now.getTime() + 6 * MINUTE) },
+      data: { lastSeenAt: new Date(now.getTime() + 70 * MINUTE) },
     });
-    await alerts.checkOffline(new Date(now.getTime() + 6 * MINUTE));
+    await alerts.checkOffline(new Date(now.getTime() + 70 * MINUTE));
 
     expect(
       telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
     ).toEqual([
       `${profile.name} (Pack): BMS alarm: Cell overvoltage`,
-      `${profile.name} (Pack): BMS reader offline for 5 min`,
-      `${profile.name} (Pack): BMS reader back online`,
+      `${profile.name} (Pack): BMS reader silent since 03:00`,
+      `${profile.name} (Pack): BMS reader back online after 1 h 10 min`,
     ]);
   });
 

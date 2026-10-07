@@ -1,6 +1,12 @@
 import { RegisterMap } from '../inverter/registers/register-map';
 import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
-import { dayStart, formatEnergy, formatStatus } from './messages';
+import {
+  clockTime,
+  dayStart,
+  duration,
+  formatEnergy,
+  formatStatus,
+} from './messages';
 
 const map = new RegisterMap(SMG_II_REGISTERS);
 const NOW = new Date('2026-10-06T19:00:00Z');
@@ -87,6 +93,22 @@ describe('formatEnergy', () => {
     ).toBe(
       'Home today: PV 3.46 kWh · Grid 0.80 kWh · Load 12.3 kWh · Battery +1.44 / -0.99 kWh',
     );
+  });
+});
+
+describe('clockTime', () => {
+  it('is HH:MM in the given time zone', () => {
+    expect(clockTime(NOW, 'Europe/Kyiv')).toBe('22:00');
+    expect(clockTime(new Date('2026-10-06T00:05:00Z'), 'UTC')).toBe('00:05');
+  });
+});
+
+describe('duration', () => {
+  it('is whole minutes, with hours from an hour on', () => {
+    expect(duration(30_000)).toBe('1 min');
+    expect(duration(7 * 60_000)).toBe('7 min');
+    expect(duration(60 * 60_000)).toBe('1 h');
+    expect(duration(70 * 60_000)).toBe('1 h 10 min');
   });
 });
 
