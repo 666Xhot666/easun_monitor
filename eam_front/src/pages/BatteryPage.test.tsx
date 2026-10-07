@@ -61,6 +61,6 @@ describe('BatteryPage', () => {
   it('points to the setup when no BMS is configured', async () => {
     restore = renderPage(() => ({ status: 200, data: [] })).restore;
 
-    expect(await screen.findByRole('link', { name: 'Add one in Settings' })).toHaveAttribute('href', '/dashboard/7/settings');
+    expect(await screen.findByRole('link', { name: 'Add one in Settings' })).toHaveAttribute('href', '/dashboard/7/settings/battery-monitor');
   });
 });

@@ -31,10 +31,9 @@ describe('ReadingsLogPage', () => {
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { name: 'Logs' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'History' })).toBeInTheDocument();
     expect(await screen.findByText('278 W')).toBeInTheDocument();
     expect(screen.getByText('PV power')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Export CSV' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '← Dashboard' })).toHaveAttribute('href', '/dashboard/7');
   });
 });

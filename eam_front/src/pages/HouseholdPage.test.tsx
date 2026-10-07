@@ -44,10 +44,9 @@ describe('HouseholdPage', () => {
   it("lists the user's households with their role", () => {
     restore = renderPage(null);
 
-    expect(screen.getByRole('heading', { name: 'Household' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Your households' })).toBeInTheDocument();
     expect(screen.getByRole('listitem', { name: 'Home' })).toHaveTextContent('Reader');
     expect(screen.getByRole('listitem', { name: 'Parents' })).toHaveTextContent('Reader');
-    expect(screen.getByRole('link', { name: '← Dashboard' })).toHaveAttribute('href', '/dashboard/7');
   });
 
   it('lets an admin manage the members and invites of their household', async () => {
@@ -61,11 +60,5 @@ describe('HouseholdPage', () => {
     restore = renderPage(null);
 
     expect(screen.queryByRole('button', { name: 'Create invite' })).not.toBeInTheDocument();
-  });
-
-  it('lets any member link their Telegram chat', async () => {
-    restore = renderPage(null);
-
-    expect(await screen.findByRole('button', { name: 'Get a link code' })).toBeInTheDocument();
   });
 });

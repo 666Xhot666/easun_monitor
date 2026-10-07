@@ -10,13 +10,13 @@ import {
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SetupWizard from './pages/SetupWizard'
-import InverterSettings from './pages/InverterSettings'
 import ReadingsLogPage from './pages/ReadingsLogPage'
-import SolarArrayPage from './pages/SolarArrayPage'
 import BatteryPage from './pages/BatteryPage'
-import HouseholdPage from './pages/HouseholdPage'
 import JoinPage from './pages/JoinPage'
 import Dashboard from './Dashboard'
+import AppShell from './shell/AppShell'
+import AlertsPage from './pages/AlertsPage'
+import SettingsPage from './pages/SettingsPage'
 import DevSerialSniff from './pages/DevSerialSniff'
 
 function App() {
@@ -39,12 +39,17 @@ function App() {
 
             <Route element={<RequireInverterProfile />}>
               <Route path="/dashboard" element={<DashboardIndexRedirect />} />
-              <Route path="/dashboard/:profileId" element={<Dashboard />} />
-              <Route path="/dashboard/:profileId/settings" element={<InverterSettings />} />
-              <Route path="/dashboard/:profileId/logs" element={<ReadingsLogPage />} />
-              <Route path="/dashboard/:profileId/solar" element={<SolarArrayPage />} />
-              <Route path="/dashboard/:profileId/battery" element={<BatteryPage />} />
-              <Route path="/dashboard/:profileId/household" element={<HouseholdPage />} />
+              <Route path="/dashboard/:profileId" element={<AppShell />}>
+                <Route index element={<Dashboard />} />
+                <Route path="battery" element={<BatteryPage />} />
+                <Route path="history" element={<ReadingsLogPage />} />
+                <Route path="alerts" element={<AlertsPage />} />
+                <Route path="settings/:tab?" element={<SettingsPage />} />
+                {/* Old addresses, kept so bookmarks still land. */}
+                <Route path="logs" element={<Navigate to="../history" relative="path" replace />} />
+                <Route path="solar" element={<Navigate to="../settings/solar" relative="path" replace />} />
+                <Route path="household" element={<Navigate to="../settings/household" relative="path" replace />} />
+              </Route>
             </Route>
           </Route>
 

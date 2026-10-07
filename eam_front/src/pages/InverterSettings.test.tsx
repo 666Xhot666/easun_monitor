@@ -308,13 +308,6 @@ describe('InverterSettings page', () => {
     expect(within(screen.getByRole('status')).getByText(/Read from the inverter/)).toBeInTheDocument();
   });
 
-  it('offers the battery monitor setup, whatever the inverter does', async () => {
-    restore = renderPage(() => ({ status: 503, data: { statusCode: 503, message: 'Inverter unreachable' } })).restore;
-
-    expect(await screen.findByRole('heading', { name: 'Battery monitor (BMS)' })).toBeInTheDocument();
-    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
-  });
-
   it('shows a reader the settings without letting them change anything', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) }), noConstraints, [], 'READER').restore;
 
@@ -322,7 +315,5 @@ describe('InverterSettings page', () => {
     expect(screen.getByLabelText('Output voltage')).toBeDisabled();
     expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
     expect(screen.getByText('Read-only: only a household admin can change settings.')).toBeInTheDocument();
-    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add BMS' })).not.toBeInTheDocument();
   });
 });

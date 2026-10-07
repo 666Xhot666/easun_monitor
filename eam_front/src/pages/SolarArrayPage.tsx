@@ -1,4 +1,4 @@
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import PanelTypes from '../solar/PanelTypes';
 import SolarArrayForm from '../solar/SolarArrayForm';
@@ -15,17 +15,8 @@ export default function SolarArrayPage() {
   const heading = 'mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="mx-auto max-w-4xl">
-          <Link to={`/dashboard/${profileId}`} className="text-xs text-gray-500 hover:underline dark:text-gray-400">
-            ← Dashboard
-          </Link>
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Solar array</h1>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl space-y-10 px-6 py-8">
+    <>
+      <div className="space-y-10">
         {!panelTypes || !profile ? (
           <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
         ) : (
@@ -49,7 +40,7 @@ export default function SolarArrayPage() {
             </section>
           </>
         )}
-      </main>
-    </div>
+      </div>
+    </>
   );
 }
