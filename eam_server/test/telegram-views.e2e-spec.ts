@@ -97,6 +97,7 @@ describe('Telegram views (e2e)', () => {
   beforeEach(() => {
     telegram.sent = [];
     telegram.answered = [];
+    telegram.photos = [];
   });
 
   /** Every button's data, row by row flattened. */
@@ -112,6 +113,7 @@ describe('Telegram views (e2e)', () => {
       'faults',
       'energy',
       'week',
+      'chart',
       'stop',
     ]);
     expect(telegram.commands.every((c) => c.description.length > 0)).toBe(true);
@@ -131,6 +133,7 @@ describe('Telegram views (e2e)', () => {
       'v:faults',
       'v:energy',
       'v:week',
+      'chart',
       'v:status',
     ]);
     expect(telegram.sent[0].options?.buttons?.at(-1)?.[0].text).toBe(
@@ -185,6 +188,21 @@ describe('Telegram views (e2e)', () => {
     await bot.handleUpdate(press('v:nope'));
 
     expect(telegram.answered).toEqual(['cb-v:nope']);
+    expect(telegram.sent).toEqual([]);
+  });
+
+  it('sends a 24 h power chart per inverter for /chart and the Chart button', async () => {
+    await bot.handleUpdate(message('/chart'));
+    await bot.handleUpdate(press('chart'));
+
+    expect(telegram.answered).toEqual(['cb-chart']);
+    expect(telegram.photos.map((p) => [p.chatId, p.caption])).toEqual([
+      [String(CHAT), `${profile.name} · last 24 h`],
+      [String(CHAT), `${profile.name} · last 24 h`],
+    ]);
+    expect(telegram.photos[0].png.subarray(0, 4).toString('hex')).toBe(
+      '89504e47',
+    );
     expect(telegram.sent).toEqual([]);
   });
 });

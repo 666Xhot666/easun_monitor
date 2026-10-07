@@ -5,6 +5,8 @@
 # unless package.json/package-lock.json actually change.
 # =============================================================================
 FROM node:24-alpine AS base
+# Fonts for the Telegram chart image (Alpine has none).
+RUN apk add --no-cache font-dejavu
 WORKDIR /usr/src/app
 COPY package*.json ./
 
@@ -41,6 +43,7 @@ RUN npm run build
 # dev toolchain, runs as an unprivileged user.
 # =============================================================================
 FROM node:24-alpine AS production
+RUN apk add --no-cache font-dejavu
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 COPY package*.json ./

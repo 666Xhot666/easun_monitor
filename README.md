@@ -103,8 +103,17 @@ no public address needed).
 
 - **Linking:** on the Household page, get a code and send `/start <code>` to
   the bot within 10 minutes. One chat per user; `/stop` unlinks it.
-- **Commands:** `/status` (mode, power flow, battery) and `/energy` (today's
-  totals) for every inverter in the user's households.
+- **Commands** (also in the bot's `/` menu), for every inverter in the
+  user's households:
+  - `/status`: mode, power flow, battery
+  - `/battery`: the inverter's battery reading and each BMS (cells,
+    temperatures, cycles, alarms)
+  - `/faults`: active faults and warnings
+  - `/energy`: today's totals
+  - `/week`: kWh by day for the last 7 days
+  - `/chart`: a power chart of the last 24 hours (PNG)
+- **Buttons:** each answer has buttons for the other views and a refresh;
+  pressing one updates the same message.
 - **Alerts** go to the linked chats of every member of the inverter's
   household: new faults and warnings, faults cleared, grid lost and restored,
   battery at or below `TELEGRAM_LOW_SOC` (again after it recovers 5 points),

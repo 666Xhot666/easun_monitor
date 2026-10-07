@@ -28,6 +28,7 @@ import {
   statusCard,
   weekCard,
 } from './cards';
+import { powerChartSvg, svgToPng } from './chart';
 import { dayStart, formatEnergy } from './messages';
 
 const POLL_TIMEOUT_SECONDS = 30;
@@ -64,6 +65,7 @@ const VIEWS: { name: ViewName; button: string; description: string }[] = [
 
 const MENU: BotCommand[] = [
   ...VIEWS.map((v) => ({ command: v.name, description: v.description })),
+  { command: 'chart', description: 'Power chart of the last 24 hours' },
   { command: 'stop', description: 'Unlink this chat' },
 ];
 
@@ -162,7 +164,9 @@ export class TelegramBot
       return;
     }
     const view = VIEWS.find((v) => `/${v.name}` === command);
-    if (view) {
+    if (command === '/chart') {
+      await this.sendCharts(chatId, userId);
+    } else if (view) {
       await this.send(
         chatId,
         await this.render(view.name, userId),
@@ -182,13 +186,16 @@ export class TelegramBot
     });
     const message = press.message;
     const view = VIEWS.find((v) => `v:${v.name}` === press.data);
-    if (!message || !view) return;
+    const chart = press.data === 'chart';
+    if (!message || (!view && !chart)) return;
     const chatId = String(message.chat.id);
     const userId = await this.links.userForChat(chatId);
     if (userId === null) {
       await this.send(chatId, HOW_TO_LINK);
       return;
     }
+    // A photo can't replace a text message: the chart comes as a new one.
+    if (!view) return this.sendCharts(chatId, userId);
     try {
       await this.client?.editMessage(
         chatId,
@@ -213,7 +220,7 @@ export class TelegramBot
       html: true,
       buttons: [
         [button('status'), button('battery'), button('faults')],
-        [button('energy'), button('week')],
+        [button('energy'), button('week'), { text: '📈 Chart', data: 'chart' }],
         [{ text: '🔄 Refresh', data: `v:${current}` }],
       ],
     };
@@ -258,6 +265,82 @@ export class TelegramBot
       latest && payload ? { timestamp: latest.timestamp, payload } : null,
       now,
     );
+  }
+
+  /** A power chart of the last 24 hours, one photo per inverter. */
+  private async sendCharts(chatId: string, userId: number): Promise<void> {
+    const profiles = await this.profilesOf(userId);
+    if (profiles.length === 0) {
+      await this.send(chatId, 'No inverters in your households yet.');
+      return;
+    }
+    const to = Date.now();
+    const from = to - 24 * 3_600_000;
+    for (const profile of profiles) {
+      try {
+        const history = await this.telemetry.history(profile.id, {
+          from: new Date(from),
+          to: new Date(to),
+          maxPoints: 288,
+          fields: [
+            'PVPower',
+            'OutputActivePower',
+            'AverageMainsPower',
+            'BatteryVoltage',
+            'BatteryCurrentSigned',
+          ],
+        });
+        const series = (
+          value: (v: Record<string, number>) => number | undefined,
+        ) =>
+          history.points.flatMap((p) => {
+            const v = value(p.values);
+            return v === undefined ? [] : [{ t: Date.parse(p.timestamp), v }];
+          });
+        const svg = powerChartSvg(
+          `${profile.name} · last 24 h`,
+          [
+            { label: 'PV', color: '#f59e0b', points: series((v) => v.PVPower) },
+            {
+              label: 'Load',
+              color: '#3b82f6',
+              points: series((v) => v.OutputActivePower),
+            },
+            {
+              label: 'Grid',
+              color: '#6b7280',
+              points: series((v) => v.AverageMainsPower),
+            },
+            {
+              label: 'Battery (+charge)',
+              color: '#10b981',
+              points: series((v) =>
+                v.BatteryVoltage === undefined ||
+                v.BatteryCurrentSigned === undefined
+                  ? undefined
+                  : v.BatteryVoltage * v.BatteryCurrentSigned,
+              ),
+            },
+          ],
+          // Up to three missed buckets still draw as one line.
+          {
+            from,
+            to,
+            timeZone: this.timeZone,
+            maxGapMs: Math.max(3 * history.bucketSeconds * 1000, 15 * 60_000),
+          },
+        );
+        await this.client?.sendPhoto(
+          chatId,
+          svgToPng(svg),
+          `${profile.name} · last 24 h`,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Sending a chart to chat ${chatId} failed: ${errorText(error)}`,
+        );
+      }
+    }
   }
 
   /** The profile's BMS devices with their newest reading. */
