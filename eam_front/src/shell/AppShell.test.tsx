@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -19,14 +19,14 @@ const profile = (id: number, name: string, role: HouseholdRole): InverterProfile
 
 const modeRegister = [{ name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Power on', 'Standby', 'Mains', 'Off-grid', 'Bypass', 'Charging', 'Fault'] }];
 
-type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff' };
+type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean };
 
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
 function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dashboard/1') {
-  const { mode = 3, ageMs = 1000, device = 'online' } = scenario;
+  const { mode = 3, ageMs = 1000, device = 'online', gridInApp = true } = scenario;
   const server = fakeServer((config) => {
     if (config.url === '/api/inverter/registers') return { status: 200, data: modeRegister };
     if (config.url === '/api/inverter/1/latest') {
@@ -36,6 +36,15 @@ function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dash
       return { status: 200, data: { state: device, lastSuccessAt: null, lastError: device === 'online' ? null : 'timeout', retryAt: null } };
     }
     if (config.url === '/api/inverter/1/exit-fault-mode') return { status: 201 };
+    if (config.url === '/api/notifications/settings') {
+      return { status: 200, data: { channels: { grid: { inApp: gridInApp, telegram: true } }, quietHours: false } };
+    }
+    if (config.url === '/api/inverter/1/alerts') {
+      return { status: 200, data: [
+        { id: 9, kind: 'grid', text: 'Grid restored', source: null, at: new Date().toISOString() },
+        { id: 8, kind: 'grid', text: 'Grid lost', source: null, at: new Date().toISOString() },
+      ] };
+    }
     return { status: 404 };
   });
   const auth = {
@@ -70,7 +79,39 @@ function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dash
 
 describe('AppShell', () => {
   let restore = () => {};
-  afterEach(() => restore());
+  afterEach(() => {
+    restore();
+    localStorage.clear();
+  });
+
+  it('counts the alerts not yet seen on the bell, which opens the Alerts page', async () => {
+    localStorage.setItem('eam.alerts.seen.1', '8');
+    restore = renderShell('ADMIN').server.restore;
+    const user = userEvent.setup();
+
+    const bell = await screen.findByRole('link', { name: 'Notifications, 1 unread' });
+    expect(bell).toHaveAttribute('href', '/dashboard/1/alerts');
+    await user.click(bell);
+    expect(screen.getAllByTestId('where')[0]).toHaveTextContent('/dashboard/1/alerts');
+  });
+
+  it('leaves kinds switched off in the app out of the bell', async () => {
+    const { server } = renderShell('ADMIN', { gridInApp: false });
+    restore = server.restore;
+
+    await waitFor(() =>
+      expect(server.sent.map((c) => c.url)).toEqual(expect.arrayContaining(['/api/inverter/1/alerts', '/api/notifications/settings'])),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(screen.getByRole('link', { name: 'Notifications' })).toBeInTheDocument();
+  });
+
+  it('shows a quiet bell when everything has been seen', async () => {
+    localStorage.setItem('eam.alerts.seen.1', '9');
+    restore = renderShell('ADMIN').server.restore;
+
+    expect(await screen.findByRole('link', { name: 'Notifications' })).toBeInTheDocument();
+  });
 
   it('shows the page inside the shell with the five destinations', async () => {
     restore = renderShell('ADMIN').server.restore;

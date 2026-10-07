@@ -22,6 +22,7 @@ import type { InverterProfile } from '../auth/types';
 import { describeDeviceStatus } from '../inverter/useDeviceStatus';
 import { Button, Dot } from '../ui';
 import { Dialog } from '../ui/Dialog';
+import { useUnreadAlerts } from '../alerts/useUnreadAlerts';
 import { LiveDataProvider, useLiveData } from './LiveData';
 import { ageText, useNow } from './age';
 import type { SystemState } from './systemState';
@@ -175,6 +176,7 @@ function TopBar() {
     <header className="sticky top-0 z-20 flex h-[61px] items-center gap-3 border-b border-line bg-surface px-4 md:px-6">
       <InverterSwitcher />
       <StatusPill />
+      <BellLink />
       <AccountMenu />
     </header>
   );
@@ -294,6 +296,31 @@ function StatusPill() {
   );
 }
 
+function BellLink() {
+  const base = useBase();
+  const { profile, systemState } = useLiveData();
+  const unread = useUnreadAlerts(profile.id);
+  return (
+    <Link
+      to={`${base}/alerts`}
+      aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
+      className="relative ml-auto grid h-10 w-10 flex-none place-items-center rounded-lg text-ink hover:bg-surface-2"
+    >
+      <Bell className="h-5 w-5" />
+      {unread > 0 && (
+        <span
+          className={
+            'absolute top-1.5 right-1 grid h-4 min-w-4 place-items-center rounded-full border-2 border-surface px-1 text-[10px] font-bold ' +
+            (systemState === 'fault' ? 'bg-crit text-white' : 'bg-accent text-on-accent')
+          }
+        >
+          {unread}
+        </span>
+      )}
+    </Link>
+  );
+}
+
 function AccountMenu() {
   const { user, logout, logoutEverywhere } = useAuth();
   const base = useBase();
@@ -304,7 +331,7 @@ function AccountMenu() {
   const item = 'flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2';
 
   return (
-    <div ref={ref} className="relative ml-auto">
+    <div ref={ref} className="relative">
       <button
         type="button"
         aria-label="Account menu"
