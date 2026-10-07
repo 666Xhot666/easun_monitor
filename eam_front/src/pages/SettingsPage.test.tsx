@@ -74,7 +74,7 @@ describe('SettingsPage', () => {
       'Inverter', 'Inverter settings', 'Solar array', 'Battery monitor', 'Household', 'Notifications', 'Account',
     ]);
     expect(screen.getByTestId('where')).toHaveTextContent('/dashboard/1/settings/inverter');
-    expect(screen.getByText('192.168.1.48 : 8899')).toBeInTheDocument();
+    expect(screen.getByLabelText('Logger IP or hostname')).toHaveValue('192.168.1.48');
   });
 
   it('gives a reader the configuration to look at and their own settings only', () => {
