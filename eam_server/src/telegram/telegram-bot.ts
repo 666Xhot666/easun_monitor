@@ -8,6 +8,8 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   TELEGRAM_CLIENT,
+  type BotCommand,
+  type MessageOptions,
   type TelegramClient,
   type TelegramUpdate,
 } from './telegram-client';
@@ -17,14 +19,58 @@ import { RegisterMap } from '../inverter/registers/register-map';
 import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelemetryStore } from '../telemetry/telemetry.store';
-import { dayStart, formatEnergy, formatStatus } from './messages';
+import type { BmsReading } from '../bms/reading';
+import { BmsLatest } from '../bms/bms-latest';
+import {
+  batteryCard,
+  energyCard,
+  faultsCard,
+  statusCard,
+  weekCard,
+} from './cards';
+import { dayStart, formatEnergy } from './messages';
 
 const POLL_TIMEOUT_SECONDS = 30;
 const RETRY_AFTER_ERROR_MS = 5_000;
 
 const HOW_TO_LINK =
   'To link this chat, open Household in the app, get a Telegram code, and send it here as /start <code>.';
-const HELP = 'Commands: /status, /energy, /stop (unlink this chat).';
+type ViewName = 'status' | 'battery' | 'faults' | 'energy' | 'week';
+
+/** The views a command or a button shows, in menu order. */
+const VIEWS: { name: ViewName; button: string; description: string }[] = [
+  {
+    name: 'status',
+    button: '🏠 Status',
+    description: 'Mode, power flow and battery now',
+  },
+  {
+    name: 'battery',
+    button: '🔋 Battery',
+    description: 'Battery and BMS detail: cells, temperatures, alarms',
+  },
+  {
+    name: 'faults',
+    button: '🚨 Faults',
+    description: 'Active faults and warnings',
+  },
+  { name: 'energy', button: '⚡ Today', description: "Today's energy" },
+  {
+    name: 'week',
+    button: '📅 Week',
+    description: 'Energy by day, last 7 days',
+  },
+];
+
+const MENU: BotCommand[] = [
+  ...VIEWS.map((v) => ({ command: v.name, description: v.description })),
+  { command: 'stop', description: 'Unlink this chat' },
+];
+
+const HELP = `Commands: ${MENU.map((c) => `/${c.command}`).join(', ')}.`;
+
+const errorText = (error: unknown) =>
+  error instanceof Error ? error.message : String(error);
 
 /**
  * The Telegram bot: long-polls for messages (no public address needed) and
@@ -45,6 +91,7 @@ export class TelegramBot
     private readonly households: HouseholdsService,
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryStore,
+    private readonly bmsLatest: BmsLatest,
   ) {}
 
   /** The IANA time zone that defines "today" (TIME_ZONE, default UTC). */
@@ -55,6 +102,9 @@ export class TelegramBot
   onApplicationBootstrap(): void {
     if (!this.client || !this.config.get<string>('TELEGRAM_BOT_TOKEN')) return;
     this.running = true;
+    this.registerCommands().catch((error: unknown) => {
+      this.logger.warn(`Setting the command menu failed: ${errorText(error)}`);
+    });
     void this.poll();
   }
 
@@ -62,24 +112,34 @@ export class TelegramBot
     this.running = false;
   }
 
+  /** Fills the "/" command menu in Telegram. */
+  async registerCommands(): Promise<void> {
+    await this.client?.setCommands(MENU);
+  }
+
   /** Sends a message to a chat; failures are logged, never thrown. */
-  async send(chatId: string, text: string): Promise<void> {
+  async send(
+    chatId: string,
+    text: string,
+    options?: MessageOptions,
+  ): Promise<void> {
     if (!this.client) return;
     try {
-      await this.client.sendMessage(chatId, text);
+      await this.client.sendMessage(chatId, text, options);
     } catch (error) {
-      this.logger.warn(
-        `Sending to chat ${chatId} failed: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      this.logger.warn(`Sending to chat ${chatId} failed: ${errorText(error)}`);
     }
   }
 
   async handleUpdate(update: TelegramUpdate): Promise<void> {
+    if (update.callback_query) return this.handlePress(update.callback_query);
     const text = update.message?.text?.trim();
     const id = update.message?.chat.id;
     if (!text || id === undefined) return;
     const chatId = String(id);
-    const [command, argument] = text.split(/\s+/, 2);
+    // "/status@MyBot" in groups: drop the bot name.
+    const [rawCommand, argument] = text.split(/\s+/, 2);
+    const command = rawCommand.replace(/@.*$/, '');
 
     if (command === '/start' && argument) {
       const linked = await this.links.linkChat(argument, chatId);
@@ -99,13 +159,156 @@ export class TelegramBot
     const userId = await this.links.userForChat(chatId);
     if (userId === null) {
       await this.send(chatId, HOW_TO_LINK);
-    } else if (command === '/status') {
-      await this.send(chatId, await this.status(userId));
-    } else if (command === '/energy') {
-      await this.send(chatId, await this.energy(userId));
+      return;
+    }
+    const view = VIEWS.find((v) => `/${v.name}` === command);
+    if (view) {
+      await this.send(
+        chatId,
+        await this.render(view.name, userId),
+        this.viewOptions(view.name),
+      );
     } else {
       await this.send(chatId, HELP);
     }
+  }
+
+  /** A button press: switch the message it is on to the chosen view. */
+  private async handlePress(
+    press: NonNullable<TelegramUpdate['callback_query']>,
+  ): Promise<void> {
+    await this.client?.answerCallback(press.id).catch((error: unknown) => {
+      this.logger.warn(`Answering a button press failed: ${errorText(error)}`);
+    });
+    const message = press.message;
+    const view = VIEWS.find((v) => `v:${v.name}` === press.data);
+    if (!message || !view) return;
+    const chatId = String(message.chat.id);
+    const userId = await this.links.userForChat(chatId);
+    if (userId === null) {
+      await this.send(chatId, HOW_TO_LINK);
+      return;
+    }
+    try {
+      await this.client?.editMessage(
+        chatId,
+        message.message_id,
+        await this.render(view.name, userId),
+        this.viewOptions(view.name),
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Updating a message in chat ${chatId} failed: ${errorText(error)}`,
+      );
+    }
+  }
+
+  /** HTML, with buttons for every view and a refresh of this one. */
+  private viewOptions(current: ViewName): MessageOptions {
+    const button = (name: ViewName) => {
+      const view = VIEWS.find((v) => v.name === name)!;
+      return { text: view.button, data: `v:${name}` };
+    };
+    return {
+      html: true,
+      buttons: [
+        [button('status'), button('battery'), button('faults')],
+        [button('energy'), button('week')],
+        [{ text: '🔄 Refresh', data: `v:${current}` }],
+      ],
+    };
+  }
+
+  /** One card per inverter of the user's households. */
+  private async render(view: ViewName, userId: number): Promise<string> {
+    const profiles = await this.profilesOf(userId);
+    if (profiles.length === 0) return 'No inverters in your households yet.';
+    const now = new Date();
+    const cards = await Promise.all(
+      profiles.map((p) => this.card(view, p, now)),
+    );
+    return cards.join('\n\n');
+  }
+
+  private async card(
+    view: ViewName,
+    profile: { id: number; name: string },
+    now: Date,
+  ): Promise<string> {
+    if (view === 'energy')
+      return energyCard(
+        profile.name,
+        await this.energyOn(profile.id, dayStart(now, this.timeZone)),
+      );
+    if (view === 'week')
+      return weekCard(profile.name, await this.week(profile.id, now));
+    const latest = await this.telemetry.latest(profile.id);
+    const payload = latest ? (latest.payload as Record<string, number>) : null;
+    if (view === 'faults') return faultsCard(profile.name, this.map, payload);
+    if (view === 'battery')
+      return batteryCard(
+        profile.name,
+        payload,
+        await this.bmsOf(profile.id),
+        now,
+      );
+    return statusCard(
+      profile.name,
+      this.map,
+      latest && payload ? { timestamp: latest.timestamp, payload } : null,
+      now,
+    );
+  }
+
+  /** The profile's BMS devices with their newest reading. */
+  private async bmsOf(profileId: number) {
+    const devices = await this.prisma.bmsDevice.findMany({
+      where: { inverterProfileId: profileId },
+      orderBy: { name: 'asc' },
+      select: { id: true, name: true },
+    });
+    const withReadings = await Promise.all(
+      devices.map(async (d) => {
+        const live = this.bmsLatest.get(d.id)?.reading;
+        const stored = live
+          ? null
+          : await this.prisma.bmsLog.findFirst({
+              where: { bmsDeviceId: d.id },
+              orderBy: { timestamp: 'desc' },
+            });
+        const reading =
+          live ?? (stored?.payload as unknown as BmsReading | undefined);
+        return reading ? { name: d.name, reading } : null;
+      }),
+    );
+    return withReadings.filter((d) => d !== null);
+  }
+
+  private energyOn(profileId: number, from: Date) {
+    return this.telemetry.energy(profileId, {
+      from,
+      to: new Date(from.getTime() + 24 * 3_600_000),
+    });
+  }
+
+  /** Today and the 6 days before it, newest first. */
+  private async week(profileId: number, now: Date) {
+    const starts: Date[] = [dayStart(now, this.timeZone)];
+    while (starts.length < 7)
+      starts.push(
+        dayStart(new Date(starts.at(-1)!.getTime() - 1), this.timeZone),
+      );
+    const label = new Intl.DateTimeFormat('en-GB', {
+      timeZone: this.timeZone,
+      weekday: 'short',
+      day: '2-digit',
+    });
+    return Promise.all(
+      starts.map(async (from) => ({
+        label: label.format(from),
+        totals: await this.energyOn(profileId, from),
+      })),
+    );
   }
 
   /** The inverters of all the user's households. */
@@ -117,36 +320,6 @@ export class TelegramBot
       orderBy: { name: 'asc' },
       select: { id: true, name: true },
     });
-  }
-
-  private async status(userId: number): Promise<string> {
-    const profiles = await this.profilesOf(userId);
-    if (profiles.length === 0) return 'No inverters in your households yet.';
-    const now = new Date();
-    const parts = await Promise.all(
-      profiles.map(async (p) => {
-        const latest = await this.telemetry.latest(p.id);
-        return formatStatus(
-          p.name,
-          this.map,
-          latest
-            ? {
-                timestamp: latest.timestamp,
-                payload: latest.payload as Record<string, number>,
-              }
-            : null,
-          now,
-        );
-      }),
-    );
-    return parts.join('\n\n');
-  }
-
-  private async energy(userId: number): Promise<string> {
-    const lines = await this.energyLines(userId, new Date());
-    return lines.length === 0
-      ? 'No inverters in your households yet.'
-      : lines.join('\n');
   }
 
   /** The day's energy so far, one line per inverter of the user's households. */

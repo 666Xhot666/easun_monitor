@@ -4,10 +4,8 @@ import { App } from 'supertest/types';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { TelegramAlerts } from '../src/telegram/telegram-alerts';
 import { TelegramSummary } from '../src/telegram/telegram-summary';
-import {
-  TELEGRAM_CLIENT,
-  type TelegramClient,
-} from '../src/telegram/telegram-client';
+import { TELEGRAM_CLIENT } from '../src/telegram/telegram-client';
+import { FakeTelegram } from './support/fake-telegram';
 import {
   createTestApp,
   registerUser,
@@ -15,16 +13,6 @@ import {
   sampleProfile,
 } from './helpers';
 
-class FakeTelegram implements TelegramClient {
-  sent: { chatId: string; text: string }[] = [];
-  getUpdates() {
-    return Promise.resolve([]);
-  }
-  sendMessage(chatId: string, text: string) {
-    this.sent.push({ chatId, text });
-    return Promise.resolve();
-  }
-}
 
 const MINUTE = 60_000;
 

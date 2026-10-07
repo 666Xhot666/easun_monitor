@@ -10,6 +10,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { hashIngestToken } from './ingest-token';
 import type { BmsReading } from './reading';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
+import { BmsLatest, type LatestBmsReading } from './bms-latest';
 
 const DEFAULT_STORE_INTERVAL_MS = 30_000;
 /** Clock skew allowed for a producer's timestamp. */
@@ -19,11 +20,6 @@ const MAX_AGE_MS = 3_600_000;
 /** Per device: twice what a producer posting every second would send. */
 const RATE_LIMIT = { requests: 120, windowMs: 60_000 };
 
-export interface LatestBmsReading {
-  reading: BmsReading;
-  receivedAt: Date;
-}
-
 /**
  * Takes readings from BMS producers. The BMS streams about one frame a
  * second; storing all of them would be noise, so at most one reading per
@@ -32,7 +28,6 @@ export interface LatestBmsReading {
  */
 @Injectable()
 export class BmsIngestService {
-  private readonly latest = new Map<number, LatestBmsReading>();
   private readonly lastStoredAt = new Map<number, number>();
   private readonly recentPosts = new Map<number, number[]>();
   private readonly storeIntervalMs: number;
@@ -41,6 +36,7 @@ export class BmsIngestService {
     private readonly prisma: PrismaService,
     config: ConfigService,
     private readonly alerts: TelegramAlerts,
+    private readonly latest: BmsLatest,
   ) {
     const configured = Number(config.get<string>('BMS_STORE_INTERVAL_MS'));
     this.storeIntervalMs =
@@ -70,9 +66,7 @@ export class BmsIngestService {
     if (at < now.getTime() - MAX_AGE_MS) {
       throw new BadRequestException('The reading is more than an hour old');
     }
-    const current = this.latest.get(deviceId);
-    if (!current || Date.parse(current.reading.timestamp) < at) {
-      this.latest.set(deviceId, { reading, receivedAt: now });
+    if (this.latest.set(deviceId, reading, now)) {
       void this.alerts
         .onBmsReading(deviceId, reading.alarms ?? [])
         .catch(() => undefined);
@@ -119,7 +113,7 @@ export class BmsIngestService {
   }
 
   latestFor(deviceId: number): LatestBmsReading | null {
-    return this.latest.get(deviceId) ?? null;
+    return this.latest.get(deviceId);
   }
 
   private async newestStoredAt(deviceId: number): Promise<number | null> {

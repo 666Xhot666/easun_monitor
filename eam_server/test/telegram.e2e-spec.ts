@@ -1,10 +1,8 @@
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import {
-  TELEGRAM_CLIENT,
-  type TelegramClient,
-} from '../src/telegram/telegram-client';
+import { TELEGRAM_CLIENT } from '../src/telegram/telegram-client';
+import { FakeTelegram } from './support/fake-telegram';
 import { TelegramBot } from '../src/telegram/telegram-bot';
 import { PrismaService } from '../src/prisma/prisma.service';
 import {
@@ -14,17 +12,6 @@ import {
   sampleProfile,
 } from './helpers';
 
-/** Records what the bot sends instead of calling Telegram. */
-class FakeTelegram implements TelegramClient {
-  sent: { chatId: string; text: string }[] = [];
-  getUpdates() {
-    return Promise.resolve([]);
-  }
-  sendMessage(chatId: string, text: string) {
-    this.sent.push({ chatId, text });
-    return Promise.resolve();
-  }
-}
 
 describe('Telegram (e2e)', () => {
   let app: INestApplication<App>;
@@ -134,11 +121,11 @@ describe('Telegram (e2e)', () => {
       await bot.handleUpdate(message(5151, '/energy'));
 
       expect(telegram.sent[0].text).toMatch(
-        new RegExp(`^${profile.name}: Off-grid`),
+        new RegExp(`^<b>🏠 ${profile.name}</b> · Off-grid`),
       );
-      expect(telegram.sent[0].text).toContain('Battery 77 %');
+      expect(telegram.sent[0].text).toContain('🔋 Battery <b>77 %</b>');
       expect(telegram.sent[1].text).toMatch(
-        new RegExp(`^${profile.name} today: PV `),
+        new RegExp(`^<b>⚡ ${profile.name} · today</b>`),
       );
     });
 

@@ -1,55 +1,8 @@
-import type { RegisterMap } from '../inverter/registers/register-map';
 import type { EnergyTotals } from '../telemetry/telemetry.store';
-
-/** Battery power within this many watts counts as idle. */
-const IDLE_W = 10;
-
-const watts = (w: number | undefined) =>
-  w === undefined
-    ? '--'
-    : Math.abs(w) >= 1000
-      ? `${(w / 1000).toFixed(2)} kW`
-      : `${Math.round(w)} W`;
 
 const kWh = (value: number) => `${value.toFixed(value < 10 ? 2 : 1)} kWh`;
 
-const age = (from: Date, now: Date) => {
-  const minutes = Math.floor((now.getTime() - from.getTime()) / 60_000);
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
-  return `${Math.floor(minutes / 60)} h ago`;
-};
-
-/** /status for one inverter: mode and age, power flow, battery. */
-export function formatStatus(
-  name: string,
-  map: RegisterMap,
-  reading: { timestamp: Date; payload: Record<string, number> } | null,
-  now: Date,
-): string {
-  if (!reading) return `${name}: no readings yet`;
-  const p = reading.payload;
-  const mode = map.get('OperationMode')?.options?.[p.OperationMode];
-  const head = `${name}: ${mode ? `${mode}, ` : ''}${age(reading.timestamp, now)}`;
-  const flow = `PV ${watts(p.PVPower)} · Load ${watts(p.OutputActivePower)} · Grid ${watts(p.AverageMainsPower)}`;
-  const lines = [head, flow];
-  if (p.BatterySoc !== undefined) {
-    const batteryW =
-      p.BatteryVoltage !== undefined && p.BatteryCurrentSigned !== undefined
-        ? p.BatteryVoltage * p.BatteryCurrentSigned
-        : undefined;
-    const state =
-      batteryW === undefined
-        ? ''
-        : Math.abs(batteryW) <= IDLE_W
-          ? ', idle'
-          : `, ${batteryW > 0 ? 'charging' : 'discharging'} ${watts(Math.abs(batteryW))}`;
-    lines.push(`Battery ${Math.round(p.BatterySoc)} %${state}`);
-  }
-  return lines.join('\n');
-}
-
-/** /energy for one inverter: today's totals. */
+/** One inverter's day in plain text, for the evening summary. */
 export function formatEnergy(name: string, totals: EnergyTotals): string {
   return (
     `${name} today: PV ${kWh(totals.pvKWh)} · Grid ${kWh(totals.gridKWh)} · Load ${kWh(totals.outputKWh)} · ` +

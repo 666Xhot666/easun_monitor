@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { SolarModule } from './solar/solar.module';
 import { HouseholdsModule } from './households/households.module';
+import { BmsLatestModule } from './bms/bms-latest';
 import { BmsModule } from './bms/bms.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { InverterModule } from './inverter/inverter.module';
@@ -32,6 +33,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     SerialSniffModule,
     InverterModule,
     SolarModule,
+    BmsLatestModule,
     BmsModule,
     TelegramModule,
   ],
