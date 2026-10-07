@@ -195,6 +195,7 @@ model InverterProfile {
   hourlyLogs        InverterLogHourly[]
   settingsSnapshots InverterSettingsSnapshot[]
   bmsDevices        BmsDevice[]
+  alertEvents       AlertEvent[]
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
@@ -363,4 +364,23 @@ model TelegramLinkCode {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_link_codes")
+}
+
+/// An alert as it happened: a fault, warning, grid change, low battery or a
+/// silent logger or BMS reader. Recorded when it is detected (and sent to
+/// Telegram, when linked), so the Alerts page can show the history.
+model AlertEvent {
+  id     Int      @id @default(autoincrement())
+  /// fault | warning | grid | battery | connection
+  kind   String
+  text   String
+  /// The BMS device's name, for BMS alerts.
+  source String?
+  at     DateTime @default(now())
+
+  inverterProfileId Int
+  inverterProfile   InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  @@index([inverterProfileId, at])
+  @@map("alert_events")
 }
