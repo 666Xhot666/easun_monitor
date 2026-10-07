@@ -2,13 +2,14 @@ import { InvitesService } from '../households/invites.service';
 import {
   ConflictException,
   ForbiddenException,
+  NotFoundException,
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { createHash, randomBytes } from 'crypto';
+import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
@@ -42,6 +43,20 @@ export interface AuthResult {
 export interface IssuedTokens extends AuthResult {
   refreshToken: string;
   refreshTokenExpiresAt: Date;
+}
+
+/** One browser's sign-in, kept across refresh-token rotations. */
+interface Session {
+  sessionId: string;
+  userAgent: string | null;
+}
+
+/** A new session for a sign-in; the User-Agent is cut to a sane length. */
+function newSession(userAgent?: string): Session {
+  return {
+    sessionId: randomUUID(),
+    userAgent: userAgent?.slice(0, 300) ?? null,
+  };
 }
 
 function hashRefreshToken(raw: string): string {
@@ -110,6 +125,7 @@ export class AuthService {
     email: string,
     password: string,
     inviteCode?: string,
+    userAgent?: string,
   ): Promise<IssuedTokens> {
     // The first account can always be created (that's how an install is
     // set up); after that, sign-up is closed unless the operator opens it,
@@ -148,10 +164,14 @@ export class AuthService {
     // Auto-login on registration — the setup wizard immediately follows,
     // so making the user log in a second time right after signing up
     // would just be friction with no security benefit.
-    return this.issueTokens(user.id, user.email);
+    return this.issueTokens(user.id, user.email, newSession(userAgent));
   }
 
-  async login(email: string, password: string): Promise<IssuedTokens> {
+  async login(
+    email: string,
+    password: string,
+    userAgent?: string,
+  ): Promise<IssuedTokens> {
     const user = await this.prisma.user.findUnique({ where: { email } });
     // Same generic message whether the email doesn't exist or the
     // password is wrong — distinguishing the two lets an attacker
@@ -168,7 +188,7 @@ export class AuthService {
       throw invalidCredentials();
     }
 
-    return this.issueTokens(user.id, user.email);
+    return this.issueTokens(user.id, user.email, newSession(userAgent));
   }
 
   /**
@@ -177,7 +197,7 @@ export class AuthService {
    * install the account is created first, with a random password nobody
    * knows, so there is no registration step.
    */
-  async devLogin(email: string): Promise<IssuedTokens> {
+  async devLogin(email: string, userAgent?: string): Promise<IssuedTokens> {
     const user =
       (await this.prisma.user.findUnique({ where: { email } })) ??
       (await this.prisma.user.create({
@@ -190,7 +210,7 @@ export class AuthService {
           memberships: OWN_HOUSEHOLD,
         },
       }));
-    return this.issueTokens(user.id, user.email);
+    return this.issueTokens(user.id, user.email, newSession(userAgent));
   }
 
   /**
@@ -219,7 +239,11 @@ export class AuthService {
       data: { revokedAt: new Date() },
     });
 
-    return this.issueTokens(stored.user.id, stored.user.email);
+    // The new token continues the same browser's session.
+    return this.issueTokens(stored.user.id, stored.user.email, {
+      sessionId: stored.sessionId,
+      userAgent: stored.userAgent,
+    });
   }
 
   /** Revokes a single refresh token. Idempotent — a token that's already
@@ -302,9 +326,88 @@ export class AuthService {
     };
   }
 
+  /**
+   * The user's signed-in browsers: one per session with a usable refresh
+   * token, most recently used first. `rawRefreshToken` (this browser's
+   * cookie) marks the current one.
+   */
+  async sessions(userId: number, rawRefreshToken?: string) {
+    const now = new Date();
+    const active = await this.prisma.refreshToken.findMany({
+      where: { userId, revokedAt: null, expiresAt: { gt: now } },
+      orderBy: { lastUsedAt: 'desc' },
+    });
+    const started = await this.prisma.refreshToken.groupBy({
+      by: ['sessionId'],
+      where: { userId, sessionId: { in: active.map((t) => t.sessionId) } },
+      _min: { createdAt: true },
+    });
+    const startedAt = new Map(
+      started.map((g) => [g.sessionId, g._min.createdAt]),
+    );
+    const currentHash = rawRefreshToken
+      ? hashRefreshToken(rawRefreshToken)
+      : null;
+    return active.map((t) => ({
+      id: t.sessionId,
+      userAgent: t.userAgent,
+      signedInAt: startedAt.get(t.sessionId) ?? t.createdAt,
+      lastUsedAt: t.lastUsedAt,
+      current: t.tokenHash === currentHash,
+    }));
+  }
+
+  /** Signs one of the user's browsers out. */
+  async revokeSession(userId: number, sessionId: string): Promise<void> {
+    const { count } = await this.prisma.refreshToken.updateMany({
+      where: { userId, sessionId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    if (count === 0) throw new NotFoundException('No such session');
+  }
+
+  /**
+   * Changes the password after checking the current one, and signs out
+   * every other browser; the one making the change stays signed in.
+   */
+  async changePassword(
+    userId: number,
+    currentPassword: string,
+    newPassword: string,
+    rawRefreshToken?: string,
+  ): Promise<void> {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
+      throw new UnauthorizedException('The current password is wrong');
+    }
+    const current = rawRefreshToken
+      ? await this.prisma.refreshToken.findUnique({
+          where: { tokenHash: hashRefreshToken(rawRefreshToken) },
+          select: { sessionId: true },
+        })
+      : null;
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          passwordHash: await bcrypt.hash(newPassword, BCRYPT_SALT_ROUNDS),
+        },
+      }),
+      this.prisma.refreshToken.updateMany({
+        where: {
+          userId,
+          revokedAt: null,
+          ...(current ? { sessionId: { not: current.sessionId } } : {}),
+        },
+        data: { revokedAt: new Date() },
+      }),
+    ]);
+  }
+
   private async issueTokens(
     userId: number,
     email: string,
+    session: Session,
   ): Promise<IssuedTokens> {
     const payload: JwtPayload = { sub: userId, email };
     const accessToken = await this.jwtService.signAsync(payload, {
@@ -325,6 +428,8 @@ export class AuthService {
         tokenHash: hashRefreshToken(rawRefreshToken),
         userId,
         expiresAt: refreshTokenExpiresAt,
+        sessionId: session.sessionId,
+        userAgent: session.userAgent,
       },
     });
 

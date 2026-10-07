@@ -131,16 +131,23 @@ model PanelType {
 /// with) or on logout; rows aren't deleted on expiry/revocation, since
 /// keeping the history is cheap and harmless.
 model RefreshToken {
-  id        Int       @id @default(autoincrement())
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         Int       @id @default(autoincrement())
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  /// One browser's sign-in: kept by every rotation of its refresh token.
+  sessionId  String
+  /// The browser's User-Agent when it signed in.
+  userAgent  String?
+  /// When this token was issued, i.e. the session's last refresh.
+  lastUsedAt DateTime  @default(now())
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, sessionId])
   @@map("refresh_tokens")
 }
 
