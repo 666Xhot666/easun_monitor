@@ -173,7 +173,7 @@ describe('InverterSettings page', () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2 }) })).restore;
     await screen.findByLabelText('Output priority');
 
-    expect(screen.getByText('Program 01')).toBeInTheDocument();
+    expect(screen.getByText('P01')).toBeInTheDocument();
     expect(screen.getByText('Default: Utility first (UTI)')).toBeInTheDocument();
     expect(screen.queryByText('Which source powers the loads first.')).not.toBeInTheDocument();
 

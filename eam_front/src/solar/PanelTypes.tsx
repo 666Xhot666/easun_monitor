@@ -3,6 +3,8 @@ import type { ChangeEvent, FormEvent } from 'react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import type { PanelType } from './pvArray';
+import { Button } from '../ui';
+import { Dialog } from '../ui/Dialog';
 
 interface PanelTypesProps {
   panelTypes: PanelType[];
@@ -35,6 +37,7 @@ export default function PanelTypes({ panelTypes, onSaved, readOnly = false }: Pa
   const [values, setValues] = useState<FormValues>(blankValues());
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<PanelType | null>(null);
 
   const openNew = () => {
     setEditing('new');
@@ -100,7 +103,6 @@ export default function PanelTypes({ panelTypes, onSaved, readOnly = false }: Pa
   };
 
   const handleDelete = async (panelType: PanelType) => {
-    if (!window.confirm(`Delete the panel type "${panelType.name}"?`)) return;
 
     try {
       await axios.delete(`/api/panel-types/${panelType.id}`);
@@ -114,41 +116,41 @@ export default function PanelTypes({ panelTypes, onSaved, readOnly = false }: Pa
   return (
     <div className="space-y-4">
       {error ? (
-        <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-300">
+        <p role="alert" className="rounded-lg bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
         </p>
       ) : null}
 
       {panelTypes.length === 0 ? (
-        <p className="text-sm text-gray-600 dark:text-gray-300">No panel types yet. Add the one on your roof from its datasheet.</p>
+        <p className="text-sm text-muted">No panel types yet. Add the one on your roof from its datasheet.</p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 text-left dark:divide-gray-700">
+          <table className="min-w-full divide-y divide-line text-left">
             <thead>
-              <tr className="bg-gray-50 dark:bg-gray-800">
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Name</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Pmax</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Vmp</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Imp</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Voc</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400">Isc</th>
-                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-gray-500 dark:text-gray-400"></th>
+              <tr className="bg-surface-2">
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Name</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Pmax</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Vmp</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Imp</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Voc</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted">Isc</th>
+                <th scope="col" className="px-3 py-2 text-xs font-medium uppercase tracking-wide text-muted"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="divide-y divide-line">
               {panelTypes.map((panelType) => (
-                <tr key={panelType.id} className="bg-gray-50 dark:bg-gray-900">
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{panelType.name}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.maxPowerW} W`}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.vmpV} V`}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.impA} A`}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.vocV} V`}</td>
-                  <td className="px-3 py-2 text-sm text-gray-900 dark:text-gray-100">{`${panelType.iscA} A`}</td>
+                <tr key={panelType.id} className="bg-surface-2">
+                  <td className="px-3 py-2 text-sm text-ink">{panelType.name}</td>
+                  <td className="px-3 py-2 text-sm text-ink">{`${panelType.maxPowerW} W`}</td>
+                  <td className="px-3 py-2 text-sm text-ink">{`${panelType.vmpV} V`}</td>
+                  <td className="px-3 py-2 text-sm text-ink">{`${panelType.impA} A`}</td>
+                  <td className="px-3 py-2 text-sm text-ink">{`${panelType.vocV} V`}</td>
+                  <td className="px-3 py-2 text-sm text-ink">{`${panelType.iscA} A`}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-sm">
                     {!readOnly && (
                       <div className="flex gap-2">
-                        <button type="button" aria-label={`Edit ${panelType.name}`} onClick={() => openEdit(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Edit</button>
-                        <button type="button" aria-label={`Delete ${panelType.name}`} onClick={() => void handleDelete(panelType)} className="font-medium text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100">Delete</button>
+                        <button type="button" aria-label={`Edit ${panelType.name}`} onClick={() => openEdit(panelType)} className="h-8 rounded-lg border border-line-strong px-2.5 text-[13px] font-medium hover:bg-surface-2">Edit</button>
+                        <button type="button" aria-label={`Delete ${panelType.name}`} onClick={() => setDeleting(panelType)} className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-crit-ink hover:bg-crit-bg">Delete</button>
                       </div>
                     )}
                   </td>
@@ -160,43 +162,65 @@ export default function PanelTypes({ panelTypes, onSaved, readOnly = false }: Pa
       )}
 
       {editing === null && !readOnly ? (
-        <button type="button" onClick={openNew} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700">Add panel type</button>
+        <button type="button" onClick={openNew} className="rounded-lg bg-ink px-3 py-2 text-sm font-medium text-page transition hover:opacity-90">Add panel type</button>
       ) : null}
 
       {editing !== null ? (
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3 rounded border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800">
+        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3 rounded border border-line bg-surface-2 p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Name
-              <input type="text" value={values.name} onChange={setField('name')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="text" value={values.name} onChange={setField('name')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Pmax (W)
-              <input type="number" step="any" min="0" value={values.maxPowerW} onChange={setField('maxPowerW')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="number" step="any" min="0" value={values.maxPowerW} onChange={setField('maxPowerW')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Vmp (V)
-              <input type="number" step="any" min="0" value={values.vmpV} onChange={setField('vmpV')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="number" step="any" min="0" value={values.vmpV} onChange={setField('vmpV')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Imp (A)
-              <input type="number" step="any" min="0" value={values.impA} onChange={setField('impA')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="number" step="any" min="0" value={values.impA} onChange={setField('impA')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Voc (V)
-              <input type="number" step="any" min="0" value={values.vocV} onChange={setField('vocV')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="number" step="any" min="0" value={values.vocV} onChange={setField('vocV')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
-            <label className="block text-sm text-gray-700 dark:text-gray-300">
+            <label className="block text-sm text-ink">
               Isc (A)
-              <input type="number" step="any" min="0" value={values.iscA} onChange={setField('iscA')} className="mt-1 w-full rounded border border-gray-300 bg-gray-50 px-2 py-1 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100" />
+              <input type="number" step="any" min="0" value={values.iscA} onChange={setField('iscA')} className="mt-1 w-full rounded border border-line-strong bg-surface-2 px-2 py-1 text-sm text-ink" />
             </label>
           </div>
           <div className="flex gap-2">
-            <button type="submit" disabled={saving} className="rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50">Save</button>
-            <button type="button" onClick={cancel} className="rounded bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-100 dark:hover:bg-gray-600">Cancel</button>
+            <button type="submit" disabled={saving} className="rounded-lg bg-ink px-3 py-2 text-sm font-medium text-page transition hover:opacity-90 disabled:opacity-50">Save</button>
+            <button type="button" onClick={cancel} className="rounded bg-surface-2 px-3 py-2 text-sm font-medium text-ink hover:bg-surface-2">Cancel</button>
           </div>
         </form>
       ) : null}
+      <Dialog
+        open={deleting !== null}
+        title={`Delete the panel type “${deleting?.name}”?`}
+        onClose={() => setDeleting(null)}
+        actions={
+          <>
+            <Button onClick={() => setDeleting(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const panelType = deleting;
+                setDeleting(null);
+                if (panelType) void handleDelete(panelType);
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        Panel types an inverter still uses can’t be deleted.
+      </Dialog>
     </div>
   );
 }

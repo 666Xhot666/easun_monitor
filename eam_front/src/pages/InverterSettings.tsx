@@ -225,7 +225,10 @@ export default function InverterSettings() {
     }
   }
 
-  const sections = registers ? groupIntoSections(registers) : [];
+  // Registers not yet identified are kept for working them out, in development only.
+  const sections = registers
+    ? groupIntoSections(registers).filter((section) => import.meta.env.DEV || section.title !== 'Unverified registers')
+    : [];
   const q = query.trim().toLowerCase();
   const visible = (d: RegisterDefinition) =>
     (!q || d.label.toLowerCase().includes(q) || d.name.toLowerCase().includes(q) || (d.panelProgram ?? '').includes(q)) &&
@@ -540,7 +543,6 @@ function SettingRow({
 
   const [open, setOpen] = useState(false);
   const facts = [
-    definition.panelProgram && `Program ${definition.panelProgram}`,
     defaultValue !== undefined && `Default: ${formatRegisterValue(definition, defaultValue)}`,
   ].filter((fact): fact is string => Boolean(fact));
   const explained = definition.description || definition.optionDescriptions;

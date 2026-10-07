@@ -3,6 +3,9 @@
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useEffect, useState } from 'react';
+import { Button } from '../ui';
+import { CopyButton } from '../ui/CopyButton';
+import { Dialog } from '../ui/Dialog';
 
 type Status = 'loading' | 'ready' | 'error';
 
@@ -13,6 +16,7 @@ export default function TelegramLink() {
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,10 +47,6 @@ export default function TelegramLink() {
   }, []);
 
   const handleUnlink = async () => {
-    if (!window.confirm('Unlink the Telegram chat? Alerts stop coming there.')) {
-      return;
-    }
-
     setBusy(true);
     setError(null);
 
@@ -76,50 +76,66 @@ export default function TelegramLink() {
   };
 
   return (
-    <section className="mt-6 space-y-3 rounded-lg border border-gray-200 bg-gray-100 p-4 dark:border-gray-700 dark:bg-gray-800">
-      <h2 className="text-lg font-medium">Telegram</h2>
+    <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <h2 className="text-[15px] font-semibold">Telegram</h2>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">{error}</p>
+        <p role="alert" className="mt-3 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
+          {error}
+        </p>
       )}
 
       {status === 'ready' &&
         (linked ? (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-700 dark:text-gray-300">A Telegram chat is linked.</p>
-            <button
-              type="button"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-              disabled={busy}
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <p className="flex flex-1 items-center gap-2 text-sm">
+              <span className="h-2 w-2 rounded-full bg-good" />
+              A Telegram chat is linked.
+            </p>
+            <Button size="sm" disabled={busy} onClick={() => setConfirming(true)}>
+              Unlink
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-2 space-y-3">
+            <p className="text-sm text-muted">Not linked. Alerts, /status and /energy come to a linked chat.</p>
+            {code ? (
+              <div className="rounded-lg bg-surface-2 p-3">
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm">{`/start ${code}`}</code>
+                  <CopyButton text={`/start ${code}`} />
+                </div>
+                <p className="mt-2 text-xs text-muted">Send this to the bot within 10 minutes.</p>
+              </div>
+            ) : (
+              <Button variant="primary" disabled={busy} onClick={() => void handleGetCode()}>
+                Get a link code
+              </Button>
+            )}
+          </div>
+        ))}
+
+      <Dialog
+        open={confirming}
+        title="Unlink the Telegram chat?"
+        onClose={() => setConfirming(false)}
+        actions={
+          <>
+            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button
+              variant="danger"
               onClick={() => {
+                setConfirming(false);
                 void handleUnlink();
               }}
             >
               Unlink
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            <p className="text-sm text-gray-700 dark:text-gray-300">Not linked. Alerts, /status and /energy come to a linked chat.</p>
-            <button
-              type="button"
-              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 dark:border-gray-700 dark:hover:bg-gray-800"
-              disabled={busy}
-              onClick={() => {
-                void handleGetCode();
-              }}
-            >
-              Get a link code
-            </button>
-
-            {code && (
-              <div className="space-y-2">
-                <code className="select-all rounded bg-gray-100 px-2 py-1 font-mono text-sm text-gray-900 dark:bg-gray-800 dark:text-gray-100">{`/start ${code}`}</code>
-                <p className="text-sm text-gray-700 dark:text-gray-300">Send this to the bot within 10 minutes.</p>
-              </div>
-            )}
-          </div>
-        ))}
+            </Button>
+          </>
+        }
+      >
+        Alerts, summaries and replies stop coming to that chat.
+      </Dialog>
     </section>
   );
 }

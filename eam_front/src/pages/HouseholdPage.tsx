@@ -14,7 +14,7 @@ export default function HouseholdPage() {
   const adminHouseholdId = user.adminHouseholdId;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <section className="rounded-xl border border-line bg-surface p-5">
         <h2 className="text-[15px] font-semibold">Your households</h2>
         <ul className="mt-3 divide-y divide-line">
@@ -27,12 +27,7 @@ export default function HouseholdPage() {
         </ul>
       </section>
 
-      {adminHouseholdId !== null && (
-        <section className="rounded-xl border border-line bg-surface p-5">
-          <h2 className="text-[15px] font-semibold">Members and invites</h2>
-          <HouseholdMembers householdId={adminHouseholdId} currentUserId={user.id} />
-        </section>
-      )}
+      {adminHouseholdId !== null && <HouseholdMembers householdId={adminHouseholdId} currentUserId={user.id} />}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import PanelTypes from './PanelTypes';
 import type { PanelType } from './pvArray';
@@ -25,11 +25,7 @@ async function fill(values: Record<string, string>) {
 
 describe('PanelTypes', () => {
   let restore = () => {};
-  beforeEach(() => vi.spyOn(window, 'confirm').mockReturnValue(true));
-  afterEach(() => {
-    restore();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => restore());
 
   it('lists each panel type with its datasheet values', () => {
     restore = renderList(() => ({ status: 200 })).restore;
@@ -79,6 +75,7 @@ describe('PanelTypes', () => {
     restore = r;
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete Longi 450W' }));
+    await userEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('An inverter uses this panel type');
 
     await userEvent.click(screen.getByRole('button', { name: 'Add panel type' }));
@@ -95,7 +92,8 @@ describe('PanelTypes', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Delete Longi 450W' }));
 
-    expect(window.confirm).toHaveBeenCalledWith('Delete the panel type "Longi 450W"?');
+    expect(sent).toHaveLength(0);
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Delete the panel type “Longi 450W”?' })).getByRole('button', { name: 'Delete' }));
     expect(sent[0].method).toBe('delete');
     expect(sent[0].url).toBe('/api/panel-types/1');
     expect(onSaved).toHaveBeenCalled();

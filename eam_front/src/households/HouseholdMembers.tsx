@@ -1,6 +1,9 @@
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
-import { useEffect, useState, type ChangeEvent } from 'react';
+import { useEffect, useState } from 'react';
+import { Button, Card, CardTitle, Segmented } from '../ui';
+import { CopyButton } from '../ui/CopyButton';
+import { Dialog } from '../ui/Dialog';
 
 type Role = 'ADMIN' | 'READER';
 
@@ -41,6 +44,7 @@ export default function HouseholdMembers({ householdId, currentUserId }: Househo
   const [error, setError] = useState<string | null>(null);
   const [newInvite, setNewInvite] = useState<CreatedInvite | null>(null);
   const [inviteRole, setInviteRole] = useState<Role>('READER');
+  const [removing, setRemoving] = useState<Member | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -104,9 +108,6 @@ export default function HouseholdMembers({ householdId, currentUserId }: Househo
   const removeMember = async (member: Member) => {
     setError(null);
 
-    if (!window.confirm(`Remove ${member.email} from the household?`)) {
-      return;
-    }
 
     try {
       await axios.delete(`/api/households/${householdId}/members/${member.userId}`);
@@ -143,14 +144,7 @@ export default function HouseholdMembers({ householdId, currentUserId }: Househo
     }
   };
 
-  const handleRoleChange = (member: Member, event: ChangeEvent<HTMLSelectElement>) => {
-    void changeRole(member, event.target.value as Role);
-  };
 
-  const handleInviteRoleChange = (event: ChangeEvent<HTMLSelectElement>) => {
-    setError(null);
-    setInviteRole(event.target.value as Role);
-  };
 
   const handleCreateInvite = () => {
     void createInvite();
@@ -161,145 +155,152 @@ export default function HouseholdMembers({ householdId, currentUserId }: Househo
     setNewInvite(null);
   };
 
+  const joinLink = newInvite ? `${window.location.origin}/join/${newInvite.code}` : '';
+  const roleOptions = [
+    { value: 'ADMIN' as Role, label: 'Admin' },
+    { value: 'READER' as Role, label: 'Reader' },
+  ];
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-4">
       {error && (
-        <p
-          role="alert"
-          className="rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-        >
+        <p role="alert" className="rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
         </p>
       )}
 
-      <section
-        aria-label="Members"
-        className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900"
-      >
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Members</h2>
-        <ul className="mt-3 space-y-2">
-          {members.map((member) => {
-            const isCurrentUser = member.userId === currentUserId;
-
-            return (
-              <li
-                key={member.userId}
-                aria-label={member.email}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 dark:border-gray-800 dark:bg-gray-950"
-              >
-                <span className="text-sm text-gray-900 dark:text-gray-100">
-                  {member.email}
-                  {isCurrentUser && (
-                    <span className="ml-2 text-xs font-medium text-gray-500 dark:text-gray-400">You</span>
+      <Card as="div">
+        <section aria-label="Members">
+          <CardTitle>Members</CardTitle>
+          <ul className="mt-3 overflow-hidden rounded-lg border border-line">
+            {members.map((member) => {
+              const isCurrentUser = member.userId === currentUserId;
+              return (
+                <li
+                  key={member.userId}
+                  aria-label={member.email}
+                  className="flex flex-wrap items-center gap-3 border-t border-line px-3.5 py-3 first:border-t-0"
+                >
+                  <span className="grid h-9 w-9 flex-none place-items-center rounded-full border border-line-strong bg-surface-2 text-sm font-semibold">
+                    {member.email.charAt(0).toUpperCase()}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[15px]">
+                    {member.email}
+                    {isCurrentUser && <span className="ml-2 text-xs text-muted">You</span>}
+                  </span>
+                  {isCurrentUser ? (
+                    <span className="text-sm text-muted">{roleLabel(member.role)}</span>
+                  ) : (
+                    <>
+                      <Segmented
+                        ariaLabel={`Role of ${member.email}`}
+                        size="sm"
+                        options={roleOptions}
+                        value={member.role}
+                        onChange={(role) => void changeRole(member, role)}
+                      />
+                      <button
+                        type="button"
+                        aria-label={`Remove ${member.email}`}
+                        onClick={() => setRemoving(member)}
+                        className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-crit-ink hover:bg-crit-bg"
+                      >
+                        Remove
+                      </button>
+                    </>
                   )}
-                </span>
-                <div className="flex items-center gap-2">
-                  <select
-                    aria-label={`Role of ${member.email}`}
-                    value={member.role}
-                    disabled={isCurrentUser}
-                    onChange={(event) => handleRoleChange(member, event)}
-                    className="rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-                  >
-                    <option value="ADMIN">Admin</option>
-                    <option value="READER">Reader</option>
-                  </select>
-                  {!isCurrentUser && (
+                </li>
+              );
+            })}
+            {members.length === 0 && <li className="px-3.5 py-3 text-sm text-muted">No members.</li>}
+          </ul>
+        </section>
+      </Card>
+
+      <Card as="div">
+        <section aria-label="Invites">
+          <CardTitle>Invite someone</CardTitle>
+          {newInvite ? (
+            <section aria-label="New invite" className="mt-3 rounded-lg bg-surface-2 p-4">
+              <p className="text-sm font-semibold">
+                Invite as {roleLabel(newInvite.invite.role)} · expires in 7 days
+              </p>
+              <p className="mt-1 text-xs text-muted">Share the link or the code. It is shown only once.</p>
+              <div className="mt-3 flex items-center gap-2">
+                <code className="min-w-0 flex-1 truncate rounded-lg border border-line bg-surface px-3 py-2 font-mono text-[13px]">{joinLink}</code>
+                <CopyButton text={joinLink} label="Copy link" />
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <code className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-[13px]">{newInvite.code}</code>
+                <CopyButton text={newInvite.code} label="Copy code" />
+              </div>
+              <div className="mt-3 flex gap-2">
+                {typeof navigator.share === 'function' && (
+                  <Button variant="primary" onClick={() => void navigator.share({ title: 'Join my EAM household', url: joinLink }).catch(() => {})}>
+                    Share…
+                  </Button>
+                )}
+                <Button onClick={hideNewInvite}>Done</Button>
+              </div>
+            </section>
+          ) : (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Segmented ariaLabel="Invite as" options={[roleOptions[1], roleOptions[0]]} value={inviteRole} onChange={setInviteRole} />
+              <Button variant="primary" onClick={handleCreateInvite}>
+                Create invite
+              </Button>
+            </div>
+          )}
+          <p className="mt-3 text-xs text-muted">
+            Readers see the Overview, Battery, History and Alerts. Admins can also change settings and invite people.
+          </p>
+          {invites.length > 0 && (
+            <>
+              <p className="mt-4 mb-2 text-xs text-muted">Open invites</p>
+              <ul className="overflow-hidden rounded-lg border border-line">
+                {invites.map((invite) => (
+                  <li key={invite.id} aria-label={`Invite ${invite.id}`} className="flex items-center gap-3 border-t border-line px-3.5 py-2.5 text-sm first:border-t-0">
+                    <span className="flex-1">
+                      {roleLabel(invite.role)} · expires {new Date(invite.expiresAt).toLocaleDateString()}
+                    </span>
                     <button
                       type="button"
-                      aria-label={`Remove ${member.email}`}
-                      onClick={() => void removeMember(member)}
-                      className="rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
+                      aria-label={`Revoke invite ${invite.id}`}
+                      onClick={() => void revokeInvite(invite)}
+                      className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-crit-ink hover:bg-crit-bg"
                     >
-                      Remove
+                      Revoke
                     </button>
-                  )}
-                </div>
-              </li>
-            );
-          })}
-          {members.length === 0 && (
-            <li className="rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400">
-              No members.
-            </li>
+                  </li>
+                ))}
+              </ul>
+            </>
           )}
-        </ul>
-      </section>
-
-      <section
-        aria-label="Invites"
-        className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900"
-      >
-        <h2 className="text-base font-semibold text-gray-900 dark:text-gray-100">Invites</h2>
-        <ul className="mt-3 space-y-2">
-          {invites.map((invite) => (
-            <li
-              key={invite.id}
-              aria-label={`Invite ${invite.id}`}
-              className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-gray-200 bg-gray-100 px-3 py-2 dark:border-gray-800 dark:bg-gray-950"
-            >
-              <span className="text-sm text-gray-900 dark:text-gray-100">
-                {roleLabel(invite.role)} · expires {new Date(invite.expiresAt).toLocaleDateString()}
-              </span>
-              <button
-                type="button"
-                aria-label={`Revoke invite ${invite.id}`}
-                onClick={() => void revokeInvite(invite)}
-                className="rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-xs text-gray-700 hover:bg-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-              >
-                Revoke
-              </button>
-            </li>
-          ))}
-          {invites.length === 0 && (
-            <li className="rounded-md border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-500 dark:border-gray-800 dark:bg-gray-950 dark:text-gray-400">
-              No open invites.
-            </li>
-          )}
-        </ul>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <select
-            aria-label="Invite as"
-            value={inviteRole}
-            onChange={handleInviteRoleChange}
-            className="rounded-md border border-gray-300 bg-gray-100 px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
-          >
-            <option value="READER">Reader</option>
-            <option value="ADMIN">Admin</option>
-          </select>
-          <button
-            type="button"
-            onClick={handleCreateInvite}
-            className="rounded-md bg-gray-900 px-3 py-1 text-sm font-medium text-gray-100 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-          >
-            Create invite
-          </button>
-        </div>
-      </section>
-
-      {newInvite && (
-        <section
-          aria-label="New invite"
-          className="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-gray-900"
-        >
-          <p className="text-sm text-gray-900 dark:text-gray-100">
-            Share this code or link. It is shown only once and expires in 7 days.
-          </p>
-          <code className="mt-2 block rounded-md bg-gray-100 px-3 py-2 font-mono text-sm text-gray-900 dark:bg-gray-800 dark:text-gray-100">
-            {newInvite.code}
-          </code>
-          <p className="mt-2 break-all text-sm text-gray-700 dark:text-gray-300">
-            {`${window.location.origin}/join/${newInvite.code}`}
-          </p>
-          <button
-            type="button"
-            onClick={hideNewInvite}
-            className="mt-3 rounded-md bg-gray-900 px-3 py-1 text-sm font-medium text-gray-100 hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-          >
-            Done
-          </button>
         </section>
-      )}
+      </Card>
+
+      <Dialog
+        open={removing !== null}
+        title={`Remove ${removing?.email} from the household?`}
+        onClose={() => setRemoving(null)}
+        actions={
+          <>
+            <Button onClick={() => setRemoving(null)}>Cancel</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                const member = removing;
+                setRemoving(null);
+                if (member) void removeMember(member);
+              }}
+            >
+              Remove
+            </Button>
+          </>
+        }
+      >
+        They lose access to this household’s inverters straight away.
+      </Dialog>
     </div>
   );
 }

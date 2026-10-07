@@ -1,6 +1,6 @@
-import { render, screen, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import BmsSetup from './BmsSetup';
 import type { BmsDevice } from './types';
@@ -28,11 +28,7 @@ function renderSetup(handler: (method: string, url: string, body: unknown) => Re
 
 describe('BmsSetup', () => {
   let restore = () => {};
-  beforeEach(() => vi.spyOn(window, 'confirm').mockReturnValue(true));
-  afterEach(() => {
-    restore();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => restore());
 
   it('lists the BMS devices with when each last reported', async () => {
     restore = renderSetup(() => ({
@@ -60,7 +56,7 @@ describe('BmsSetup', () => {
     await screen.findByText('No BMS yet.');
     await userEvent.clear(screen.getByLabelText('Name'));
     await userEvent.type(screen.getByLabelText('Name'), 'House battery');
-    await userEvent.selectOptions(screen.getByLabelText('Reads it'), 'mac-ble');
+    await userEvent.click(within(screen.getByRole('radiogroup', { name: 'How it is read' })).getByRole('radio', { name: 'Mac Bluetooth reader' }));
     await userEvent.click(screen.getByRole('button', { name: 'Add BMS' }));
 
     const post = server.sent.find((c) => c.method === 'post');
@@ -85,9 +81,9 @@ describe('BmsSetup', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'New token for House battery' }));
 
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Make a new ingest token for House battery? The reader stops working until it uses the new one.',
-    );
+    const dialog = screen.getByRole('dialog', { name: 'Make a new reader token for House battery?' });
+    expect(dialog).toHaveTextContent('The reader stops working until it uses the new one.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Make a new token' }));
     expect(server.sent.find((c) => c.method === 'post')?.url).toBe('/api/inverter/profiles/7/bms/3/token');
     expect(await screen.findByRole('region', { name: 'New ingest token' })).toHaveTextContent('tok_new');
   });
@@ -105,7 +101,9 @@ describe('BmsSetup', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Remove House battery' }));
 
-    expect(window.confirm).toHaveBeenCalledWith('Remove House battery and all its stored readings?');
+    const dialog = screen.getByRole('dialog', { name: 'Remove House battery?' });
+    expect(dialog).toHaveTextContent('Its stored readings are deleted too.');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
     expect(server.sent.find((c) => c.method === 'delete')?.url).toBe('/api/inverter/profiles/7/bms/3');
     expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
   });
@@ -133,8 +131,8 @@ describe('BmsSetup', () => {
     });
     restore = server.restore;
 
-    const box = await screen.findByRole('checkbox', { name: 'Use House battery for the energy flow' });
-    expect(box).not.toBeChecked();
+    const box = await screen.findByRole('switch', { name: 'Use House battery for the energy flow' });
+    expect(box).toHaveAttribute('aria-checked', 'false');
     expect(screen.getByText(/once the current's sign is confirmed/)).toBeInTheDocument();
 
     await userEvent.click(box);
@@ -142,6 +140,6 @@ describe('BmsSetup', () => {
     const patch = server.sent.find((c) => c.method === 'patch');
     expect(patch?.url).toBe('/api/inverter/profiles/7/bms/3');
     expect(JSON.parse(patch?.data)).toEqual({ useForEnergyFlow: true });
-    expect(await screen.findByRole('checkbox', { name: 'Use House battery for the energy flow' })).toBeChecked();
+    await waitFor(() => expect(screen.getByRole('switch', { name: 'Use House battery for the energy flow' })).toHaveAttribute('aria-checked', 'true'));
   });
 });
