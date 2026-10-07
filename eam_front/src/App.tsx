@@ -10,7 +10,7 @@ import {
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
 import SetupWizard from './pages/SetupWizard'
-import ReadingsLogPage from './pages/ReadingsLogPage'
+import HistoryPage from './pages/HistoryPage'
 import BatteryPage from './pages/BatteryPage'
 import JoinPage from './pages/JoinPage'
 import Dashboard from './Dashboard'
@@ -42,7 +42,7 @@ function App() {
               <Route path="/dashboard/:profileId" element={<AppShell />}>
                 <Route index element={<Dashboard />} />
                 <Route path="battery" element={<BatteryPage />} />
-                <Route path="history" element={<ReadingsLogPage />} />
+                <Route path="history" element={<HistoryPage />} />
                 <Route path="alerts" element={<AlertsPage />} />
                 <Route path="settings/:tab?" element={<SettingsPage />} />
                 {/* Old addresses, kept so bookmarks still land. */}

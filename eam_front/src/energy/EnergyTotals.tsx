@@ -1,18 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from '../lib/apiClient';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
-
-/** GET /api/inverter/:profileId/energy response. */
-interface Totals {
-  pvKWh: number;
-  gridKWh: number;
-  outputKWh: number;
-  /** Energy into and out of the battery, at its terminals. */
-  batteryChargeKWh: number;
-  batteryDischargeKWh: number;
-  /** How much of the range had readings close enough together to integrate. */
-  coveredSeconds: number;
-}
+import { loadSources, selfSufficiency, type EnergyTotals as Totals } from './energyMix';
 
 /** Below this share of a day with readings, the totals say how much they cover. */
 const FULL_COVERAGE = 0.95;
@@ -24,14 +13,10 @@ const decimals = (kWh: number) => (kWh < 10 ? 2 : 1);
 /** Share of the load each source covered, in whole percent. */
 function loadMix(t: Totals): { solar: number; battery: number; grid: number } | null {
   if (t.outputKWh <= 0) return null;
-  const grid = Math.min(t.gridKWh, t.outputKWh);
-  const battery = Math.min(t.batteryDischargeKWh, t.outputKWh - grid);
-  const pct = (kWh: number) => Math.round((kWh / t.outputKWh) * 100);
-  return { solar: pct(t.outputKWh - grid - battery), battery: pct(battery), grid: pct(grid) };
+  const kWh = loadSources(t);
+  const pct = (v: number) => Math.round((v / t.outputKWh) * 100);
+  return { solar: pct(kWh.solar), battery: pct(kWh.battery), grid: pct(kWh.grid) };
 }
-
-/** Share of the load not taken from the grid, in whole percent. */
-const selfSufficiency = (t: Totals) => (t.outputKWh > 0 ? Math.round((1 - Math.min(t.gridKWh, t.outputKWh) / t.outputKWh) * 100) : undefined);
 
 interface TileValue {
   label: string;
