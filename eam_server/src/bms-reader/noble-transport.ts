@@ -4,6 +4,7 @@ import {
   type CharacteristicLike,
   type PeripheralLike,
 } from './noble-connection';
+import { withTimeout } from './with-timeout';
 
 /** JK BMS GATT service and characteristic (notifications in, writes out). */
 const SERVICE = 'ffe0';
@@ -115,17 +116,24 @@ export async function connectBms(
     },
   );
 
-  await peripheral.connectAsync();
-  const { characteristics } =
-    await peripheral.discoverSomeServicesAndCharacteristicsAsync(
-      [SERVICE],
-      [CHARACTERISTIC],
-    );
+  const name = peripheral.advertisement.localName ?? peripheral.id;
+  const { characteristics } = await withTimeout(
+    peripheral
+      .connectAsync()
+      .then(() =>
+        peripheral.discoverSomeServicesAndCharacteristicsAsync(
+          [SERVICE],
+          [CHARACTERISTIC],
+        ),
+      ),
+    timeoutMs,
+    `Connecting to ${name} took over ${timeoutMs / 1000} s (is another app, like the JK app, connected to it?)`,
+    // Also cancels a connect still pending.
+    () => void peripheral.disconnectAsync().catch(() => undefined),
+  );
   if (characteristics.length === 0) {
     await peripheral.disconnectAsync();
-    throw new Error(
-      `${peripheral.advertisement.localName ?? peripheral.id} has no FFE1 characteristic: not a JK BMS?`,
-    );
+    throw new Error(`${name} has no FFE1 characteristic: not a JK BMS?`);
   }
   return new NobleBmsConnection(peripheral, characteristics[0]);
 }
