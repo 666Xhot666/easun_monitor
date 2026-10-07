@@ -8,6 +8,8 @@ import { clockTime, duration } from './messages';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
 import { alertKind } from '../alerts/alert-kind';
+import { NotificationSettingsService } from '../notifications/notification-settings.service';
+import { sendsToTelegram } from '../notifications/notification-settings';
 
 /** How long a logger or BMS reader is silent before it is reported. */
 const OFFLINE_AFTER_MS = 5 * 60_000;
@@ -36,6 +38,7 @@ export class TelegramAlerts {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bot: TelegramBot,
+    private readonly notifications: NotificationSettingsService,
     config: ConfigService,
   ) {
     const configured = Number(config.get<string>('TELEGRAM_LOW_SOC'));
@@ -166,9 +169,20 @@ export class TelegramAlerts {
         user: { memberships: { some: { householdId: profile.householdId } } },
       },
       orderBy: { userId: 'asc' },
-      select: { chatId: true },
+      select: { chatId: true, userId: true },
     });
+    const settings = await this.notifications.forUsers(
+      links.map((l) => l.userId),
+    );
+    const kind = alertKind(message);
+    const now = new Date();
     const text = `${profile.name}${bmsName ? ` (${bmsName})` : ''}: ${message}`;
-    for (const { chatId } of links) await this.bot.send(chatId, text);
+    for (const { chatId, userId } of links) {
+      if (
+        sendsToTelegram(settings.get(userId)!, kind, now, this.bot.timeZone)
+      ) {
+        await this.bot.send(chatId, text);
+      }
+    }
   }
 }

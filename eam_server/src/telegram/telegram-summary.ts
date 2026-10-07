@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramBot } from './telegram-bot';
+import { NotificationSettingsService } from '../notifications/notification-settings.service';
+import { sendsToTelegram } from '../notifications/notification-settings';
 
 const DEFAULT_TIME = '21:00';
 
@@ -44,6 +46,7 @@ export class TelegramSummary {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bot: TelegramBot,
+    private readonly notifications: NotificationSettingsService,
     config: ConfigService,
   ) {
     const configured = config.get<string>('TELEGRAM_SUMMARY_TIME') ?? '';
@@ -71,7 +74,19 @@ export class TelegramSummary {
     const links = await this.prisma.telegramLink.findMany({
       orderBy: { userId: 'asc' },
     });
+    const settings = await this.notifications.forUsers(
+      links.map((l) => l.userId),
+    );
     for (const link of links) {
+      if (
+        !sendsToTelegram(
+          settings.get(link.userId)!,
+          'summary',
+          now,
+          this.bot.timeZone,
+        )
+      )
+        continue;
       const lines = await this.bot.energyLines(link.userId, now);
       if (lines.length > 0)
         await this.bot.send(

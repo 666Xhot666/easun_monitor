@@ -9,6 +9,7 @@ import { HouseholdsModule } from './households/households.module';
 import { BmsLatestModule } from './bms/bms-latest';
 import { BmsModule } from './bms/bms.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { InverterModule } from './inverter/inverter.module';
 import { AuthModule } from './auth/auth.module';
 import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
@@ -36,6 +37,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     BmsLatestModule,
     BmsModule,
     TelegramModule,
+    NotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

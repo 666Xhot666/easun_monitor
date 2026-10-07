@@ -33,10 +33,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
-  memberships   Membership[]
-  telegramLink  TelegramLink?
-  telegramCodes TelegramLinkCode[]
+  refreshTokens        RefreshToken[]
+  memberships          Membership[]
+  telegramLink         TelegramLink?
+  telegramCodes        TelegramLinkCode[]
+  notificationSettings NotificationSettings?
 
   @@map("users")
 }
@@ -383,4 +384,18 @@ model AlertEvent {
 
   @@index([inverterProfileId, at])
   @@map("alert_events")
+}
+
+/// A user's notification choices: for each kind of alert and the evening
+/// summary, whether it shows in the app and goes to Telegram; and quiet
+/// hours. No row means the defaults (see notifications/notification-settings.ts).
+model NotificationSettings {
+  id        Int      @id @default(autoincrement())
+  settings  Json
+  updatedAt DateTime @updatedAt
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
 }
