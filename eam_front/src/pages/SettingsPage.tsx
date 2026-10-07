@@ -5,6 +5,7 @@ import TelegramLink from '../telegram/TelegramLink';
 import { PageHeader } from '../ui';
 import AccountSettings from '../settings/AccountSettings';
 import InverterProfileSettings from '../settings/InverterProfileSettings';
+import NotificationSettings from '../settings/NotificationSettings';
 import HouseholdPage from './HouseholdPage';
 import InverterSettings from './InverterSettings';
 import SolarArrayPage from './SolarArrayPage';
@@ -59,7 +60,12 @@ export default function SettingsPage() {
       {tab === 'solar' && <SolarArrayPage />}
       {tab === 'battery-monitor' && <BmsSetup profileId={profile.id} readOnly={!isAdmin} />}
       {tab === 'household' && <HouseholdPage />}
-      {tab === 'notifications' && <TelegramLink />}
+      {tab === 'notifications' && (
+        <div className="space-y-4">
+          <TelegramLink />
+          <NotificationSettings />
+        </div>
+      )}
       {tab === 'account' && <AccountSettings />}
     </>
   );
