@@ -4,6 +4,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
+import { BrandMark } from '../ui/BrandMark';
 
 /** Join a household with an invite code. */
 export default function JoinPage() {
@@ -19,8 +20,8 @@ export default function JoinPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 dark:bg-gray-950">
-        <p className="text-gray-900 dark:text-gray-100">Loading…</p>
+      <div className="flex min-h-screen items-center justify-center bg-page p-4">
+        <p className="text-ink">Loading…</p>
       </div>
     );
   }
@@ -63,12 +64,13 @@ export default function JoinPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-100 p-4 dark:bg-gray-950">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-gray-50 p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Join a household</h1>
-        <p className="mt-2 text-gray-600 dark:text-gray-400">
+    <div className="flex min-h-screen items-center justify-center bg-page p-4">
+      <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-8 shadow-sm">
+        <BrandMark />
+        <h1 className="text-xl font-semibold text-ink">Join a household</h1>
+        <p className="mt-2 text-muted">
           <span>Invite code</span>{' '}
-          <code className="rounded bg-gray-200 px-1.5 py-0.5 font-mono text-sm text-gray-900 dark:bg-gray-800 dark:text-gray-100">
+          <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-sm text-ink">
             {inviteCode}
           </code>
         </p>
@@ -76,7 +78,7 @@ export default function JoinPage() {
         {error ? (
           <p
             role="alert"
-            className="mt-4 rounded-md border border-gray-300 bg-gray-200 px-3 py-2 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
+            className="mt-4 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink"
           >
             {error}
           </p>
@@ -87,7 +89,7 @@ export default function JoinPage() {
             type="button"
             onClick={handleJoin}
             disabled={isSubmitting}
-            className="mt-6 w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
+            className="mt-6 w-full rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
             Join household
           </button>
@@ -95,7 +97,7 @@ export default function JoinPage() {
           <>
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
-                <label htmlFor="join-email" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="join-email" className="block text-sm font-medium text-ink">
                   Email
                 </label>
                 <input
@@ -104,12 +106,12 @@ export default function JoinPage() {
                   autoComplete="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-gray-400 dark:focus:ring-gray-400"
+                  className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none"
                 />
               </div>
 
               <div>
-                <label htmlFor="join-password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                <label htmlFor="join-password" className="block text-sm font-medium text-ink">
                   Password
                 </label>
                 <input
@@ -119,14 +121,14 @@ export default function JoinPage() {
                   minLength={8}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-gray-900 placeholder-gray-400 focus:border-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100 dark:placeholder-gray-500 dark:focus:border-gray-400 dark:focus:ring-gray-400"
+                  className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:ring-1 focus:ring-accent focus:outline-none"
                 />
               </div>
 
               <button
                 type="submit"
                 disabled={isSubmitting}
-                className="w-full rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-gray-100 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-200"
+                className="w-full rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Create account and join
               </button>
@@ -135,7 +137,7 @@ export default function JoinPage() {
             <Link
               to="/login"
               state={{ from: { pathname: `/join/${inviteCode}` } }}
-              className="mt-4 block text-sm text-gray-700 hover:text-gray-900 dark:text-gray-300 dark:hover:text-gray-100"
+              className="mt-6 block text-center text-sm font-medium text-accent hover:underline"
             >
               Sign in with an existing account
             </Link>
