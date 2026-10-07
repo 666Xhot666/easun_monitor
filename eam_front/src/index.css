@@ -155,3 +155,10 @@ body {
     transition: none !important;
   }
 }
+
+/* The moving dots on the Overview's energy-flow lines (dash period 20.1). */
+@keyframes eam-flow-dash {
+  to {
+    stroke-dashoffset: -40.2;
+  }
+}

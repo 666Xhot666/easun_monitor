@@ -21,7 +21,7 @@ describe('PvArrayTile', () => {
   const history = (pv: number[]) =>
     fakeServer((config) =>
       config.url === '/api/inverter/7/history'
-        ? { status: 200, data: { source: 'raw', bucketSeconds: 300, points: pv.map((PVPower, i) => ({ timestamp: String(i), values: { PVPower } })) } }
+        ? { status: 200, data: { source: 'raw', bucketSeconds: 300, points: pv.map((PVPower, i) => ({ timestamp: `${TODAY}T1${i}:40:00`, values: { PVPower } })) } }
         : { status: 404 },
     );
 
@@ -33,12 +33,12 @@ describe('PvArrayTile', () => {
       <PvArrayTile profileId={7} profile={wiring} panelTypes={[longi]} reading={reading({ PVPower: 1404, PVVoltage: 118.2 })} today={TODAY} />,
     );
 
-    const tile = screen.getByRole('region', { name: 'PV array' });
-    expect(tile).toHaveTextContent('6 × Longi 450W (3S2P)');
-    expect(tile).toHaveTextContent('52%');
-    expect(tile).toHaveTextContent('1.4 kW of 2.7 kW');
-    expect(tile).toHaveTextContent('PV voltage 118.2 V · Vmp 124.5 V');
-    expect(await screen.findByText("Today's peak 78% (2.1 kW)")).toBeInTheDocument();
+    const tile = screen.getByRole('region', { name: 'Solar now' });
+    expect(tile).toHaveTextContent(/52%\s*utilisation/);
+    expect(tile).toHaveTextContent('1.4 kW of 2.7 kW array');
+    expect(tile).toHaveTextContent('PV voltage118.2 VArray Vmp 125 V');
+    expect(await screen.findByText('78% at 11:40')).toBeInTheDocument();
+    expect(tile).toHaveTextContent('Today’s peak2.1 kW');
     expect(server.sent[0].params).toMatchObject({ from: dayRange(TODAY).from, fields: 'PVPower' });
   });
 
@@ -47,9 +47,9 @@ describe('PvArrayTile', () => {
 
     render(<PvArrayTile profileId={7} profile={wiring} panelTypes={[longi]} reading={null} today={TODAY} />);
 
-    const tile = screen.getByRole('region', { name: 'PV array' });
-    expect(tile).toHaveTextContent('--%');
-    expect(tile).toHaveTextContent('PV voltage -- · Vmp 124.5 V');
+    const tile = screen.getByRole('region', { name: 'Solar now' });
+    expect(tile).toHaveTextContent(/--%\s*utilisation/);
+    expect(tile).toHaveTextContent('PV voltage--Array Vmp 125 V');
   });
 
   it('points to the setup when no array is configured', () => {
@@ -59,6 +59,6 @@ describe('PvArrayTile', () => {
       <PvArrayTile profileId={7} profile={{ pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null }} panelTypes={[longi]} reading={null} today={TODAY} />,
     );
 
-    expect(screen.getByRole('link', { name: 'Set up your solar array' })).toHaveAttribute('href', '/dashboard/7/solar');
+    expect(screen.getByRole('link', { name: 'Set up solar array' })).toHaveAttribute('href', '/dashboard/7/settings/solar');
   });
 });
