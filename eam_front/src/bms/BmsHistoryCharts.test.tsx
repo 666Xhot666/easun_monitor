@@ -18,8 +18,8 @@ describe('BmsHistoryCharts', () => {
 
     render(<BmsHistoryCharts profileId={7} bmsId={3} />);
 
-    for (const title of ['State of charge (%)', 'Pack voltage (V)', 'Current (A)', 'Cell spread (mV)']) {
-      expect(await screen.findByRole('figure', { name: title })).toBeInTheDocument();
+    for (const [title, latest] of [['State of charge', '88%'], ['Pack voltage', '26.50 V'], ['Current', '-3.0 A'], ['Cell spread', '8 mV']]) {
+      expect(await screen.findByRole('figure', { name: title })).toHaveTextContent(latest);
     }
     expect(server.sent[0].url).toBe('/api/inverter/profiles/7/bms/3/history');
     expect(server.sent[0].params).toMatchObject({ points: 288, fields: 'stateOfChargePct,packVoltageV,currentA,cellDeltaV' });
@@ -32,9 +32,9 @@ describe('BmsHistoryCharts', () => {
     render(<BmsHistoryCharts profileId={7} bmsId={3} />);
     expect(await screen.findByText('No stored BMS readings in this range.')).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole('button', { name: '7 d' }));
+    await userEvent.click(screen.getByRole('radio', { name: '7 d' }));
     await waitFor(() => expect(server.sent).toHaveLength(2));
-    expect(screen.getByRole('button', { name: '7 d' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radio', { name: '7 d' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it("says when the history can't be loaded", async () => {
@@ -42,6 +42,6 @@ describe('BmsHistoryCharts', () => {
 
     render(<BmsHistoryCharts profileId={7} bmsId={3} />);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't load the BMS history.");
+    expect(await screen.findByRole('alert')).toHaveTextContent('Couldn’t load the battery history.');
   });
 });
