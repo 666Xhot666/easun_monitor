@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   BatteryMedium,
@@ -80,7 +80,9 @@ function ShellLayout() {
         <TopBar />
         <StatusBanner />
         <main className="mx-auto w-full max-w-[1180px] flex-1 px-4 pt-6 pb-28 md:px-8 md:pt-8 md:pb-12">
-          <Outlet />
+          <Suspense fallback={<div aria-busy="true" className="h-64 animate-pulse rounded-xl border border-line bg-surface-2" />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
       <BottomTabs />
