@@ -18,6 +18,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { PrismaService } from '../prisma/prisma.service';
 import type { Response } from 'express';
+import { ReadingsQueryDto } from '../inverter/dto/readings-query.dto';
 import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
 import { ReadingsExportQueryDto } from '../inverter/dto/readings-export-query.dto';
 import { BmsCsv } from './bms-csv';
@@ -167,6 +168,25 @@ export class BmsDevicesController {
   }
 
   /** Averaged history over a range, like the inverter's history. */
+  /** Stored readings of a range, newest first, a page at a time. */
+  @Get(':bmsId/readings')
+  async readings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @Query() query: ReadingsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
+    if (query.to <= query.from)
+      throw new BadRequestException('`from` must be before `to`');
+    return this.store.readings(bmsId, {
+      from: query.from,
+      to: query.to,
+      limit: query.limit ?? 100,
+      before: query.before,
+    });
+  }
+
   @Get(':bmsId/history')
   async history(
     @Param('profileId', ParseIntPipe) profileId: number,
