@@ -37,7 +37,7 @@ export default function HistoryPage() {
       {tab === 'power' && <PowerHistory profileId={profile.id} />}
       {tab === 'energy' && <DailyEnergy profileId={profile.id} />}
       {tab === 'readings' &&
-        (logged ? <ReadingsBrowser profileId={profile.id} registers={logged} /> : <p className="text-sm text-muted">Loading…</p>)}
+        (logged ? <ReadingsBrowser profileId={profile.id} registers={logged} bmsId={devices?.[0]?.id ?? null} /> : <p className="text-sm text-muted">Loading…</p>)}
       <Dialog
         open={exporting}
         title="Export readings"

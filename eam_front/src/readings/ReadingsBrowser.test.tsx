@@ -20,17 +20,50 @@ const reading = (time: string, payload: Record<string, number>, id: number) => (
   payload,
 });
 
-function renderBrowser(handler: (params: Record<string, string>) => Reply) {
+function renderBrowser(handler: (params: Record<string, string>) => Reply, bmsId: number | null = null) {
   const server = fakeServer((config: InternalAxiosRequestConfig) =>
-    config.url === '/api/inverter/7/readings' ? handler(config.params) : { status: 404 },
+    config.url === '/api/inverter/7/readings'
+      ? handler(config.params)
+      : config.url === '/api/inverter/profiles/7/bms/3/readings'
+        ? { status: 200, data: [{ id: 1, timestamp: new Date(`${TODAY}T09:00:00`).toISOString(), reading: bmsReading }] }
+        : { status: 404 },
   );
-  render(<ReadingsBrowser profileId={7} registers={registers} today={TODAY} />);
+  render(<ReadingsBrowser profileId={7} registers={registers} today={TODAY} bmsId={bmsId} />);
   return server;
 }
+
+const bmsReading = {
+  stateOfChargePct: 72, packVoltageV: 53.28, currentA: 31.2, powerW: 1662, remainingCapacityAh: 144, nominalCapacityAh: 200, cycleCount: 87,
+  cellVoltagesV: [3.332, 3.326], cellMinV: 3.326, cellMaxV: 3.332, cellAverageV: 3.329, cellDeltaV: 0.006,
+  temperaturesC: [{ name: 'MOSFET', celsius: 31.4 }], balancing: false, chargeMosfetOn: true, dischargeMosfetOn: true, alarms: [],
+};
 
 describe('ReadingsBrowser', () => {
   let restore = () => {};
   afterEach(() => restore());
+
+  it("switches to the battery's readings when there is a BMS", async () => {
+    const server = renderBrowser(() => ({ status: 200, data: [] }), 3);
+    restore = server.restore;
+
+    await userEvent.click(await screen.findByRole('radio', { name: 'Battery (BMS)' }));
+
+    expect(await screen.findByRole('option', { name: '09:00:00' })).toBeInTheDocument();
+    const detail = screen.getByRole('table', { name: /09:00:00/ });
+    expect(within(detail).getByRole('row', { name: 'State of charge 72%' })).toBeInTheDocument();
+    expect(within(detail).getByRole('row', { name: 'Cell 2 3.326 V' })).toBeInTheDocument();
+    expect(within(detail).getByRole('row', { name: 'MOSFET 31.4 °C' })).toBeInTheDocument();
+    expect(server.sent.at(-1)?.params).toMatchObject({ ...dayRange(TODAY), limit: 100 });
+    expect(screen.queryByRole('button', { name: /^Fields/ })).not.toBeInTheDocument();
+  });
+
+  it('offers no battery switch without a BMS', async () => {
+    restore = renderBrowser(() => ({ status: 200, data: [] })).restore;
+
+    await screen.findByText('No readings on this day.');
+    expect(screen.queryByRole('radio', { name: 'Battery (BMS)' })).not.toBeInTheDocument();
+  });
+
 
   it("lists the day's reading times, newest first, and shows the newest reading's values", async () => {
     const server = renderBrowser(() => ({

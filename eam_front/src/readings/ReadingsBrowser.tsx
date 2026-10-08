@@ -4,28 +4,42 @@ import axios from '../lib/apiClient';
 import { formatRegisterValue } from '../inverter/format';
 import type { RegisterDefinition } from '../inverter/types';
 import { dayLabel, dayRange, shiftDay, toDay, type Day } from './days';
+import type { BmsReading } from '../bms/types';
+import { Segmented } from '../ui';
+import BmsReadingRows from './BmsReadingRows';
 
 interface Reading {
   id: number;
   timestamp: string;
-  payload: Record<string, number>;
+  /** Inverter readings. */
+  payload?: Record<string, number>;
+  /** BMS readings. */
+  reading?: BmsReading;
 }
+type Source = 'inverter' | 'bms';
 
 const PAGE = 100;
 const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour12: false });
-const iconButton =
-  'grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink hover:bg-surface-2 disabled:opacity-40';
+const iconButton = 'grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink hover:bg-surface-2 disabled:opacity-40';
 
 /** One day's stored readings: their times on the left, the picked reading's values on the right. */
 export default function ReadingsBrowser({
   profileId,
   registers,
   today = toDay(new Date()),
+  bmsId = null,
 }: {
   profileId: number;
   registers: RegisterDefinition[];
   today?: Day;
+  /** The inverter's BMS, when there is one: its readings can be shown instead. */
+  bmsId?: number | null;
 }) {
+  const [source, setSource] = useState<Source>('inverter');
+  const url =
+    source === 'bms' && bmsId !== null
+      ? `/api/inverter/profiles/${profileId}/bms/${bmsId}/readings`
+      : `/api/inverter/${profileId}/readings`;
   const [day, setDay] = useState<Day>(today);
   const [readings, setReadings] = useState<Reading[]>([]);
   const [hasMore, setHasMore] = useState(false);
@@ -44,7 +58,7 @@ export default function ReadingsBrowser({
       setHasMore(false);
       setSelectedId(null);
       try {
-        const { data } = await axios.get<Reading[]>(`/api/inverter/${profileId}/readings`, {
+        const { data } = await axios.get<Reading[]>(url, {
           params: { ...dayRange(day), limit: PAGE },
         });
         if (token !== requestIdRef.current) return;
@@ -59,7 +73,7 @@ export default function ReadingsBrowser({
     return () => {
       requestIdRef.current += 1;
     };
-  }, [profileId, day]);
+  }, [url, day]);
 
   async function loadMore() {
     const oldest = readings[readings.length - 1];
@@ -67,7 +81,7 @@ export default function ReadingsBrowser({
     const token = requestIdRef.current;
     setLoadingMore(true);
     try {
-      const { data } = await axios.get<Reading[]>(`/api/inverter/${profileId}/readings`, {
+      const { data } = await axios.get<Reading[]>(url, {
         params: { ...dayRange(day), limit: PAGE, before: oldest.timestamp },
       });
       if (token !== requestIdRef.current) return;
@@ -112,27 +126,41 @@ export default function ReadingsBrowser({
           <ChevronRight className="h-4 w-4" />
         </button>
         <span className="text-sm font-semibold">{dayLabel(day, today)}</span>
-        <div className="relative ml-auto">
-          <button
-            type="button"
-            aria-expanded={fieldsOpen}
-            onClick={() => setFieldsOpen((o) => !o)}
-            className="inline-flex h-9 items-center gap-2 rounded-lg border border-line-strong px-3 text-sm hover:bg-surface-2"
-          >
-            <SlidersHorizontal className="h-4 w-4" />
-            {`Fields · ${shownFields.length} of ${registers.length}`}
-          </button>
-          {fieldsOpen && (
-            <div className="absolute top-11 right-0 z-30 max-h-80 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-xl">
-              {registers.map((d) => (
-                <label key={d.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface-2">
-                  <input type="checkbox" checked={!hidden.has(d.name)} onChange={() => toggleField(d.name)} />
-                  {d.label}
-                </label>
-              ))}
-            </div>
-          )}
-        </div>
+        {bmsId !== null && (
+          <Segmented
+            ariaLabel="Readings of"
+            size="sm"
+            value={source}
+            onChange={setSource}
+            options={[
+              { value: 'inverter', label: 'Inverter' },
+              { value: 'bms', label: 'Battery (BMS)' },
+            ]}
+          />
+        )}
+        {source === 'inverter' && (
+          <div className="relative ml-auto">
+            <button
+              type="button"
+              aria-expanded={fieldsOpen}
+              onClick={() => setFieldsOpen((o) => !o)}
+              className="inline-flex h-9 items-center gap-2 rounded-lg border border-line-strong px-3 text-sm hover:bg-surface-2"
+            >
+              <SlidersHorizontal className="h-4 w-4" />
+              {`Fields · ${shownFields.length} of ${registers.length}`}
+            </button>
+            {fieldsOpen && (
+              <div className="absolute top-11 right-0 z-30 max-h-80 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-xl">
+                {registers.map((d) => (
+                  <label key={d.name} className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-surface-2">
+                    <input type="checkbox" checked={!hidden.has(d.name)} onChange={() => toggleField(d.name)} />
+                    {d.label}
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {status === 'loading' && <p className="py-10 text-center text-sm text-muted">Loading…</p>}
@@ -158,7 +186,8 @@ export default function ReadingsBrowser({
                     onClick={() => setSelectedId(r.id)}
                     onKeyDown={(e) => onOptionKey(e, r.id)}
                     className={
-                      'cursor-pointer px-3 py-2 font-mono text-[13px]' + (isSelected ? ' bg-sel font-semibold text-on-sel' : ' hover:bg-surface-2')
+                      'cursor-pointer px-3 py-2 font-mono text-[13px]' +
+                      (isSelected ? ' bg-sel font-semibold text-on-sel' : ' hover:bg-surface-2')
                     }
                   >
                     {time(r.timestamp)}
@@ -178,22 +207,31 @@ export default function ReadingsBrowser({
             )}
           </div>
           {selected && (
-            <table aria-label={`Reading at ${time(selected.timestamp)}`} className="w-full overflow-hidden rounded-lg border border-line text-sm">
+            <table
+              aria-label={`Reading at ${time(selected.timestamp)}`}
+              className="w-full overflow-hidden rounded-lg border border-line text-sm"
+            >
               <caption className="border-b border-line bg-surface-2 px-3 py-2 text-left">
                 <span className="font-mono font-semibold">{time(selected.timestamp)}</span>{' '}
-                <span className="text-xs text-muted">Inverter reading · {dayLabel(day, today)}</span>
+                <span className="text-xs text-muted">
+                  {source === 'bms' ? 'Battery reading' : 'Inverter reading'} · {dayLabel(day, today)}
+                </span>
               </caption>
               <tbody>
-                {shownFields
-                  .filter((d) => d.name in selected.payload)
-                  .map((d) => (
-                    <tr key={d.name} className="border-t border-line">
-                      <th scope="row" className="px-3 py-2 text-left font-normal text-muted">
-                        {d.label}
-                      </th>
-                      <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatRegisterValue(d, selected.payload[d.name])}</td>
-                    </tr>
-                  ))}
+                {selected.reading && <BmsReadingRows reading={selected.reading} />}
+                {selected.payload &&
+                  shownFields
+                    .filter((d) => d.name in selected.payload!)
+                    .map((d) => (
+                      <tr key={d.name} className="border-t border-line">
+                        <th scope="row" className="px-3 py-2 text-left font-normal text-muted">
+                          {d.label}
+                        </th>
+                        <td className="px-3 py-2 text-right font-semibold tabular-nums">
+                          {formatRegisterValue(d, selected.payload![d.name])}
+                        </td>
+                      </tr>
+                    ))}
               </tbody>
             </table>
           )}
