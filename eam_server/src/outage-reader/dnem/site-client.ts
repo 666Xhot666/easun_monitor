@@ -1,3 +1,5 @@
+import type { BrowserPage, OpenBrowser } from '../browser';
+import { openInChromium } from '../chromium';
 import { SiteError } from './site-error';
 import { parseSchedulePage, type SchedulePage } from './schedule-page';
 import { wallToUtc } from './windows';
@@ -18,9 +20,14 @@ export interface SiteClientOptions {
   fetch?: typeof globalThis.fetch;
   baseUrl?: string;
   timeoutMs?: number;
+  /** Opens the page in a real browser; Chromium by default. */
+  openBrowser?: OpenBrowser;
 }
 
-const USER_AGENT =
+/** The browser loads a page and runs its firewall check; it gets longer. */
+const BROWSER_TIMEOUT_MS = 60_000;
+
+export const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -87,12 +94,15 @@ export class DnemSiteClient {
   private cookieJar = new Map<string, string>();
   private page: SchedulePage | null = null;
   private pageUrl: string;
+  private openBrowser: OpenBrowser;
+  private browser: BrowserPage | null = null;
 
   constructor(options: SiteClientOptions = {}) {
     this.fetch = options.fetch ?? globalThis.fetch;
     this.baseUrl = options.baseUrl ?? 'https://www.dtek-dnem.com.ua';
     this.timeoutMs = options.timeoutMs ?? 15000;
     this.pageUrl = this.baseUrl + '/ua/shutdowns';
+    this.openBrowser = options.openBrowser ?? openInChromium;
   }
 
   private async request(
@@ -168,7 +178,21 @@ export class DnemSiteClient {
     }
   }
 
-  async loadPage(): Promise<SchedulePage> {
+  /**
+   * Loads the schedule page; with `browser`, in a real browser, through which
+   * `houses()` then asks too, until `close()`.
+   */
+  async loadPage(options: { browser?: boolean } = {}): Promise<SchedulePage> {
+    if (options.browser) {
+      await this.close();
+      this.browser = await this.openBrowser(this.pageUrl, {
+        userAgent: USER_AGENT,
+        timeoutMs: BROWSER_TIMEOUT_MS,
+      });
+      this.classify(200, this.browser.html);
+      this.page = parseSchedulePage(this.browser.html, this.pageUrl);
+      return this.page;
+    }
     const { status, body } = await this.request(this.pageUrl, {
       method: 'GET',
       headers: {
@@ -199,18 +223,20 @@ export class DnemSiteClient {
     params.append('data[2][name]', 'updateFact');
     params.append('data[2][value]', page.confirmed.updated);
 
-    const { status, body } = await this.request(page.ajaxUrl, {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json, text/javascript, */*; q=0.01',
-        'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        'X-Requested-With': 'XMLHttpRequest',
-        'X-CSRF-Token': page.csrfToken,
-        Origin: this.baseUrl,
-        Referer: this.pageUrl,
-      },
-      body: params.toString(),
-    });
+    const headers = {
+      Accept: 'application/json, text/javascript, */*; q=0.01',
+      'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRF-Token': page.csrfToken,
+    };
+    // In the browser, its own cookies, origin and referrer go along.
+    const { status, body } = this.browser
+      ? await this.browser.post(page.ajaxUrl, params.toString(), headers)
+      : await this.request(page.ajaxUrl, {
+          method: 'POST',
+          headers: { ...headers, Origin: this.baseUrl, Referer: this.pageUrl },
+          body: params.toString(),
+        });
 
     this.classify(status, body);
 
@@ -240,11 +266,23 @@ export class DnemSiteClient {
     }
     return result;
   }
+
+  /** Closes the browser, if one is open. */
+  async close(): Promise<void> {
+    const browser = this.browser;
+    this.browser = null;
+    await browser?.close();
+  }
+}
+
+export interface RetryOptions {
+  delaysMs?: number[];
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export async function retrying<T>(
   attempt: () => Promise<T>,
-  options: { delaysMs?: number[]; sleep?: (ms: number) => Promise<void> } = {},
+  options: RetryOptions = {},
 ): Promise<T> {
   const delaysMs = options.delaysMs ?? [2000, 10000, 30000];
   const sleep =

@@ -1,90 +1,16 @@
 import { DnemSiteClient, retrying } from './site-client';
 import { SiteError } from './site-error';
-
-const BASE = 'https://www.dtek-dnem.com.ua';
-
-const slots = Object.fromEntries(
-  Array.from({ length: 24 }, (_, i) => [String(i + 1), 'yes']),
-);
-const hourly = Object.fromEntries(
-  Array.from({ length: 24 }, (_, i) => {
-    const hh = (h: number) => `${String(h).padStart(2, '0')}:00`;
-    return [String(i + 1), ['x', hh(i), i === 23 ? '24:00' : hh(i + 1)]];
-  }),
-);
-const preset = {
-  sch_names: { 'GPV5.2': 'Черга 5.2' },
-  time_zone: hourly,
-  data: {
-    'GPV5.2': Object.fromEntries(
-      [1, 2, 3, 4, 5, 6, 7].map((d) => [String(d), slots]),
-    ),
-  },
-};
-const PAGE =
-  '<html><head><meta name="ajaxUrl" content="/ua/ajax" /><meta name="csrf-token" content="tok-1"></head><body><script>\n' +
-  `DisconSchedule.streets = ${JSON.stringify({ 'м. Дніпро': ['вул. Тестова'] })}\n` +
-  `DisconSchedule.preset = ${JSON.stringify(preset)}\n` +
-  `DisconSchedule.fact = ${JSON.stringify({ data: [], update: '24.07.2026 08:30', today: 1791579600 })}</script></body></html>`;
-const CHALLENGE =
-  '<html><head><script src="/_Incapsula_Resource?SWJIYLWA=719d34d31c8e3a6e6fffd425f7e032f3"></script></head></html>';
-
-const house = (over: Record<string, unknown> = {}) => ({
-  sub_type: '',
-  start_date: '',
-  end_date: '',
-  type: '',
-  sub_type_reason: ['GPV5.2'],
-  voluntarily: null,
-  cek: null,
-  ...over,
-});
-
-const json = (body: unknown, status = 200) =>
-  new Response(JSON.stringify(body), {
-    status,
-    headers: { 'content-type': 'application/json; charset=UTF-8' },
-  });
-const html = (body: string, status = 200, cookies: string[] = []) =>
-  new Response(body, {
-    status,
-    headers: [
-      ['content-type', 'text/html; charset=UTF-8'],
-      ...cookies.map((c): [string, string] => ['set-cookie', c]),
-    ],
-  });
-
-interface Call {
-  url: string;
-  init: RequestInit;
-}
-
-/** A fetch that answers from a queue and records each call. */
-function fakeFetch(...answers: Array<Response | Error>) {
-  const calls: Call[] = [];
-  const fetch = (url: string | URL | Request, init: RequestInit = {}) => {
-    calls.push({ url: String(url), init });
-    const answer = answers.shift();
-    if (!answer) throw new Error('unexpected request');
-    return answer instanceof Error
-      ? Promise.reject(answer)
-      : Promise.resolve(answer);
-  };
-  return { fetch: fetch as typeof globalThis.fetch, calls };
-}
-
-const header = (call: Call, name: string) =>
-  new Headers(call.init.headers).get(name);
-
-async function kindOf(promise: Promise<unknown>): Promise<string> {
-  try {
-    await promise;
-  } catch (e) {
-    if (e instanceof SiteError) return e.kind;
-    throw e;
-  }
-  throw new Error('expected a SiteError');
-}
+import {
+  BASE,
+  PAGE,
+  CHALLENGE,
+  house,
+  json,
+  html,
+  fakeFetch,
+  header,
+  kindOf,
+} from './testing/site-fixtures';
 
 describe('DnemSiteClient', () => {
   it('loads the schedule page like a browser and parses it', async () => {
