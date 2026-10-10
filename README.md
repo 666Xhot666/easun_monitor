@@ -337,6 +337,56 @@ The decoder is ported from
 [syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0),
 commit `59c994e`.
 
+## Outage schedule reader
+
+Checks the DTEK Dnipro site (`dtek-dnem.com.ua`) for the outage
+schedule of the address set in the app, and reports to the server.
+Runs natively beside the server, like the BMS reader. Read-only.
+
+Set the address in the app under the inverter's Settings > Outage
+schedule. The reader token is shown once when the address is first
+saved.
+
+```bash
+cd eam_server
+npm run outage-reader -- --once    # one check, then exit
+npm run outage-reader              # check on schedule, forever
+```
+
+Settings (see `.env.example`), read from the environment, then
+`eam_server/.env`, then the repository's `.env`:
+
+- `OUTAGE_SERVER_URL`: the server, e.g. `http://localhost:3000`.
+- `OUTAGE_READER_TOKEN`: the token from the app.
+- `OUTAGE_INTERVAL_MINUTES` (120) and `OUTAGE_EVENING_INTERVAL_MINUTES`
+  (30): how often it checks, normally and during `OUTAGE_EVENING`
+  (`18:00-23:00`, Kyiv time).
+- `OUTAGE_BLOCKED_HOURS` (6): the pause after the site turns even the
+  browser away.
+- `OUTAGE_BROWSER_EVERY_DAYS` (7): one check this often goes through
+  the headless browser on purpose.
+- `OUTAGE_STATE_FILE` (`.outage-reader-state.json`): when the browser
+  was last used and the last street list sent.
+
+Each check loads the schedule page and the street's houses with plain
+requests. If the site answers with its firewall check or refuses them,
+the check is repeated in headless Chromium. The browser needs
+Playwright's Chromium, installed once:
+
+```bash
+cd eam_server
+npx playwright install chromium
+sudo npx playwright install-deps chromium    # Linux: the libraries Chromium needs
+```
+
+Without it, the weekly browser check runs with plain requests instead. If
+the site requires the browser, the check is reported as blocked, and the log
+says the browser could not start.
+
+On Linux, install it as a systemd service with
+`scripts/install-linux-service.sh outage-reader`. Log:
+`journalctl -u easun-outage-reader -f`.
+
 ## Tests
 
 ```bash

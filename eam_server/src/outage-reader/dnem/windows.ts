@@ -184,6 +184,11 @@ function wallClock(utcMs: number, timeZone: string): number {
   );
 }
 
+/** Minutes since local midnight at `at`. */
+export function localMinuteOf(at: Date, timeZone = KYIV): number {
+  return Math.floor((wallClock(at.getTime(), timeZone) % 86_400_000) / 60_000);
+}
+
 export function localDateOf(at: Date, timeZone = KYIV): LocalDate {
   const wall = new Date(wallClock(at.getTime(), timeZone));
   return {
@@ -222,7 +227,7 @@ function weekday(date: LocalDate): number {
   return sundayZero === 0 ? 7 : sundayZero;
 }
 
-function nextDay(date: LocalDate): LocalDate {
+export function nextDay(date: LocalDate): LocalDate {
   const next = new Date(Date.UTC(date.year, date.month - 1, date.day + 1));
   return {
     year: next.getUTCFullYear(),
