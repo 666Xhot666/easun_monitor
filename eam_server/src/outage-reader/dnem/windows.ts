@@ -197,7 +197,11 @@ export function localDateOf(at: Date, timeZone = KYIV): LocalDate {
  * The first instant at which the clock shows `minute` (may be 1440) of
  * `date`. In the hour skipped when clocks go forward, the moment of the jump.
  */
-function wallToUtc(date: LocalDate, minute: number, timeZone: string): number {
+export function wallToUtc(
+  date: LocalDate,
+  minute: number,
+  timeZone = KYIV,
+): number {
   const wall = Date.UTC(date.year, date.month - 1, date.day, 0, minute);
   const HALF_DAY = 12 * 3600_000;
   // The offsets in force half a day either side cover any single transition.

@@ -1,4 +1,5 @@
-import { parseSchedulePage, SchedulePageError } from './schedule-page';
+import { parseSchedulePage } from './schedule-page';
+import { SiteError } from './site-error';
 
 const PAGE_URL = 'https://www.dtek-dnem.com.ua/ua/shutdowns';
 
@@ -71,14 +72,14 @@ function page(parts: PageParts = {}): string {
   return `<html><head>${head}</head><body><script type="text/javascript">\n${scripts}</script></body></html>`;
 }
 
-function errorOf(html: string): SchedulePageError {
+function errorOf(html: string): SiteError {
   try {
     parseSchedulePage(html, PAGE_URL);
   } catch (e) {
-    if (e instanceof SchedulePageError) return e;
+    if (e instanceof SiteError) return e;
     throw e;
   }
-  throw new Error('expected a SchedulePageError');
+  throw new Error('expected a SiteError');
 }
 
 describe('parseSchedulePage', () => {

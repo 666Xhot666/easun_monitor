@@ -1,3 +1,4 @@
+import { SiteError } from './site-error';
 import { toSlotStatus, type SlotStatus } from './slot-status';
 
 /**
@@ -9,18 +10,6 @@ import { toSlotStatus, type SlotStatus } from './slot-status';
  * Validation is strict: anything off the expected shape is a `shape` error, so
  * a changed site is reported as such instead of being read as "no outages".
  */
-
-export type SchedulePageErrorKind = 'challenge' | 'shape';
-
-export class SchedulePageError extends Error {
-  constructor(
-    readonly kind: SchedulePageErrorKind,
-    message: string,
-  ) {
-    super(message);
-    this.name = 'SchedulePageError';
-  }
-}
 
 /** 24 statuses, index 0 = 00:00–01:00 Kyiv time. */
 export type DaySlots = SlotStatus[];
@@ -57,7 +46,7 @@ const CHALLENGE_MARKERS =
 
 export function parseSchedulePage(html: string, pageUrl: string): SchedulePage {
   if (!html.includes('DisconSchedule.') && CHALLENGE_MARKERS.test(html)) {
-    throw new SchedulePageError(
+    throw new SiteError(
       'challenge',
       'The site answered with a firewall challenge',
     );
@@ -75,8 +64,8 @@ export function parseSchedulePage(html: string, pageUrl: string): SchedulePage {
   };
 }
 
-function shape(message: string): SchedulePageError {
-  return new SchedulePageError('shape', message);
+function shape(message: string): SiteError {
+  return new SiteError('shape', message);
 }
 
 function metaContent(html: string, name: string): string | null {
