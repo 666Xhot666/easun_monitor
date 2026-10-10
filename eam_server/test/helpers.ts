@@ -37,7 +37,7 @@ export async function listenOnLoopback(app: INestApplication): Promise<void> {
 export async function resetDatabase(app: INestApplication): Promise<void> {
   const prisma = app.get(PrismaService);
   await prisma.$executeRawUnsafe(
-    'TRUNCATE telegram_link_codes, telegram_links, household_invites, household_memberships, households, bms_log_hourly, bms_logs, bms_devices, panel_types, inverter_settings_snapshots, inverter_logs, inverter_profiles, refresh_tokens, users RESTART IDENTITY CASCADE',
+    'TRUNCATE outage_site_streets, outage_sources, telegram_link_codes, telegram_links, household_invites, household_memberships, households, bms_log_hourly, bms_logs, bms_devices, panel_types, inverter_settings_snapshots, inverter_logs, inverter_profiles, refresh_tokens, users RESTART IDENTITY CASCADE',
   );
 }
 

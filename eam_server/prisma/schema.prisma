@@ -203,6 +203,7 @@ model InverterProfile {
   hourlyLogs        InverterLogHourly[]
   settingsSnapshots InverterSettingsSnapshot[]
   bmsDevices        BmsDevice[]
+  outageSource      OutageSource?
   alertEvents       AlertEvent[]
 
   /// One profile per physical logger, so two poll loops never share a device.
@@ -405,4 +406,54 @@ model NotificationSettings {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_settings")
+}
+
+enum OutageHouseState {
+  /// The reader has not looked the house up yet (new or changed address).
+  PENDING
+  FOUND
+  /// The house is not on the site's list for the street.
+  NOT_FOUND
+}
+
+/// Where an inverter's outage schedule comes from: a DTEK site and the
+/// address on it, at most one per inverter. The outage schedule reader asks
+/// for it with its token and checks it.
+model OutageSource {
+  id         Int              @id @default(autoincrement())
+  /// DTEK site key; "dnem" (DTEK Dnipro) is the only one so far.
+  site       String           @default("dnem")
+  /// City, street and house in the site's own spelling.
+  city       String
+  street     String
+  house      String
+  enabled    Boolean          @default(true)
+  houseState OutageHouseState @default(PENDING)
+  /// The house's outage groups as the reader found them (e.g. GPV5.2);
+  /// empty while pending, not found, or when the site lists none.
+  groups     String[]         @default([])
+  tokenHash  String           @unique
+  /// When the reader last asked for this source.
+  lastSeenAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inverterProfileId Int             @unique
+  inverterProfile   InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  @@map("outage_sources")
+}
+
+/// A DTEK site's city -> streets list, uploaded by the reader for the address
+/// pickers and replaced when it changes.
+model OutageSiteStreets {
+  site      String   @id
+  /// { city: [street, ...] }
+  streets   Json
+  /// sha256 of the uploaded list, to tell an unchanged one.
+  hash      String
+  updatedAt DateTime @updatedAt
+
+  @@map("outage_site_streets")
 }
