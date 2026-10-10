@@ -69,7 +69,7 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `DEV_AUTO_LOGIN` | false | Development only: sign in automatically as `DEV_AUTO_LOGIN_EMAIL`. |
 | `DEV_AUTO_LOGIN_EMAIL` | | Account dev auto-login signs in as; created if it doesn't exist. |
 | `DEV_SERIAL_SNIFF` | false | Development only: enable the serial capture panel at `/dev/serial`. |
-| `SERIAL_RX_PORT` | | Port of the tap on the logger's RX pad (responses), e.g. `/dev/cu.usbserial-…`. |
+| `SERIAL_RX_PORT` | | Port of the tap on the logger's RX pad (responses), e.g. `/dev/cu.usbserial-…` (macOS) or `/dev/serial/by-id/…` (Linux). |
 | `SERIAL_TX_PORT` | | Port of the tap on the logger's TX pad (requests). |
 | `SERIAL_RX_BAUD` / `SERIAL_TX_BAUD` | 9600 | Baud rate of each tap's USB side. |
 | `DEV_CAPTURE_DIR` | .dev-captures | Where captures are saved, one JSON-lines file each. |
@@ -128,8 +128,7 @@ no public address needed).
 node scripts/mock-inverter.ts
 ```
 
-Then pair it in the wizard at `host.docker.internal` (Docker Desktop) or your
-host's LAN IP (Docker on Linux), port 8899. Telemetry values move on every
+Then pair it in the wizard at `host.docker.internal`, port 8899. Telemetry values move on every
 read; settings keep their value and accept writes. To see alerts, start it with
 fault or warning bits set, e.g. `MOCK_WARNING_CODE=16640 node scripts/mock-inverter.ts`.
 
@@ -150,8 +149,9 @@ inverter: a USB-serial adapter on the RX pad hears the inverter's responses,
 and a second device on the TX pad hears the logger's requests. The second
 device can be an Arduino Nano running a SoftwareSerial passthrough on pins
 other than D0/D1; set `SERIAL_TX_BAUD` to whatever the sketch's USB side uses.
-Set the ports with `SERIAL_RX_PORT` and `SERIAL_TX_PORT` (prefer
-`/dev/cu.usbserial-*` over `tty.`); both bauds default to 9600.
+Set the ports with `SERIAL_RX_PORT` and `SERIAL_TX_PORT` (on macOS prefer
+`/dev/cu.usbserial-*` over `tty.`; on Linux use `/dev/serial/by-id/*`); both
+bauds default to 9600.
 
 With `DEV_SERIAL_SNIFF=true`, open `/dev/serial` in a dev build, check both
 ports and start a capture. Nothing is ever written to either port. Each request
@@ -276,6 +276,21 @@ SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B scripts/in
 
 Log: `~/serial-logger.log`. Uninstall: see the script's header.
 
+On Linux, install it as a systemd service. It starts at boot and restarts when
+it exits. Build it first with `npx nest build` in `eam_server`. Then, from the
+repository root, run the installer as the user it should run as:
+
+```bash
+SERIAL_RX_PORT=/dev/serial/by-id/<rx-tap> SERIAL_TX_PORT=/dev/serial/by-id/<tx-tap> \
+  scripts/install-linux-service.sh serial-logger
+```
+
+That user must be in the `dialout` group: run
+`sudo usermod -aG dialout $USER`, then log in again. View logs with
+`journalctl -u easun-serial-logger -f`. Uninstall by following the script's
+header. A tap without a USB serial number gets a generic `by-id` name. With two
+such devices, use its `/dev/serial/by-path/` name instead.
+
 Serial mode is read-only: settings writes are refused, and nothing is written
 to the taps or the inverter. The service keeps saving the two-tap capture files
 in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
@@ -285,7 +300,8 @@ program can open a serial port, so stop the serial logger before using the
 ## Battery (BMS) reader
 
 Reads a JK BMS over Bluetooth (read-only) and posts its readings to the
-server. Runs natively on a Mac within Bluetooth range of the battery.
+server. Runs natively on a Mac or Linux machine within Bluetooth range of the
+battery.
 
 ```bash
 cd eam_server
@@ -299,11 +315,21 @@ Settings (see `.env.example`): `BMS_NAME`, `BMS_ID`, `BMS_PROTOCOL`,
 `BMS_INGEST_URL`, `BMS_INGEST_TOKEN`, `BMS_SEND_INTERVAL_MS`. Read from the
 environment, then `eam_server/.env`, then the repository's `.env`.
 
-- `BMS_ID`: the id shown by `--scan`. `BMS_NAME`: a name prefix (default `JK-`).
+- `BMS_ID`: the id shown by `--scan`: a per-machine UUID on macOS, the
+  Bluetooth address (12 hex digits) on Linux. `BMS_NAME`: a name prefix
+  (default `JK-`).
 - `BMS_INGEST_URL` and `BMS_INGEST_TOKEN`: shown when the BMS is added in
   Settings > Battery monitor (BMS). Without them the reader only captures.
 - macOS asks for Bluetooth permission for the terminal app on first use. It
   cannot be granted over SSH.
+- On Linux the reader needs raw Bluetooth access. For a manual run, grant it
+  to Node:
+  `sudo setcap cap_net_raw,cap_net_admin+eip "$(readlink -f "$(command -v node)")"`.
+- To run it as a systemd service, build it and run
+  `scripts/install-linux-service.sh bms-reader` from the repository root as
+  the target user. The service gets Bluetooth access by itself, so the
+  `setcap` above can be removed with `sudo setcap -r` on the same path. View
+  logs with `journalctl -u easun-bms-reader -f`.
 - The JK phone app cannot connect while the reader is connected.
 - Each session writes `.dev-captures/bms/<start>.jsonl` with the raw frames.
 

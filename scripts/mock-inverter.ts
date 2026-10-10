@@ -6,9 +6,9 @@
  *
  *   node scripts/mock-inverter.ts      (Node 22.18+ or 23.6+)
  *
- * Pair it in the setup wizard at host.docker.internal (Docker Desktop) or
- * your host's LAN IP (Docker on Linux), port 8899. Telemetry values drift
- * randomly on every read; settings keep their value and accept writes.
+ * Pair it in the setup wizard at host.docker.internal, port 8899. Telemetry
+ * values drift randomly on every read; settings keep their value and accept
+ * writes.
  *
  * To see alerts on the dashboard, start it with active fault or warning
  * bits, e.g. MOCK_FAULT_CODE=128 (output overload) or
