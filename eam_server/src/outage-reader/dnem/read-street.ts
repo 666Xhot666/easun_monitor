@@ -30,6 +30,7 @@ export async function readStreet(
 ): Promise<StreetReading> {
   const { forceBrowser = false, retry } = options;
   try {
+    let block: SiteError | null = null;
     if (!forceBrowser) {
       try {
         const page = await retrying(() => client.loadPage(), retry);
@@ -37,12 +38,20 @@ export async function readStreet(
         return { page, houses, usedBrowser: false };
       } catch (e) {
         if (!needsBrowser(e)) throw e;
+        block = e;
       }
     }
     const page = await retrying(
       () => client.loadPage({ browser: true }),
       retry,
-    );
+    ).catch((e: unknown) => {
+      // A browser that cannot start leaves the site's block standing.
+      if (!block || e instanceof SiteError) throw e;
+      throw new SiteError(
+        block.kind,
+        `${block.message}; the browser could not start: ${(e as Error).message}`,
+      );
+    });
     const houses = await retrying(() => client.houses(city, street), retry);
     return { page, houses, usedBrowser: true };
   } finally {
@@ -50,7 +59,7 @@ export async function readStreet(
   }
 }
 
-function needsBrowser(e: unknown): boolean {
+function needsBrowser(e: unknown): e is SiteError {
   return (
     e instanceof SiteError && (e.kind === 'challenge' || e.kind === 'rejected')
   );

@@ -146,6 +146,23 @@ describe('readStreet', () => {
     expect(browser.opened).toEqual([]);
   });
 
+  it('reports the block when the browser it needs cannot start', async () => {
+    const { fetch } = fakeFetch(html(CHALLENGE));
+    const client = new DnemSiteClient({
+      fetch,
+      openBrowser: () =>
+        Promise.reject(new Error('Playwright could not be loaded')),
+    });
+    const failure = readStreet(client, 'a', 'b', { retry: noSleep });
+    await expect(failure).rejects.toMatchObject({
+      name: 'SiteError',
+      kind: 'challenge',
+      message: expect.stringMatching(
+        /browser could not start: Playwright could not be loaded/,
+      ),
+    });
+  });
+
   it('closes the browser when the check fails in it', async () => {
     const { fetch } = fakeFetch(html(CHALLENGE));
     const browser = fakeBrowser([PAGE], housesAnswer({ result: false }));
