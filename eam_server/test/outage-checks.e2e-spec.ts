@@ -1,0 +1,278 @@
+import { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { App } from 'supertest/types';
+import { PrismaService } from '../src/prisma/prisma.service';
+import {
+  createTestApp,
+  registerUser,
+  resetDatabase,
+  sampleProfile,
+} from './helpers';
+
+/** 24 hourly statuses, `yes` unless set: { hour: status }. */
+const day = (set: Record<number, string> = {}) =>
+  Array.from({ length: 24 }, (_, h) => set[h] ?? 'yes');
+const week = (monday = day()) => ({
+  '1': monday,
+  '2': day(),
+  '3': day(),
+  '4': day(),
+  '5': day(),
+  '6': day(),
+  '7': day(),
+});
+
+const okCheck = (over: Record<string, unknown> = {}) => ({
+  checkedAt: '2026-10-10T17:00:00.000Z',
+  outcome: 'ok',
+  usedBrowser: false,
+  house: { found: true, groups: ['GPV5.2'], outage: null },
+  weekly: { 'GPV5.2': week(day({ 8: 'maybe' })) },
+  confirmed: {
+    updated: '10.10.2026 20:40',
+    days: { '2026-10-11': { 'GPV5.2': day({ 18: 'no', 19: 'no' }) } },
+  },
+  ...over,
+});
+
+describe('Outage schedule checks (e2e)', () => {
+  let app: INestApplication<App>;
+  let prisma: PrismaService;
+  let admin: string;
+  let profileId: number;
+  let readerToken: string;
+  let sourceId: number;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    prisma = app.get(PrismaService);
+    await resetDatabase(app);
+    admin = await registerUser(app, 'admin@example.com');
+    profileId = (
+      await request(app.getHttpServer())
+        .post('/api/inverter/setup')
+        .set('Authorization', `Bearer ${admin}`)
+        .send(sampleProfile)
+        .expect(201)
+    ).body.id;
+  });
+
+  beforeEach(async () => {
+    await prisma.outageSource.deleteMany();
+    const { body } = await request(app.getHttpServer())
+      .put(`/api/inverter/profiles/${profileId}/outage-source`)
+      .set('Authorization', `Bearer ${admin}`)
+      .send({ city: 'м. Дніпро', street: 'вул. Тестова', house: '12а' })
+      .expect(200);
+    readerToken = body.token;
+    sourceId = body.source.id;
+  });
+  afterAll(() => app.close());
+
+  const send = (check: object, token = readerToken) =>
+    request(app.getHttpServer())
+      .post('/api/outage/reader/checks')
+      .set('Authorization', `Bearer ${token}`)
+      .send(check);
+
+  const source = () =>
+    prisma.outageSource.findUniqueOrThrow({ where: { id: sourceId } });
+
+  it('stores a successful check: the house, its weekly pattern and confirmed days', async () => {
+    const { body } = await send(okCheck()).expect(202);
+    expect(body).toEqual({ stored: true });
+
+    expect(await source()).toMatchObject({
+      houseState: 'FOUND',
+      groups: ['GPV5.2'],
+    });
+    expect(await prisma.outageCheck.findMany()).toEqual([
+      expect.objectContaining({
+        sourceId,
+        checkedAt: new Date('2026-10-10T17:00:00Z'),
+        outcome: 'OK',
+        usedBrowser: false,
+        error: null,
+      }),
+    ]);
+    const patterns = await prisma.outageWeeklyPattern.findMany();
+    expect(patterns).toEqual([
+      expect.objectContaining({
+        group: 'GPV5.2',
+        days: week(day({ 8: 'maybe' })),
+        seenAt: new Date('2026-10-10T17:00:00Z'),
+      }),
+    ]);
+    const days = await prisma.outageConfirmedDay.findMany();
+    expect(days).toEqual([
+      expect.objectContaining({
+        day: new Date('2026-10-11T00:00:00Z'),
+        group: 'GPV5.2',
+        slots: day({ 18: 'no', 19: 'no' }),
+        siteUpdated: '10.10.2026 20:40',
+        firstSeenAt: new Date('2026-10-10T17:00:00Z'),
+        changedAt: new Date('2026-10-10T17:00:00Z'),
+      }),
+    ]);
+  });
+
+  it('stores a re-sent check once', async () => {
+    await send(okCheck()).expect(202);
+    const { body } = await send(okCheck()).expect(202);
+    expect(body).toEqual({ stored: false });
+    expect(await prisma.outageCheck.count()).toBe(1);
+  });
+
+  it('keeps one version of an unchanged weekly pattern, and adds one when it changes', async () => {
+    await send(okCheck()).expect(202);
+    await send(okCheck({ checkedAt: '2026-10-10T19:00:00.000Z' })).expect(202);
+    expect(await prisma.outageWeeklyPattern.count()).toBe(1);
+
+    await send(
+      okCheck({
+        checkedAt: '2026-10-10T21:00:00.000Z',
+        weekly: { 'GPV5.2': week(day({ 9: 'maybe' })) },
+      }),
+    ).expect(202);
+    const versions = await prisma.outageWeeklyPattern.findMany({
+      orderBy: { seenAt: 'asc' },
+    });
+    expect(versions.map((v) => v.seenAt.toISOString())).toEqual([
+      '2026-10-10T17:00:00.000Z',
+      '2026-10-10T21:00:00.000Z',
+    ]);
+  });
+
+  it("keeps a confirmed day's latest version and when it was first seen", async () => {
+    await send(okCheck()).expect(202);
+    // Same slots, newer site stamp: not a change.
+    await send(
+      okCheck({
+        checkedAt: '2026-10-10T18:00:00.000Z',
+        confirmed: {
+          updated: '10.10.2026 21:00',
+          days: { '2026-10-11': { 'GPV5.2': day({ 18: 'no', 19: 'no' }) } },
+        },
+      }),
+    ).expect(202);
+    await send(
+      okCheck({
+        checkedAt: '2026-10-10T19:00:00.000Z',
+        confirmed: {
+          updated: '10.10.2026 22:10',
+          days: {
+            '2026-10-11': { 'GPV5.2': day({ 18: 'no', 19: 'no', 20: 'no' }) },
+          },
+        },
+      }),
+    ).expect(202);
+
+    const [stored] = await prisma.outageConfirmedDay.findMany();
+    expect(stored).toMatchObject({
+      slots: day({ 18: 'no', 19: 'no', 20: 'no' }),
+      siteUpdated: '10.10.2026 22:10',
+      firstSeenAt: new Date('2026-10-10T17:00:00Z'),
+      changedAt: new Date('2026-10-10T19:00:00Z'),
+    });
+    expect(await prisma.outageConfirmedDay.count()).toBe(1);
+  });
+
+  it('logs a check that arrives after a newer one without letting it overwrite', async () => {
+    await send(
+      okCheck({
+        checkedAt: '2026-10-10T19:00:00.000Z',
+        house: { found: true, groups: ['GPV1.1'], outage: null },
+        weekly: { 'GPV1.1': week() },
+        confirmed: { updated: '10.10.2026 22:00', days: {} },
+      }),
+    ).expect(202);
+    await send(okCheck({ checkedAt: '2026-10-10T17:00:00.000Z' })).expect(202);
+
+    expect(await prisma.outageCheck.count()).toBe(2);
+    expect(await source()).toMatchObject({ groups: ['GPV1.1'] });
+    expect(await prisma.outageConfirmedDay.count()).toBe(0);
+    expect(
+      (await prisma.outageWeeklyPattern.findMany()).map((p) => p.group),
+    ).toEqual(['GPV1.1']);
+  });
+
+  it('records a house that is not on the street', async () => {
+    await send(
+      okCheck({
+        house: { found: false },
+        weekly: {},
+        confirmed: { updated: '10.10.2026 20:40', days: {} },
+      }),
+    ).expect(202);
+    expect(await source()).toMatchObject({
+      houseState: 'NOT_FOUND',
+      groups: [],
+    });
+  });
+
+  it('logs a failed check without touching what was found before', async () => {
+    await send(okCheck()).expect(202);
+    await send({
+      checkedAt: '2026-10-10T19:00:00.000Z',
+      outcome: 'challenge',
+      usedBrowser: true,
+      error: 'The site answered with a firewall challenge',
+    }).expect(202);
+
+    const checks = await prisma.outageCheck.findMany({
+      orderBy: { checkedAt: 'asc' },
+    });
+    expect(checks[1]).toMatchObject({
+      outcome: 'CHALLENGE',
+      usedBrowser: true,
+      error: 'The site answered with a firewall challenge',
+    });
+    expect(await source()).toMatchObject({
+      houseState: 'FOUND',
+      groups: ['GPV5.2'],
+    });
+    expect(await prisma.outageConfirmedDay.count()).toBe(1);
+  });
+
+  it('accepts a current outage on the house', async () => {
+    await send(
+      okCheck({
+        house: {
+          found: true,
+          groups: ['GPV5.2'],
+          outage: {
+            description: 'Аварійні ремонтні роботи',
+            type: '2',
+            start: '2026-10-10T15:05:00.000Z',
+            end: '2026-10-10T19:05:00.000Z',
+          },
+        },
+      }),
+    ).expect(202);
+  });
+
+  it('rejects a check in an unexpected form', async () => {
+    const bad = [
+      okCheck({ outcome: 'fine' }),
+      okCheck({ checkedAt: 'yesterday' }),
+      okCheck({ house: undefined }),
+      okCheck({ weekly: { 'GPV5.2': { ...week(), '3': day().slice(0, 23) } } }),
+      okCheck({ weekly: { 'GPV5.2': { ...week(), '3': day({ 2: 'off' }) } } }),
+      okCheck({ weekly: { 'GPV5.2': { '1': day() } } }),
+      okCheck({
+        confirmed: { updated: 'x', days: { tomorrow: { 'GPV5.2': day() } } },
+      }),
+      okCheck({ house: { found: true, groups: 'GPV5.2', outage: null } }),
+      okCheck({ house: { found: true, groups: [], outage: { start: 'now' } } }),
+      { checkedAt: '2026-10-10T19:00:00.000Z', outcome: 'server' },
+    ];
+    for (const check of bad) {
+      await send(check).expect(400);
+    }
+    expect(await prisma.outageCheck.count()).toBe(0);
+  });
+
+  it('turns away an unknown token', async () => {
+    await send(okCheck(), 'nope').expect(401);
+  });
+});
