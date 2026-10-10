@@ -276,6 +276,21 @@ SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B scripts/in
 
 Log: `~/serial-logger.log`. Uninstall: see the script's header.
 
+On Linux, install it as a systemd service. It starts at boot and restarts when
+it exits. Build it first with `npx nest build` in `eam_server`. Then, from the
+repository root, run the installer as the user it should run as:
+
+```bash
+SERIAL_RX_PORT=/dev/serial/by-id/<rx-tap> SERIAL_TX_PORT=/dev/serial/by-id/<tx-tap> \
+  scripts/install-linux-service.sh serial-logger
+```
+
+That user must be in the `dialout` group: run
+`sudo usermod -aG dialout $USER`, then log in again. View logs with
+`journalctl -u easun-serial-logger -f`. Uninstall by following the script's
+header. A tap without a USB serial number gets a generic `by-id` name. With two
+such devices, use its `/dev/serial/by-path/` name instead.
+
 Serial mode is read-only: settings writes are refused, and nothing is written
 to the taps or the inverter. The service keeps saving the two-tap capture files
 in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
@@ -307,6 +322,14 @@ environment, then `eam_server/.env`, then the repository's `.env`.
   Settings > Battery monitor (BMS). Without them the reader only captures.
 - macOS asks for Bluetooth permission for the terminal app on first use. It
   cannot be granted over SSH.
+- On Linux the reader needs raw Bluetooth access. For a manual run, grant it
+  to Node:
+  `sudo setcap cap_net_raw,cap_net_admin+eip "$(readlink -f "$(command -v node)")"`.
+- To run it as a systemd service, build it and run
+  `scripts/install-linux-service.sh bms-reader` from the repository root as
+  the target user. The service gets Bluetooth access by itself, so the
+  `setcap` above can be removed with `sudo setcap -r` on the same path. View
+  logs with `journalctl -u easun-bms-reader -f`.
 - The JK phone app cannot connect while the reader is connected.
 - Each session writes `.dev-captures/bms/<start>.jsonl` with the raw frames.
 
