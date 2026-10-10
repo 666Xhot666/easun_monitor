@@ -9,8 +9,10 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-eam_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-eam_password}
       POSTGRES_DB: ${POSTGRES_DB:-eam_db}
+    # Host-only: native processes (tests, a server run outside Docker) reach
+    # it on localhost; the LAN does not.
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "127.0.0.1:${DB_PORT:-5432}:5432"
     volumes:
       - eam_db_data:/var/lib/postgresql/data
     healthcheck:
@@ -67,6 +69,10 @@ services:
     volumes:
       - ./eam_server:/usr/src/app
       - eam_server_node_modules:/usr/src/app/node_modules
+    # Docker Desktop provides host.docker.internal; Docker on Linux needs
+    # this. It reaches the serial logger or mock inverter on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       db:
         condition: service_healthy
