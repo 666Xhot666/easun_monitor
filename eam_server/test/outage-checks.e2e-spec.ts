@@ -272,6 +272,192 @@ describe('Outage schedule checks (e2e)', () => {
     expect(await prisma.outageCheck.count()).toBe(0);
   });
 
+  describe('outage events', () => {
+    const repair = (start: string, end: string) => ({
+      found: true,
+      groups: ['GPV5.2'],
+      outage: {
+        description: 'Аварійні ремонтні роботи',
+        type: '2',
+        start,
+        end,
+      },
+    });
+    const noDays = { updated: '10.10.2026 20:40', days: {} };
+    const events = () =>
+      prisma.outageEvent.findMany({ orderBy: { start: 'asc' } });
+
+    it('keeps a repair that gets extended as one event, with its first announced end', async () => {
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T15:00:00.000Z',
+          house: repair('2026-10-10T15:05:00.000Z', '2026-10-10T19:05:00.000Z'),
+          confirmed: noDays,
+        }),
+      ).expect(202);
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T17:00:00.000Z',
+          house: repair('2026-10-10T15:05:00.000Z', '2026-10-10T22:55:00.000Z'),
+          confirmed: noDays,
+        }),
+      ).expect(202);
+
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: 'REPAIR',
+          status: 'OFF',
+          description: 'Аварійні ремонтні роботи',
+          start: new Date('2026-10-10T15:05:00Z'),
+          end: new Date('2026-10-10T22:55:00Z'),
+          announcedStart: new Date('2026-10-10T15:05:00Z'),
+          announcedEnd: new Date('2026-10-10T19:05:00Z'),
+          firstSeenAt: new Date('2026-10-10T15:00:00Z'),
+          lastSeenAt: new Date('2026-10-10T17:00:00Z'),
+          revisedAt: new Date('2026-10-10T17:00:00Z'),
+          withdrawnAt: null,
+        }),
+      ]);
+    });
+
+    it('withdraws a repair that is gone before its end, and leaves a finished one alone', async () => {
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T15:00:00.000Z',
+          house: repair('2026-10-10T15:05:00.000Z', '2026-10-10T22:55:00.000Z'),
+          confirmed: noDays,
+        }),
+      ).expect(202);
+      await send(
+        okCheck({ checkedAt: '2026-10-10T19:00:00.000Z', confirmed: noDays }),
+      ).expect(202);
+      expect((await events())[0].withdrawnAt).toEqual(
+        new Date('2026-10-10T19:00:00Z'),
+      );
+
+      await prisma.outageEvent.deleteMany();
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T21:00:00.000Z',
+          house: repair('2026-10-10T20:00:00.000Z', '2026-10-10T21:30:00.000Z'),
+          confirmed: noDays,
+        }),
+      ).expect(202);
+      await send(
+        okCheck({ checkedAt: '2026-10-10T22:00:00.000Z', confirmed: noDays }),
+      ).expect(202);
+      expect((await events())[0].withdrawnAt).toBeNull();
+    });
+
+    it("follows a confirmed day's outage as it is extended and then cancelled", async () => {
+      // 2026-10-11 18:00-20:00 Kyiv (UTC+3), then 18:00-21:00, then none.
+      const tomorrow = (slots: string[]) => ({
+        updated: '10.10.2026 20:40',
+        days: { '2026-10-11': { 'GPV5.2': slots } },
+      });
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T16:00:00.000Z',
+          confirmed: tomorrow(day({ 18: 'no', 19: 'no' })),
+        }),
+      ).expect(202);
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T18:00:00.000Z',
+          confirmed: tomorrow(day({ 18: 'no', 19: 'no', 20: 'no' })),
+        }),
+      ).expect(202);
+
+      expect(await events()).toEqual([
+        expect.objectContaining({
+          kind: 'SCHEDULE',
+          status: 'OFF',
+          description: null,
+          start: new Date('2026-10-11T15:00:00Z'),
+          end: new Date('2026-10-11T18:00:00Z'),
+          announcedEnd: new Date('2026-10-11T17:00:00Z'),
+          revisedAt: new Date('2026-10-10T18:00:00Z'),
+        }),
+      ]);
+
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T20:00:00.000Z',
+          confirmed: tomorrow(day()),
+        }),
+      ).expect(202);
+      expect((await events())[0].withdrawnAt).toEqual(
+        new Date('2026-10-10T20:00:00Z'),
+      );
+    });
+
+    it('records possible outages of the confirmed schedule apart from definite ones', async () => {
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T16:00:00.000Z',
+          confirmed: {
+            updated: 'x',
+            days: { '2026-10-11': { 'GPV5.2': day({ 8: 'maybe', 9: 'no' }) } },
+          },
+        }),
+      ).expect(202);
+      expect(
+        (await events()).map((e) => [e.status, e.start.toISOString()]),
+      ).toEqual([
+        ['POSSIBLE', '2026-10-11T05:00:00.000Z'],
+        ['OFF', '2026-10-11T06:00:00.000Z'],
+      ]);
+    });
+
+    it('leaves past outages and days the site no longer shows as they were', async () => {
+      // 06:00-07:00 Kyiv on the 11th, then checks after it ended.
+      await send(
+        okCheck({
+          checkedAt: '2026-10-11T02:00:00.000Z',
+          confirmed: {
+            updated: 'x',
+            days: { '2026-10-11': { 'GPV5.2': day({ 6: 'no' }) } },
+          },
+        }),
+      ).expect(202);
+      await send(
+        okCheck({
+          checkedAt: '2026-10-11T12:00:00.000Z',
+          confirmed: {
+            updated: 'y',
+            days: { '2026-10-11': { 'GPV5.2': day() } },
+          },
+        }),
+      ).expect(202);
+      await send(
+        okCheck({
+          checkedAt: '2026-10-12T12:00:00.000Z',
+          confirmed: {
+            updated: 'z',
+            days: { '2026-10-12': { 'GPV5.2': day() } },
+          },
+        }),
+      ).expect(202);
+
+      const [event] = await events();
+      expect(event).toMatchObject({ withdrawnAt: null, revisedAt: null });
+      expect(await prisma.outageEvent.count()).toBe(1);
+    });
+
+    it('keeps the events of a group the house is not on out', async () => {
+      await send(
+        okCheck({
+          checkedAt: '2026-10-10T16:00:00.000Z',
+          confirmed: {
+            updated: 'x',
+            days: { '2026-10-11': { 'GPV1.1': day({ 9: 'no' }) } },
+          },
+        }),
+      ).expect(202);
+      expect(await prisma.outageEvent.count()).toBe(0);
+    });
+  });
+
   it('turns away an unknown token', async () => {
     await send(okCheck(), 'nope').expect(401);
   });

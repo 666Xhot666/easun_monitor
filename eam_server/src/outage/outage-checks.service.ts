@@ -3,7 +3,18 @@ import { createHash } from 'node:crypto';
 import { hashIngestToken } from '../bms/ingest-token';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import {
+  dayWindows,
+  mergeWindows,
+  wallToUtc,
+  type LocalDate,
+} from '../outage-reader/dnem/windows';
 import { parseOkCheck, type OkCheck } from './check-payload';
+import {
+  planEvents,
+  type EventStatus,
+  type IncomingEvent,
+} from './event-matching';
 import type { PostOutageCheckDto } from './dto/post-outage-check.dto';
 
 type Tx = Prisma.TransactionClient;
@@ -131,5 +142,135 @@ export class OutageChecksService {
         });
       }
     }
+
+    if (house.found) {
+      await this.updateRepairs(tx, sourceId, checkedAt, house.outage);
+      await this.updateSchedule(tx, sourceId, checkedAt, check, house.groups);
+    }
+  }
+
+  /** The repair the site lists for the house, if any, as an event. */
+  private async updateRepairs(
+    tx: Tx,
+    sourceId: number,
+    checkedAt: Date,
+    outage: Extract<OkCheck['house'], { found: true }>['outage'],
+  ) {
+    const shown: IncomingEvent[] = outage
+      ? [
+          {
+            start: outage.start,
+            end: outage.end,
+            status: 'OFF',
+            description: outage.description,
+          },
+        ]
+      : [];
+    await this.updateEvents(
+      tx,
+      sourceId,
+      checkedAt,
+      'REPAIR',
+      shown,
+      () => true,
+    );
+  }
+
+  /**
+   * The confirmed schedule of the house's groups as events. The check speaks
+   * only for the days it shows: events on other days stay as they were.
+   */
+  private async updateSchedule(
+    tx: Tx,
+    sourceId: number,
+    checkedAt: Date,
+    check: OkCheck,
+    groups: string[],
+  ) {
+    const covered: Array<{ start: number; end: number }> = [];
+    const windows = [];
+    for (const [dayKey, byGroup] of Object.entries(check.confirmed.days)) {
+      const published = groups.filter((g) => byGroup[g]);
+      if (published.length === 0) continue;
+      const [year, month, day] = dayKey.split('-').map(Number);
+      const date: LocalDate = { year, month, day };
+      covered.push({
+        start: wallToUtc(date, 0),
+        end: wallToUtc(date, 24 * 60),
+      });
+      for (const group of published) {
+        windows.push(...dayWindows(date, byGroup[group], 'confirmed'));
+      }
+    }
+    const shown: IncomingEvent[] = mergeWindows(windows).map((w) => ({
+      start: w.start,
+      end: w.end,
+      status: w.status.toUpperCase() as EventStatus,
+      description: null,
+    }));
+    const onCoveredDay = (e: { start: Date; end: Date }) =>
+      covered.some(
+        (d) => e.start.getTime() < d.end && d.start < e.end.getTime(),
+      );
+    await this.updateEvents(
+      tx,
+      sourceId,
+      checkedAt,
+      'SCHEDULE',
+      shown,
+      onCoveredDay,
+    );
+  }
+
+  /**
+   * Matches what the check shows with the known events of one kind (see
+   * event-matching.ts). Only outages not over yet take part: what has ended
+   * stays as last seen.
+   */
+  private async updateEvents(
+    tx: Tx,
+    sourceId: number,
+    checkedAt: Date,
+    kind: 'REPAIR' | 'SCHEDULE',
+    shown: IncomingEvent[],
+    inScope: (e: { start: Date; end: Date }) => boolean,
+  ) {
+    const known = (
+      await tx.outageEvent.findMany({
+        where: { sourceId, kind, withdrawnAt: null, end: { gt: checkedAt } },
+      })
+    ).filter(inScope);
+    const plan = planEvents(
+      known,
+      shown.filter((e) => e.end > checkedAt),
+    );
+
+    for (const e of plan.create) {
+      await tx.outageEvent.create({
+        data: {
+          sourceId,
+          kind,
+          ...e,
+          announcedStart: e.start,
+          announcedEnd: e.end,
+          firstSeenAt: checkedAt,
+          lastSeenAt: checkedAt,
+        },
+      });
+    }
+    for (const { id, ...e } of plan.revise) {
+      await tx.outageEvent.update({
+        where: { id },
+        data: { ...e, lastSeenAt: checkedAt, revisedAt: checkedAt },
+      });
+    }
+    await tx.outageEvent.updateMany({
+      where: { id: { in: plan.unchanged } },
+      data: { lastSeenAt: checkedAt },
+    });
+    await tx.outageEvent.updateMany({
+      where: { id: { in: plan.withdraw } },
+      data: { withdrawnAt: checkedAt },
+    });
   }
 }

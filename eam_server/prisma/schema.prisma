@@ -439,6 +439,7 @@ model OutageSource {
   checks         OutageCheck[]
   weeklyPatterns OutageWeeklyPattern[]
   confirmedDays  OutageConfirmedDay[]
+  events         OutageEvent[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -529,4 +530,46 @@ model OutageConfirmedDay {
 
   @@unique([sourceId, group, day])
   @@map("outage_confirmed_days")
+}
+
+enum OutageEventKind {
+  /// A window of the confirmed schedule of the house's group(s).
+  SCHEDULE
+  /// A repair outage the site lists for the house itself.
+  REPAIR
+}
+
+enum OutageEventStatus {
+  OFF
+  POSSIBLE
+  UNKNOWN
+}
+
+/// One outage as the checks saw it over time: when it was announced, how its
+/// times were revised, and whether it was withdrawn (gone from the site before
+/// its end: finished early or cancelled). Events that have ended are kept as
+/// last seen.
+model OutageEvent {
+  id             Int               @id @default(autoincrement())
+  kind           OutageEventKind
+  status         OutageEventStatus
+  /// The site's description of a repair, e.g. "Аварійні ремонтні роботи".
+  description    String?
+  /// The times as last seen.
+  start          DateTime
+  end            DateTime
+  /// The times when first seen.
+  announcedStart DateTime
+  announcedEnd   DateTime
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  /// When a check last changed its times or description.
+  revisedAt      DateTime?
+  withdrawnAt    DateTime?
+
+  sourceId Int
+  source   OutageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, start])
+  @@map("outage_events")
 }
