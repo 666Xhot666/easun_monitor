@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import TelegramLink from './TelegramLink';
 
@@ -12,11 +12,7 @@ function renderLink(handler: (method: string, url: string) => Reply) {
 
 describe('TelegramLink', () => {
   let restore = () => {};
-  beforeEach(() => vi.spyOn(window, 'confirm').mockReturnValue(true));
-  afterEach(() => {
-    restore();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => restore());
 
   it('gives an unlinked user a code and tells them what to send to the bot', async () => {
     const server = renderLink((m, u) =>
@@ -48,6 +44,7 @@ describe('TelegramLink', () => {
 
     expect(await screen.findByText('A Telegram chat is linked.')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Unlink' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Unlink the Telegram chat?' })).getByRole('button', { name: 'Unlink' }));
 
     expect(await screen.findByText('Not linked. Alerts, /status and /energy come to a linked chat.')).toBeInTheDocument();
     expect(server.sent.some((c) => c.method === 'delete')).toBe(true);

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
+import { Area, AreaChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { format } from 'date-fns';
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import axios from '../lib/apiClient';
 import {
   HISTORY_RANGES,
@@ -11,18 +11,30 @@ import {
   type History,
   type HistoryRangeId,
 } from '../history/historyRange';
+import { Segmented } from '../ui';
 
-const CHARTS: { field: string; title: string; color: string; scale?: number }[] = [
-  { field: 'stateOfChargePct', title: 'State of charge (%)', color: '#16a34a' },
-  { field: 'packVoltageV', title: 'Pack voltage (V)', color: '#2563eb' },
-  { field: 'currentA', title: 'Current (A)', color: '#d97706' },
-  { field: 'cellDeltaV', title: 'Cell spread (mV)', color: '#dc2626', scale: 1000 },
+interface Series {
+  field: string;
+  title: string;
+  /** Multiplies the stored value (V → mV). */
+  scale?: number;
+  colour: string;
+  format: (v: number) => string;
+  /** A dashed line at zero: current changes sign. */
+  zero?: boolean;
+}
+
+const SERIES: Series[] = [
+  { field: 'stateOfChargePct', title: 'State of charge', colour: 'var(--soc)', format: (v) => `${Math.round(v)}%` },
+  { field: 'packVoltageV', title: 'Pack voltage', colour: 'var(--batt)', format: (v) => `${v.toFixed(2)} V` },
+  { field: 'currentA', title: 'Current', colour: 'var(--batt)', format: (v) => `${v.toFixed(1)} A`, zero: true },
+  { field: 'cellDeltaV', title: 'Cell spread', scale: 1000, colour: 'var(--batt)', format: (v) => `${Math.round(v)} mV` },
 ];
-const FIELDS = CHARTS.map((c) => c.field);
+const FIELDS = SERIES.map((s) => s.field);
 
 type FetchState = 'loading' | 'ok' | 'empty' | 'error';
 
-/** The BMS's stored readings over a range: state of charge, pack voltage, current, cell spread. */
+/** The BMS's stored readings over a range, one row per measure with its latest value. */
 export default function BmsHistoryCharts({ profileId, bmsId }: { profileId: number; bmsId: number }) {
   const [rangeId, setRangeId] = useState<HistoryRangeId>('24h');
   const [rows, setRows] = useState<ChartRow[]>([]);
@@ -40,9 +52,9 @@ export default function BmsHistoryCharts({ profileId, bmsId }: { profileId: numb
         if (cancelled) return;
         const scaled = toChartRows(data, FIELDS).map((row) => {
           const out: ChartRow = { ...row };
-          for (const c of CHARTS) {
-            const v = row[c.field];
-            if (c.scale && typeof v === 'number') out[c.field] = Math.round(v * c.scale * 10) / 10;
+          for (const s of SERIES) {
+            const v = row[s.field];
+            if (s.scale && typeof v === 'number') out[s.field] = Math.round(v * s.scale * 10) / 10;
           }
           return out;
         });
@@ -57,70 +69,73 @@ export default function BmsHistoryCharts({ profileId, bmsId }: { profileId: numb
     };
   }, [profileId, bmsId, rangeId]);
 
+  const latest = (field: string) => {
+    for (let i = rows.length - 1; i >= 0; i--) {
+      const v = rows[i][field];
+      if (typeof v === 'number') return v;
+    }
+    return undefined;
+  };
+
   return (
-    <section aria-labelledby="bms-history-title" className="mt-10">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2
-          id="bms-history-title"
-          className="text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-        >
+    <section aria-labelledby="bms-history-title" className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <div className="mb-2 flex flex-wrap items-center gap-3">
+        <h2 id="bms-history-title" className="text-[15px] font-semibold">
           History
         </h2>
-        <div className="flex gap-1">
-          {HISTORY_RANGES.map((r) => (
-            <button
-              key={r.id}
-              type="button"
-              aria-pressed={r.id === rangeId}
-              onClick={() => setRangeId(r.id)}
-              className={`rounded-md px-2 py-1 text-xs font-medium ${
-                r.id === rangeId
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-800'
-              }`}
-            >
-              {r.label}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          ariaLabel="History range"
+          size="sm"
+          options={HISTORY_RANGES.map((r) => ({ value: r.id, label: r.label }))}
+          value={rangeId}
+          onChange={setRangeId}
+        />
+        <span className="ml-auto font-mono text-xs text-muted">Latest</span>
       </div>
-
+      {fetchState === 'loading' && <div className="h-64 animate-pulse rounded-lg bg-surface-2" />}
       {fetchState === 'error' && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400">
-          Couldn't load the BMS history.
+        <p role="alert" className="py-10 text-center text-sm text-crit-ink">
+          Couldn’t load the battery history.
         </p>
       )}
-      {fetchState === 'empty' && (
-        <p className="text-sm text-gray-500 dark:text-gray-400">No stored BMS readings in this range.</p>
-      )}
+      {fetchState === 'empty' && <p className="py-10 text-center text-sm text-muted">No stored BMS readings in this range.</p>}
       {fetchState === 'ok' && (
-        <div className="grid gap-4 md:grid-cols-2">
-          {CHARTS.map((c) => (
-            <figure
-              key={c.field}
-              aria-label={c.title}
-              className="rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900"
-            >
-              <figcaption className="mb-1 text-xs font-medium text-gray-500 dark:text-gray-400">{c.title}</figcaption>
-              <div className="h-40">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart data={rows}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis
-                      dataKey="at"
-                      type="number"
-                      domain={['dataMin', 'dataMax']}
-                      tickFormatter={(t: number) => format(t, range.axisFormat)}
-                      tick={{ fontSize: 10 }}
-                    />
-                    <YAxis tick={{ fontSize: 10 }} width={40} domain={['auto', 'auto']} />
-                    <Tooltip labelFormatter={(t) => format(Number(t), 'PPpp')} />
-                    <Line type="monotone" dataKey={c.field} stroke={c.color} dot={false} isAnimationActive={false} connectNulls />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </figure>
-          ))}
+        <div>
+          {SERIES.map((s) => {
+            const value = latest(s.field);
+            return (
+              <figure key={s.field} aria-label={s.title} className="m-0 flex items-center gap-4 border-t border-line py-2.5">
+                <figcaption className="w-32 flex-none sm:w-40">
+                  <span className="block text-xs text-muted">{s.title}</span>
+                  <span className="text-[15px] font-semibold tabular-nums">{value === undefined ? '--' : s.format(value)}</span>
+                </figcaption>
+                <div className="h-12 min-w-0 flex-1">
+                  <ResponsiveContainer width="100%" height="100%">
+                    {s.field === 'stateOfChargePct' ? (
+                      <AreaChart data={rows} margin={{ top: 4, right: 0, bottom: 4, left: 0 }}>
+                        <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} hide />
+                        <YAxis domain={[0, 100]} hide />
+                        <Tooltip labelFormatter={(t) => format(Number(t), 'PPp')} formatter={(v) => (typeof v === 'number' ? s.format(v) : '--')} />
+                        <Area dataKey={s.field} name={s.title} stroke={s.colour} fill={s.colour} fillOpacity={0.2} strokeWidth={1.5} isAnimationActive={false} connectNulls />
+                      </AreaChart>
+                    ) : (
+                      <LineChart data={rows} margin={{ top: 4, right: 0, bottom: 4, left: 0 }}>
+                        <XAxis dataKey="at" type="number" domain={['dataMin', 'dataMax']} hide />
+                        <YAxis domain={['auto', 'auto']} hide />
+                        {s.zero && <ReferenceLine y={0} stroke="var(--border2)" strokeDasharray="3 3" />}
+                        <Tooltip labelFormatter={(t) => format(Number(t), 'PPp')} formatter={(v) => (typeof v === 'number' ? s.format(v) : '--')} />
+                        <Line dataKey={s.field} name={s.title} stroke={s.colour} dot={false} strokeWidth={1.5} isAnimationActive={false} connectNulls />
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+              </figure>
+            );
+          })}
+          <div className="flex justify-between border-t border-line pt-2 pl-36 font-mono text-[11px] text-muted sm:pl-44">
+            <span>{format(rows[0].at, range.axisFormat)}</span>
+            <span>Now</span>
+          </div>
         </div>
       )}
     </section>

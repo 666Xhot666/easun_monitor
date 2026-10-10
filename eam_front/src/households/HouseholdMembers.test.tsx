@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import HouseholdMembers from './HouseholdMembers';
 
@@ -27,7 +27,6 @@ const lists = (method: string, url: string): Reply | null =>
 
 describe('HouseholdMembers', () => {
   let restore = () => {};
-  beforeEach(() => vi.spyOn(window, 'confirm').mockReturnValue(true));
   afterEach(() => {
     restore();
     vi.restoreAllMocks();
@@ -37,7 +36,7 @@ describe('HouseholdMembers', () => {
     restore = renderMembers((m, u) => lists(m, u) ?? { status: 404 }).restore;
 
     const reader = await screen.findByRole('listitem', { name: 'reader@example.com' });
-    expect(within(reader).getByLabelText('Role of reader@example.com')).toHaveValue('READER');
+    expect(within(within(reader).getByRole('radiogroup', { name: 'Role of reader@example.com' })).getByRole('radio', { name: 'Reader' })).toHaveAttribute('aria-checked', 'true');
     const admin = screen.getByRole('listitem', { name: 'admin@example.com' });
     expect(admin).toHaveTextContent('You');
     expect(within(admin).queryByRole('button', { name: /Remove/ })).not.toBeInTheDocument();
@@ -48,7 +47,7 @@ describe('HouseholdMembers', () => {
     const server = renderMembers((m, u) => lists(m, u) ?? { status: 200, data: { ...members[1], role: 'ADMIN' } });
     restore = server.restore;
 
-    await userEvent.selectOptions(await screen.findByLabelText('Role of reader@example.com'), 'ADMIN');
+    await userEvent.click(within(await screen.findByRole('radiogroup', { name: 'Role of reader@example.com' })).getByRole('radio', { name: 'Admin' }));
 
     const patch = server.sent.find((c) => c.method === 'patch');
     expect(patch?.url).toBe('/api/households/5/members/2');
@@ -61,7 +60,9 @@ describe('HouseholdMembers', () => {
 
     await userEvent.click(await screen.findByRole('button', { name: 'Remove reader@example.com' }));
 
-    expect(window.confirm).toHaveBeenCalledWith('Remove reader@example.com from the household?');
+    const dialog = screen.getByRole('dialog', { name: 'Remove reader@example.com from the household?' });
+    expect(server.sent.some((c) => c.method === 'delete')).toBe(false);
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Remove' }));
     expect(server.sent.find((c) => c.method === 'delete')?.url).toBe('/api/households/5/members/2');
   });
 
@@ -71,7 +72,7 @@ describe('HouseholdMembers', () => {
     );
     restore = server.restore;
 
-    await userEvent.selectOptions(await screen.findByLabelText('Invite as'), 'ADMIN');
+    await userEvent.click(within(await screen.findByRole('radiogroup', { name: 'Invite as' })).getByRole('radio', { name: 'Admin' }));
     await userEvent.click(screen.getByRole('button', { name: 'Create invite' }));
 
     const post = server.sent.find((c) => c.method === 'post');
@@ -81,6 +82,11 @@ describe('HouseholdMembers', () => {
     expect(shown).toHaveTextContent('K7Q2-9XPA');
     expect(shown).toHaveTextContent(`${window.location.origin}/join/K7Q2-9XPA`);
     expect(shown).toHaveTextContent('shown only once');
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await userEvent.click(within(shown).getByRole('button', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith(`${window.location.origin}/join/K7Q2-9XPA`);
+    expect(within(shown).getByRole('button', { name: 'Copied' })).toBeInTheDocument();
 
     await userEvent.click(within(shown).getByRole('button', { name: 'Done' }));
     expect(screen.queryByText(/K7Q2-9XPA/)).not.toBeInTheDocument();
@@ -100,7 +106,7 @@ describe('HouseholdMembers', () => {
       (m, u) => lists(m, u) ?? { status: 409, data: { statusCode: 409, message: 'A household needs at least one admin' } },
     ).restore;
 
-    await userEvent.selectOptions(await screen.findByLabelText('Role of reader@example.com'), 'ADMIN');
+    await userEvent.click(within(await screen.findByRole('radiogroup', { name: 'Role of reader@example.com' })).getByRole('radio', { name: 'Admin' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('A household needs at least one admin');
   });

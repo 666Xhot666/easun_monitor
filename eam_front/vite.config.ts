@@ -30,4 +30,16 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // React changes rarely: its own file stays cached across app updates.
+        // Everything else is split by the lazy-loaded pages that use it.
+        manualChunks(id) {
+          if (/\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) return 'react'
+          return undefined
+        },
+      },
+    },
+  },
 })

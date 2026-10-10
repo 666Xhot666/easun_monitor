@@ -43,10 +43,16 @@ describe('BmsLivePanel', () => {
     render(<BmsLivePanel latest={live} />);
 
     expect(screen.getByTestId('bms-soc')).toHaveTextContent('88%');
+    expect(screen.getByText('Discharging')).toBeInTheDocument();
+    expect(screen.getByText('Empty in 7 h 31 m at the current rate')).toBeInTheDocument();
     expect(screen.getByTestId('bms-voltage')).toHaveTextContent('26.52 V');
     expect(screen.getByTestId('bms-current')).toHaveTextContent('-11.71 A');
-    expect(screen.getByTestId('bms-power')).toHaveTextContent('-311 W');
-    expect(screen.getByText('88.1 of 100 Ah · 12 cycles')).toBeInTheDocument();
+    expect(screen.getByTestId('bms-current')).toHaveTextContent('out of the pack');
+    expect(screen.getByTestId('bms-power')).toHaveTextContent('311 W');
+    expect(screen.getByTestId('bms-power')).toHaveTextContent('discharging');
+    expect(screen.getByTestId('bms-remaining')).toHaveTextContent('88.1 Ah');
+    expect(screen.getByTestId('bms-remaining')).toHaveTextContent('of 100 Ah');
+    expect(screen.getByTestId('bms-cycles')).toHaveTextContent('12');
   });
 
   it('lists every cell, marking the lowest and highest, with the spread', () => {
@@ -54,8 +60,8 @@ describe('BmsLivePanel', () => {
 
     const cells = within(screen.getByRole('list', { name: 'Cell voltages' })).getAllByRole('listitem');
     expect(cells).toHaveLength(8);
-    expect(cells[0]).toHaveTextContent('Cell 1');
-    expect(cells[0]).toHaveTextContent('3.316 V');
+    expect(cells[0]).toHaveAccessibleName('Cell 1: 3.316 V');
+    expect(cells[0]).toHaveTextContent('3.316');
     expect(cells[2]).toHaveAttribute('data-extreme', 'min');
     expect(cells[7]).toHaveAttribute('data-extreme', 'max');
     expect(cells[0]).not.toHaveAttribute('data-extreme');
@@ -69,8 +75,8 @@ describe('BmsLivePanel', () => {
     expect(screen.getByText('21.4 °C')).toBeInTheDocument();
     expect(screen.getByText('MOS')).toBeInTheDocument();
     expect(screen.getByTestId('bms-balancing')).toHaveTextContent('Balancing (0.04 A)');
-    expect(screen.getByTestId('bms-charge-mosfet')).toHaveTextContent('Charge on');
-    expect(screen.getByTestId('bms-discharge-mosfet')).toHaveTextContent('Discharge off');
+    expect(screen.getByTestId('bms-charge-mosfet')).toHaveTextContent('On');
+    expect(screen.getByTestId('bms-discharge-mosfet')).toHaveTextContent('Off');
     expect(screen.getByRole('list', { name: 'Alarms' })).toHaveTextContent('Cell undervoltage');
   });
 

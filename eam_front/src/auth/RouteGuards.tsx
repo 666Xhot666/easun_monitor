@@ -3,8 +3,8 @@ import { useAuth } from './useAuth';
 
 function FullScreenLoading() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 dark:bg-gray-950">
-      <p className="text-sm text-gray-500 dark:text-gray-400">Loading…</p>
+    <div className="flex min-h-screen items-center justify-center bg-page">
+      <p className="text-sm text-muted">Loading…</p>
     </div>
   );
 }

@@ -33,10 +33,11 @@ model User {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  refreshTokens RefreshToken[]
-  memberships   Membership[]
-  telegramLink  TelegramLink?
-  telegramCodes TelegramLinkCode[]
+  refreshTokens        RefreshToken[]
+  memberships          Membership[]
+  telegramLink         TelegramLink?
+  telegramCodes        TelegramLinkCode[]
+  notificationSettings NotificationSettings?
 
   @@map("users")
 }
@@ -130,16 +131,23 @@ model PanelType {
 /// with) or on logout; rows aren't deleted on expiry/revocation, since
 /// keeping the history is cheap and harmless.
 model RefreshToken {
-  id        Int       @id @default(autoincrement())
-  tokenHash String    @unique
-  expiresAt DateTime
-  revokedAt DateTime?
-  createdAt DateTime  @default(now())
+  id         Int       @id @default(autoincrement())
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+  /// One browser's sign-in: kept by every rotation of its refresh token.
+  sessionId  String
+  /// The browser's User-Agent when it signed in.
+  userAgent  String?
+  /// When this token was issued, i.e. the session's last refresh.
+  lastUsedAt DateTime  @default(now())
 
   userId Int
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, sessionId])
   @@map("refresh_tokens")
 }
 
@@ -195,6 +203,7 @@ model InverterProfile {
   hourlyLogs        InverterLogHourly[]
   settingsSnapshots InverterSettingsSnapshot[]
   bmsDevices        BmsDevice[]
+  alertEvents       AlertEvent[]
 
   /// One profile per physical logger, so two poll loops never share a device.
   @@unique([ipAddress, port])
@@ -363,4 +372,37 @@ model TelegramLinkCode {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("telegram_link_codes")
+}
+
+/// An alert as it happened: a fault, warning, grid change, low battery or a
+/// silent logger or BMS reader. Recorded when it is detected (and sent to
+/// Telegram, when linked), so the Alerts page can show the history.
+model AlertEvent {
+  id     Int      @id @default(autoincrement())
+  /// fault | warning | grid | battery | connection
+  kind   String
+  text   String
+  /// The BMS device's name, for BMS alerts.
+  source String?
+  at     DateTime @default(now())
+
+  inverterProfileId Int
+  inverterProfile   InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  @@index([inverterProfileId, at])
+  @@map("alert_events")
+}
+
+/// A user's notification choices: for each kind of alert and the evening
+/// summary, whether it shows in the app and goes to Telegram; and quiet
+/// hours. No row means the defaults (see notifications/notification-settings.ts).
+model NotificationSettings {
+  id        Int      @id @default(autoincrement())
+  settings  Json
+  updatedAt DateTime @updatedAt
+
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("notification_settings")
 }

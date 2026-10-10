@@ -265,6 +265,45 @@ describe('BMS devices (e2e)', () => {
       await call('get', `${base(device.id)}/latest`, strangerToken).expect(404);
     });
 
+    it("lists a day's stored readings, newest first, a page at a time", async () => {
+      const { device } = await addDevice();
+      const at = (iso: string) => new Date(iso);
+      await prisma.bmsLog.createMany({
+        data: ['08:00', '08:01', '08:02'].map((hm, i) => ({
+          bmsDeviceId: device.id,
+          timestamp: at(`2026-10-01T${hm}:00Z`),
+          payload: { stateOfChargePct: 70 + i },
+        })),
+      });
+      const range = {
+        from: '2026-10-01T00:00:00Z',
+        to: '2026-10-02T00:00:00Z',
+      };
+
+      const page = await call('get', `${base(device.id)}/readings`)
+        .query({ ...range, limit: 2 })
+        .expect(200);
+      expect(page.body.map((r: { timestamp: string }) => r.timestamp)).toEqual([
+        '2026-10-01T08:02:00.000Z',
+        '2026-10-01T08:01:00.000Z',
+      ]);
+      expect(page.body[0].reading).toEqual({ stateOfChargePct: 72 });
+
+      const next = await call('get', `${base(device.id)}/readings`)
+        .query({ ...range, limit: 2, before: page.body[1].timestamp })
+        .expect(200);
+      expect(
+        next.body.map(
+          (r: { reading: { stateOfChargePct: number } }) =>
+            r.reading.stateOfChargePct,
+        ),
+      ).toEqual([70]);
+
+      await call('get', `${base(device.id)}/readings`, strangerToken)
+        .query(range)
+        .expect(404);
+    });
+
     it('serves history from stored readings, and hourly averages for long ranges', async () => {
       const { device } = await addDevice();
       const t0 = new Date('2026-10-01T00:00:00Z').getTime();

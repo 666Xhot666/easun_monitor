@@ -61,18 +61,15 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
     }
   }
 
-  const inputClass =
-    'rounded-lg border border-gray-300 bg-white px-2 py-1 text-sm text-gray-900 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-100';
+  const inputClass = 'h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink';
   const error = problem ?? (failed ? "Couldn't export the readings." : null);
 
   return (
-    <section aria-labelledby="readings-export-title" className="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-gray-900">
-      <h2 id="readings-export-title" className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-        Export
-      </h2>
+    <section aria-label="Export" className="text-ink">
+      <p className="mb-3 text-sm text-muted">Whole days as CSV, times in this browser’s time zone, at most {MAX_DAYS} days at a time.</p>
       <div className="flex flex-wrap items-end gap-3">
         {bmsId !== null && (
-          <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+          <label className="flex flex-col gap-1 text-xs text-muted">
             Data
             <select
               value={source}
@@ -84,11 +81,11 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
             </select>
           </label>
         )}
-        <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           From
           <input type="date" value={first} max={today} onChange={(e) => setFirst(e.target.value)} className={inputClass} />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-gray-500 dark:text-gray-400">
+        <label className="flex flex-col gap-1 text-xs text-muted">
           To
           <input type="date" value={last} max={today} onChange={(e) => setLast(e.target.value)} className={inputClass} />
         </label>
@@ -96,14 +93,14 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
           type="button"
           onClick={() => void exportCsv()}
           disabled={problem !== null || exporting}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
           Export CSV
         </button>
       </div>
       {error && (
-        <p role="alert" className="mt-2 text-sm text-red-600 dark:text-red-400">
+        <p role="alert" className="mt-2 text-sm text-crit-ink">
           {error}
         </p>
       )}

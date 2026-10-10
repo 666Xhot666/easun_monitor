@@ -4,6 +4,8 @@ import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
 import type { BatteryType, InverterProfile } from '../auth/types';
+import { UserRoundCheck } from 'lucide-react';
+import { BrandMark } from '../ui/BrandMark';
 
 const STEP_LABELS = ['Network & Connection', 'Inverter & Power Rating', 'Battery Bank Specs'];
 
@@ -31,24 +33,24 @@ type TestState =
   | { status: 'error'; message: string };
 
 function inputClasses() {
-  return 'mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100';
+  return 'mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent';
 }
 
 function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: string; children: ReactNode; hint?: string }) {
   return (
     <div>
-      <label htmlFor={htmlFor} className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+      <label htmlFor={htmlFor} className="block text-sm font-medium text-ink">
         {label}
       </label>
       {children}
-      {hint && <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-muted">{hint}</p>}
     </div>
   );
 }
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
   return (
-    <ol className="mb-8 flex items-center justify-between">
+    <ol className="mt-6 mb-8 flex items-center justify-between">
       {STEP_LABELS.map((label, index) => {
         const step = index + 1;
         const isActive = step === currentStep;
@@ -60,10 +62,10 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 className={
                   'flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold ' +
                   (isDone
-                    ? 'bg-blue-600 text-white'
+                    ? 'bg-ink text-page'
                     : isActive
-                      ? 'border-2 border-blue-600 text-blue-600 dark:text-blue-400'
-                      : 'border-2 border-gray-300 text-gray-400 dark:border-gray-700 dark:text-gray-600')
+                      ? 'border-2 border-ink text-ink'
+                      : 'border-2 border-line-strong text-muted')
                 }
               >
                 {isDone ? '✓' : step}
@@ -72,8 +74,8 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 className={
                   'hidden text-center text-xs sm:block ' +
                   (isActive
-                    ? 'font-medium text-gray-900 dark:text-gray-100'
-                    : 'text-gray-400 dark:text-gray-600')
+                    ? 'font-medium text-ink'
+                    : 'text-muted')
                 }
               >
                 {label}
@@ -82,7 +84,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
             {step < STEP_LABELS.length && (
               <div
                 className={
-                  'mx-2 h-0.5 flex-1 ' + (isDone ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-800')
+                  'mx-2 h-0.5 flex-1 ' + (isDone ? 'bg-ink' : 'bg-surface-2')
                 }
               />
             )}
@@ -95,7 +97,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 
 export default function SetupWizard() {
   const navigate = useNavigate();
-  const { refreshUser, user } = useAuth();
+  const { refreshUser, user, logout } = useAuth();
   const hasExistingProfiles = (user?.inverterProfiles.length ?? 0) > 0;
 
   const [step, setStep] = useState(1);
@@ -185,11 +187,34 @@ export default function SetupWizard() {
 
   // Invited users have no household of their own: the server refuses them.
   if (user && user.adminHouseholdId === null) {
+    if (!hasExistingProfiles) {
+      const household = user.households[0];
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
+          <div className="w-full max-w-md rounded-xl border border-line bg-surface p-8 shadow-sm">
+            <BrandMark />
+            <UserRoundCheck className="h-7 w-7 text-muted" />
+            <h1 className="mt-3 text-xl font-semibold">Waiting for your admin to add an inverter</h1>
+            <p className="mt-2 text-sm leading-relaxed text-muted">
+              You joined {household?.name ?? 'a household'} as a reader. When a household admin pairs an inverter, it appears here
+              automatically.
+            </p>
+            <button
+              type="button"
+              onClick={logout}
+              className="mt-6 h-10 rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10 dark:bg-gray-950">
-        <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-8 text-sm text-gray-700 shadow-sm dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+      <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
+        <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-8 text-sm text-ink shadow-sm">
           <p>Only a household admin can add inverters. Ask an admin of your household to add one.</p>
-          <Link to="/dashboard" className="mt-4 inline-block font-medium text-blue-600 hover:underline dark:text-blue-400">
+          <Link to="/dashboard" className="mt-4 inline-block font-medium text-accent hover:underline">
             Back to the dashboard
           </Link>
         </div>
@@ -198,14 +223,14 @@ export default function SetupWizard() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10 dark:bg-gray-950">
-      <div className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-800 dark:bg-gray-900">
+    <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
+      <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-8 shadow-sm">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
+            <h1 className="text-xl font-semibold text-ink">
               {hasExistingProfiles ? 'Pair another inverter' : 'Pair your inverter'}
             </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-muted">
               Signed in as {user?.email}. This tells EAM how to read and interpret this
               system's telemetry.
             </p>
@@ -213,7 +238,7 @@ export default function SetupWizard() {
           {hasExistingProfiles && (
             <Link
               to="/dashboard"
-              className="shrink-0 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+              className="shrink-0 text-sm font-medium text-accent hover:underline"
             >
               Back to dashboard
             </Link>
@@ -238,7 +263,7 @@ export default function SetupWizard() {
             <Field
               label="Logger IP address"
               htmlFor="ipAddress"
-              hint="The LAN IP of the Wi-Fi Plug Pro adapter (e.g. 192.168.1.50), or a hostname like host.docker.internal for local testing."
+              hint="The Wi-Fi logger's address on your network (e.g. 192.168.1.50). Find it in your router's device list or in the SmartESS app."
             >
               <input
                 id="ipAddress"
@@ -270,19 +295,19 @@ export default function SetupWizard() {
                 type="button"
                 onClick={handleVerifyLogger}
                 disabled={!isIpValid || testState.status === 'testing'}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
+                className="rounded-lg border border-line-strong px-3 py-2 text-sm font-medium text-ink transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {testState.status === 'testing' ? 'Verifying…' : 'Verify Logger'}
               </button>
 
               {testState.status === 'success' && (
-                <p className="mt-2 text-sm text-emerald-600 dark:text-emerald-400">
+                <p className="mt-2 text-sm text-emerald-600">
                   Connected — read {testState.result.sampledParameter} in{' '}
                   {testState.result.latencyMs}ms.
                 </p>
               )}
               {testState.status === 'error' && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">{testState.message}</p>
+                <p className="mt-2 text-sm text-crit-ink">{testState.message}</p>
               )}
             </div>
           </div>
@@ -368,13 +393,13 @@ export default function SetupWizard() {
             <button
               type="button"
               onClick={() => setShowAdvanced((v) => !v)}
-              className="text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+              className="text-sm font-medium text-accent hover:underline"
             >
               {showAdvanced ? 'Hide' : 'Show'} voltage threshold overrides (optional)
             </button>
 
             {showAdvanced && (
-              <div className="space-y-4 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
+              <div className="space-y-4 rounded-lg border border-line p-4">
                 <Field label="Low battery cutoff voltage" htmlFor="lowCutoff" hint="Leave blank to use the chemistry default.">
                   <input
                     id="lowCutoff"
@@ -409,7 +434,7 @@ export default function SetupWizard() {
             )}
 
             {submitError && (
-              <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/30 dark:text-red-400">
+              <p className="rounded-lg bg-crit-bg px-3 py-2 text-sm text-crit-ink">
                 {submitError}
               </p>
             )}
@@ -421,7 +446,7 @@ export default function SetupWizard() {
             type="button"
             onClick={() => setStep((s) => Math.max(1, s - 1))}
             disabled={step === 1}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-gray-500 transition hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-0 dark:text-gray-400 dark:hover:bg-gray-800"
+            className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-0"
           >
             Back
           </button>
@@ -431,7 +456,7 @@ export default function SetupWizard() {
               type="button"
               onClick={() => setStep((s) => s + 1)}
               disabled={step === 1 ? !canLeaveStep1 : !canLeaveStep2}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               Next
             </button>
@@ -442,7 +467,7 @@ export default function SetupWizard() {
                 void handleFinish();
               }}
               disabled={!canSubmit || isSubmitting}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isSubmitting ? 'Saving…' : 'Finish setup'}
             </button>

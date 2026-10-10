@@ -62,6 +62,24 @@ describe('SolarArrayForm', () => {
     expect(screen.getByText(/Open-circuit voltage 544.5 V is above the inverter maximum of 500 V/)).toBeInTheDocument();
   });
 
+  it('draws the string layout and the voltages against the inverter input', () => {
+    restore = renderForm(profile({ pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2, pvMpptMinV: 120, pvMpptMaxV: 450, pvMaxVocV: 500 })).restore;
+
+    expect(screen.getAllByRole('listitem', { name: /^String \d$/ })).toHaveLength(2);
+    expect(screen.getByRole('img', { name: /^Voltage against the inverter/ })).toHaveAccessibleName(
+      'Voltage against the inverter’s PV input: Vmp 124.5 V, Voc 148.5 V, cold-morning Voc 170.8 V; MPPT window 120–450 V, max Voc 500 V',
+    );
+  });
+
+  it('steps the wiring up and down', async () => {
+    restore = renderForm(profile({ pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2 })).restore;
+
+    await userEvent.click(screen.getByRole('button', { name: 'More panels in series' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Fewer strings' }));
+
+    expect(screen.getByRole('region', { name: 'Array ratings' })).toHaveTextContent('4 panels (4S1P)');
+  });
+
   it('asks for the array when none is set up', () => {
     restore = renderForm(profile()).restore;
 

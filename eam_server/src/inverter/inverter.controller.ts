@@ -33,6 +33,7 @@ import { PairTestDto } from './dto/pair-test.dto';
 import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
 import { HistoryQueryDto } from './dto/history-query.dto';
+import { AlertsQueryDto } from './dto/alerts-query.dto';
 import { ReadingsQueryDto } from './dto/readings-query.dto';
 import { ReadingsExportQueryDto } from './dto/readings-export-query.dto';
 import { RangeQueryDto } from './dto/range-query.dto';
@@ -54,6 +55,7 @@ const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
 /** Longest range one history request may cover. */
 const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
 const DEFAULT_READINGS_PAGE = 100;
+const DEFAULT_ALERTS_PAGE = 50;
 /** The longest range the readings log lists or exports at once. */
 const MAX_READINGS_SPAN_MS = 31 * 24 * 60 * 60 * 1000;
 
@@ -317,6 +319,25 @@ export class InverterController {
       to,
       maxPoints: query.points ?? DEFAULT_HISTORY_POINTS,
       fields: query.fields,
+    });
+  }
+
+  /** The inverter's recorded alerts, newest first, a page at a time. */
+  @Get(':profileId/alerts')
+  async getAlerts(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Query() query: AlertsQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedProfile(profileId, user.userId, 'read');
+    return this.prisma.alertEvent.findMany({
+      where: {
+        inverterProfileId: profileId,
+        ...(query.before ? { id: { lt: query.before } } : {}),
+      },
+      orderBy: { id: 'desc' },
+      take: query.limit ?? DEFAULT_ALERTS_PAGE,
+      select: { id: true, kind: true, text: true, source: true, at: true },
     });
   }
 

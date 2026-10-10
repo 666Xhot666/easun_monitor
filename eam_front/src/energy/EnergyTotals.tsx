@@ -1,33 +1,41 @@
 import { useEffect, useState } from 'react';
 import axios from '../lib/apiClient';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
-
-/** GET /api/inverter/:profileId/energy response. */
-interface Totals {
-  pvKWh: number;
-  gridKWh: number;
-  outputKWh: number;
-  /** Energy into and out of the battery, at its terminals. */
-  batteryChargeKWh: number;
-  batteryDischargeKWh: number;
-  /** How much of the range had readings close enough together to integrate. */
-  coveredSeconds: number;
-}
-
-const ROWS: { label: string; key: keyof Totals }[] = [
-  { label: 'PV', key: 'pvKWh' },
-  { label: 'Grid', key: 'gridKWh' },
-  { label: 'Load', key: 'outputKWh' },
-  { label: 'Battery charge', key: 'batteryChargeKWh' },
-  { label: 'Battery discharge', key: 'batteryDischargeKWh' },
-];
+import { loadSources, selfSufficiency, type EnergyTotals as Totals } from './energyMix';
 
 /** Below this share of a day with readings, the totals say how much they cover. */
 const FULL_COVERAGE = 0.95;
 const REFRESH_MS = 60_000;
 
-const formatKWh = (kWh: number | undefined) =>
-  kWh === undefined ? '--' : `${kWh.toFixed(kWh < 10 ? 2 : 1)} kWh`;
+/** Decimals for an energy figure: 2 below 10 kWh, else 1. */
+const decimals = (kWh: number) => (kWh < 10 ? 2 : 1);
+
+/** Share of the load each source covered, in whole percent. */
+function loadMix(t: Totals): { solar: number; battery: number; grid: number } | null {
+  if (t.outputKWh <= 0) return null;
+  const kWh = loadSources(t);
+  const pct = (v: number) => Math.round((v / t.outputKWh) * 100);
+  return { solar: pct(kWh.solar), battery: pct(kWh.battery), grid: pct(kWh.grid) };
+}
+
+interface TileValue {
+  label: string;
+  colour: string;
+  value: string;
+  unit: string;
+  /** "↑ 2.1 vs 12.1" */
+  delta?: string;
+}
+
+function energyTile(label: string, colour: string, today: number | undefined, yesterday: number | undefined): TileValue {
+  if (today === undefined) return { label, colour, value: '--', unit: '' };
+  const d = decimals(today);
+  const delta =
+    yesterday === undefined
+      ? undefined
+      : `${today >= yesterday ? '↑' : '↓'} ${Math.abs(today - yesterday).toFixed(d)} vs ${yesterday.toFixed(d)}`;
+  return { label, colour, value: today.toFixed(d), unit: 'kWh', delta };
+}
 
 function useDayTotals(profileId: number, day: Day, refreshMs: number | null): Totals | null {
   const [totals, setTotals] = useState<Totals | null>(null);
@@ -69,7 +77,7 @@ interface Props {
   now?: () => number;
 }
 
-/** Today's and yesterday's PV, grid-import, load and battery energy, integrated by the server from the readings. */
+/** Today's solar, grid and load energy against yesterday, the self-sufficiency and where the load's energy came from. */
 export default function EnergyTotals({ profileId, today = toDay(new Date()), now = Date.now }: Props) {
   const yesterday = shiftDay(today, -1);
   const todayTotals = useDayTotals(profileId, today, REFRESH_MS);
@@ -79,32 +87,74 @@ export default function EnergyTotals({ profileId, today = toDay(new Date()), now
     coverageNote(yesterdayTotals, yesterday, now(), 'yesterday', false),
   ].filter((note): note is string => note !== null);
 
-  const cell = 'px-2 py-1.5 text-right tabular-nums';
+  const ss = todayTotals ? selfSufficiency(todayTotals) : undefined;
+  const ssYesterday = yesterdayTotals ? selfSufficiency(yesterdayTotals) : undefined;
+  const tiles: TileValue[] = [
+    energyTile('Solar', 'var(--pv)', todayTotals?.pvKWh, yesterdayTotals?.pvKWh),
+    energyTile('Grid', 'var(--grid)', todayTotals?.gridKWh, yesterdayTotals?.gridKWh),
+    energyTile('Load', 'var(--load)', todayTotals?.outputKWh, yesterdayTotals?.outputKWh),
+    {
+      label: 'Self-sufficiency',
+      colour: 'var(--good)',
+      value: ss === undefined ? '--' : String(ss),
+      unit: ss === undefined ? '' : '%',
+      delta:
+        ss === undefined || ssYesterday === undefined
+          ? undefined
+          : `${ss >= ssYesterday ? '↑' : '↓'} ${Math.abs(ss - ssYesterday)} pts vs ${ssYesterday}%`,
+    },
+  ];
+  const mix = todayTotals ? loadMix(todayTotals) : null;
+  const parts = mix
+    ? [
+        { name: 'Solar', share: mix.solar, colour: 'var(--pv)' },
+        { name: 'Battery', share: mix.battery, colour: 'var(--batt)' },
+        { name: 'Grid', share: mix.grid, colour: 'var(--grid)' },
+      ]
+    : [];
+
   return (
-    <section className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900">
-      <table aria-label="Energy" className="w-full text-sm">
-        <caption className="mb-2 text-left text-sm font-medium text-gray-500 dark:text-gray-400">Energy</caption>
-        <thead>
-          <tr className="text-xs text-gray-500 dark:text-gray-400">
-            <th scope="col" className="px-2 py-1 text-left font-normal" />
-            <th scope="col" className="px-2 py-1 text-right font-normal">Today</th>
-            <th scope="col" className="px-2 py-1 text-right font-normal">Yesterday</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-          {ROWS.map(({ label, key }) => (
-            <tr key={key}>
-              <th scope="row" className="px-2 py-1.5 text-left font-medium text-gray-700 dark:text-gray-200">
-                {label}
-              </th>
-              <td className={`${cell} font-semibold text-gray-900 dark:text-gray-50`}>{formatKWh(todayTotals?.[key])}</td>
-              <td className={`${cell} text-gray-600 dark:text-gray-300`}>{formatKWh(yesterdayTotals?.[key])}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <section className="flex h-full flex-col gap-3.5 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <h2 className="flex items-baseline gap-2 text-[15px] font-semibold">
+        Today <span className="text-xs font-normal text-muted">so far, vs yesterday</span>
+      </h2>
+      <div className="grid grid-cols-2 gap-2.5">
+        {tiles.map((t) => (
+          <div key={t.label} role="group" aria-label={t.label} className="flex flex-col gap-1 rounded-[10px] bg-surface-2 p-3">
+            <span className="flex items-center gap-1.5 text-xs text-muted">
+              <span className="h-2 w-2 rounded-[2px]" style={{ background: t.colour }} />
+              {t.label}
+            </span>
+            <span className="text-[22px] leading-tight font-semibold tabular-nums">
+              {t.value}
+              {t.unit && <span className="ml-1 text-xs font-normal text-muted">{t.unit}</span>}
+            </span>
+            {t.delta && <span className="text-xs text-muted tabular-nums">{t.delta}</span>}
+          </div>
+        ))}
+      </div>
+      {mix && (
+        <div className="mt-auto flex flex-col gap-2">
+          <p className="text-xs text-muted">Where today’s load came from</p>
+          <div
+            role="img"
+            aria-label={`Where today’s load came from: ${parts.map((p) => `${p.name.toLowerCase()} ${p.share}%`).join(', ')}`}
+            className="flex h-2 gap-0.5 overflow-hidden rounded"
+          >
+            {parts.map((p) => p.share > 0 && <span key={p.name} style={{ width: `${p.share}%`, background: p.colour }} />)}
+          </div>
+          <p className="flex flex-wrap gap-3 text-xs" aria-hidden="true">
+            {parts.map((p) => (
+              <span key={p.name} className="flex items-center gap-1.5">
+                <span className="h-2 w-2 rounded-[2px]" style={{ background: p.colour }} />
+                {p.name} <span className="text-muted">{p.share}%</span>
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
       {notes.map((note) => (
-        <p key={note} className="mt-2 text-xs text-amber-700 dark:text-amber-300">
+        <p key={note} className="text-xs text-warn-ink">
           {note}
         </p>
       ))}

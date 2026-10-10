@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { Info, RefreshCw, Send } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { Check, CircleAlert, Info, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { decimalsFor, formatRegisterValue } from '../inverter/format';
@@ -13,9 +13,10 @@ import {
   type FormValues,
 } from '../settings/settingsForm';
 import LithiumSetupHelper from '../settings/LithiumSetupHelper';
-import BmsSetup from '../bms/BmsSetup';
 import { useAuth } from '../auth/useAuth';
 import { checkSettings, NO_CONSTRAINTS, type Bounds, type SettingsConstraints } from '../settings/settingsRules';
+import { Button, Segmented } from '../ui';
+import { Dialog } from '../ui/Dialog';
 
 /** GET/PATCH /api/inverter/:profileId/settings response. */
 interface SettingsSnapshot {
@@ -24,16 +25,32 @@ interface SettingsSnapshot {
 }
 
 type LoadState = 'loading' | 'ready' | 'error';
-type SaveState =
-  | { kind: 'idle' }
-  | { kind: 'saving'; names: string[] }
-  | { kind: 'saved' }
-  | { kind: 'failed'; message: string };
+type Filter = 'all' | 'changed' | 'nondefault';
+
+interface ResultRow {
+  name: string;
+  label: string;
+  program?: string;
+  value: string;
+  ok: boolean;
+  /** "Confirmed" or "Inverter still reports 230 V". */
+  note: string;
+}
+
+type SaveDialog =
+  | { kind: 'review' }
+  | { kind: 'writing'; count: number }
+  | { kind: 'done'; rows: ResultRow[] }
+  | { kind: 'error'; message: string };
+
+const sectionId = (title: string) => `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
+const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * The inverter's settings, generated from the server's Register map and
- * read from the inverter itself. Changes are validated here, written by the
- * server, and shown as the inverter confirms them on read-back.
+ * read from the inverter itself. Changes are validated here, reviewed in a
+ * dialog, written by the server and shown as the inverter confirms them on
+ * read-back.
  */
 export default function InverterSettings() {
   const { profileId } = useParams<{ profileId: string }>();
@@ -47,9 +64,12 @@ export default function InverterSettings() {
   const [loadState, setLoadState] = useState<LoadState>('loading');
   const [loadError, setLoadError] = useState('');
   const [refreshing, setRefreshing] = useState(false);
-  const [saveState, setSaveState] = useState<SaveState>({ kind: 'idle' });
+  const [refreshError, setRefreshError] = useState('');
+  const [dialog, setDialog] = useState<SaveDialog | null>(null);
   const [constraints, setConstraints] = useState<SettingsConstraints>(NO_CONSTRAINTS);
   const [panelSettings, setPanelSettings] = useState<PanelSetting[]>([]);
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
 
   const original = useMemo(
     () => (registers && snapshot ? toFormValues(registers, snapshot.values) : {}),
@@ -69,12 +89,15 @@ export default function InverterSettings() {
     return merged;
   }, [check, errors]);
   const changeCount = Object.keys(changes).length;
+  const editedCount = new Set([...Object.keys(changes), ...Object.keys(errors)]).size;
   const hasErrors = Object.keys(fieldErrors).length > 0;
-
-  function applySnapshot(next: SettingsSnapshot) {
-    setSnapshot(next);
-    if (registers) setForm(toFormValues(registers, next.values));
-  }
+  const definitionOf = (name: string) => registers?.find((d) => d.name === name);
+  const defaultOf = (d: RegisterDefinition) => constraints.defaults[d.name] ?? d.default;
+  const isNonDefault = (d: RegisterDefinition) => {
+    const fallback = defaultOf(d);
+    const current = snapshot?.values[d.name];
+    return d.writable === true && fallback !== undefined && current !== undefined && Math.abs(current - fallback) > 1e-9;
+  };
 
   useEffect(() => {
     if (!registers) return;
@@ -126,6 +149,14 @@ export default function InverterSettings() {
     };
   }, []);
 
+  // Leaving the page (reload, close) with edits not yet written asks first.
+  useEffect(() => {
+    if (editedCount === 0) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => event.preventDefault();
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [editedCount]);
+
   /** Puts proposed values into the form as unsaved edits. */
   function propose(settings: Record<string, number>) {
     if (!registers) return;
@@ -141,141 +172,164 @@ export default function InverterSettings() {
 
   async function refresh() {
     setRefreshing(true);
-    setSaveState({ kind: 'idle' });
+    setRefreshError('');
     try {
       const { data } = await axios.post<SettingsSnapshot>(`/api/inverter/${profileId}/settings/refresh`);
-      applySnapshot(data);
+      setSnapshot(data);
+      if (registers) setForm(toFormValues(registers, data.values));
       setLoadState('ready');
     } catch (error) {
-      setSaveState({
-        kind: 'failed',
-        message: extractErrorMessage(error, "Couldn't read the settings from the inverter."),
-      });
+      setRefreshError(extractErrorMessage(error, "Couldn't read the settings from the inverter."));
     } finally {
       setRefreshing(false);
     }
   }
 
-  async function save() {
-    if (!registers || changeCount === 0 || hasErrors) return;
-    for (const name of Object.keys(changes)) {
-      const definition = registers.find((d) => d.name === name)!;
-      if (definition.risk && !window.confirm(`${definition.label}: ${definition.risk}\n\nChange it anyway?`)) return;
-    }
-    const summary = Object.entries(changes)
-      .map(([name, value]) => {
-        const definition = registers.find((d) => d.name === name)!;
-        return `${definition.label}: ${formatRegisterValue(definition, value)}`;
-      })
-      .join('\n');
-    const warnings = [...new Set(Object.values(check.warnings).flat())];
-    const caution = warnings.length
-      ? `\n\nPlease confirm you want this despite:\n${warnings.map((w) => `- ${w}`).join('\n')}`
-      : '';
-    if (!window.confirm(`Write these settings to the inverter?\n\n${summary}${caution}`)) return;
+  const warnings = [...new Set(Object.values(check.warnings).flat())];
+  const risks = Object.keys(changes).flatMap((name) => {
+    const d = definitionOf(name);
+    return d?.risk ? [`${d.label}: ${d.risk}`] : [];
+  });
 
-    setSaveState({ kind: 'saving', names: Object.keys(changes) });
+  async function write() {
+    if (!registers) return;
+    const sent = { ...changes };
+    const names = Object.keys(sent);
+    setDialog({ kind: 'writing', count: names.length });
     try {
       const { data } = await axios.patch<SettingsSnapshot>(`/api/inverter/${profileId}/settings`, {
-        changes,
+        changes: sent,
         ...(warnings.length ? { acknowledgeWarnings: true } : {}),
       });
-      applySnapshot(data);
-      setSaveState({ kind: 'saved' });
-    } catch (error) {
-      setSaveState({
-        kind: 'failed',
-        message: extractErrorMessage(error, "Couldn't write the settings to the inverter."),
+      const rows: ResultRow[] = names.map((name) => {
+        const d = definitionOf(name)!;
+        const tolerance = (d.scale ?? 1) / 2;
+        const ok = data.values[name] !== undefined && Math.abs(data.values[name] - sent[name]) < tolerance;
+        return {
+          name,
+          label: d.label,
+          program: d.panelProgram,
+          value: formatRegisterValue(d, sent[name]),
+          ok,
+          note: ok ? 'Confirmed' : `Inverter still reports ${formatRegisterValue(d, data.values[name])}`,
+        };
       });
+      // What the inverter confirmed becomes the new baseline; a value that
+      // didn't stick stays as an unsaved edit so it can be retried.
+      const keep = Object.fromEntries(rows.filter((r) => !r.ok).map((r) => [r.name, form[r.name]]));
+      setSnapshot(data);
+      setForm({ ...toFormValues(registers, data.values), ...keep });
+      setDialog({ kind: 'done', rows });
+    } catch (error) {
+      setDialog({ kind: 'error', message: extractErrorMessage(error, "Couldn't write the settings to the inverter.") });
     }
   }
 
-  const saving = saveState.kind === 'saving';
+  // Registers not yet identified are kept for working them out, in development only.
+  const sections = registers
+    ? groupIntoSections(registers).filter((section) => import.meta.env.DEV || section.title !== 'Unverified registers')
+    : [];
+  const q = query.trim().toLowerCase();
+  const visible = (d: RegisterDefinition) =>
+    (!q || d.label.toLowerCase().includes(q) || d.name.toLowerCase().includes(q) || (d.panelProgram ?? '').includes(q)) &&
+    (filter === 'all' || (filter === 'changed' ? d.name in changes || d.name in errors : isNonDefault(d)));
+  const shownSections = sections
+    .map((section) => ({ ...section, registers: section.registers.filter(visible) }))
+    .filter((section) => section.registers.length > 0);
+  const nonDefaultCount = sections.flatMap((section) => section.registers).filter(isNonDefault).length;
+  const saving = dialog?.kind === 'writing';
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
-      <header className="border-b border-gray-200 bg-white px-6 py-4 dark:border-gray-800 dark:bg-gray-900">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3">
-          <div>
-            <Link
-              to={`/dashboard/${profileId}`}
-              className="text-xs text-gray-500 hover:underline dark:text-gray-400"
-            >
-              ← Dashboard
-            </Link>
-            <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Inverter settings</h1>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => void refresh()}
-              disabled={refreshing || saving || !registers}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-800"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-              Refresh from inverter
-            </button>
-            {!readOnly && (
-              <button
-                type="button"
-                onClick={() => void save()}
-                disabled={changeCount === 0 || hasErrors || saving}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-blue-700 disabled:opacity-50"
+    <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
+      <nav aria-label="Sections" className="hidden lg:block">
+        <div className="sticky top-24">
+          <p className="mb-2 text-xs text-muted">Sections</p>
+          {sections.map((section) => {
+            const changed = section.registers.filter((d) => d.name in changes).length;
+            return (
+              <a
+                key={section.title}
+                href={`#${sectionId(section.title)}`}
+                className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-surface-2"
               >
-                <Send className="h-4 w-4" />
-                {saving ? 'Saving…' : changeCount === 1 ? 'Save 1 change' : `Save ${changeCount} changes`}
-              </button>
-            )}
-          </div>
+                {section.title}
+                {changed > 0 && (
+                  <span className="grid h-5 min-w-5 place-items-center rounded-full bg-accent px-1 text-[11px] font-semibold text-on-accent">
+                    {changed}
+                  </span>
+                )}
+              </a>
+            );
+          })}
         </div>
-      </header>
+      </nav>
 
-      <main className="mx-auto max-w-4xl px-6 py-8">
-        {snapshot && (
-          <p role="status" className="mb-4 text-sm text-gray-500 dark:text-gray-400">
-            Read from the inverter {new Date(snapshot.readAt).toLocaleString()}.
-          </p>
-        )}
-        {saveState.kind === 'saved' && (
-          <p className="mb-4 rounded-lg bg-green-50 px-4 py-2 text-sm text-green-800 dark:bg-green-900/30 dark:text-green-300">
-            Saved. The inverter confirmed the new values.
-          </p>
-        )}
-        {saveState.kind === 'failed' && (
-          <p
-            role="alert"
-            className="mb-4 rounded-lg bg-red-50 px-4 py-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-300"
-          >
-            {saveState.message}
+      <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-lg border border-line-strong bg-surface px-3">
+            <Search className="h-4 w-4 flex-none text-muted" />
+            <input
+              type="search"
+              aria-label="Search settings"
+              placeholder="Search settings or program number"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
+            />
+          </label>
+          <Segmented
+            ariaLabel="Show"
+            size="sm"
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'changed', label: `Changed · ${editedCount}` },
+              { value: 'nondefault', label: `Non-default · ${nonDefaultCount}` },
+            ]}
+          />
+        </div>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {snapshot && (
+            <p role="status" className="text-[13px] text-muted">
+              Read from the inverter {new Date(snapshot.readAt).toLocaleString()}.
+            </p>
+          )}
+          <Button size="sm" onClick={() => void refresh()} disabled={refreshing || saving || !registers}>
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh from inverter
+          </Button>
+        </div>
+        {refreshError && (
+          <p role="alert" className="mb-4 rounded-lg border border-crit-line bg-crit-bg px-4 py-2 text-sm text-crit-ink">
+            {refreshError}
           </p>
         )}
 
-        {loadState === 'loading' && (
-          <p className="py-16 text-center text-sm text-gray-500 dark:text-gray-400">
-            Reading settings from the inverter…
-          </p>
-        )}
+        {loadState === 'loading' && <p className="py-16 text-center text-sm text-muted">Reading settings from the inverter…</p>}
         {loadState === 'error' && (
-          <p role="alert" className="py-16 text-center text-sm text-red-600 dark:text-red-400">
+          <p role="alert" className="py-16 text-center text-sm text-crit-ink">
             {loadError}
           </p>
         )}
 
         {loadState === 'ready' && registers && (
-          <div className="space-y-8">
+          <div className="space-y-4">
             {readOnly ? (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Read-only: only a household admin can change settings.
-              </p>
+              <p className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm text-muted">Read-only: only a household admin can change settings.</p>
             ) : (
               <LithiumSetupHelper onPropose={propose} />
             )}
-            {groupIntoSections(registers).map((section) => (
-              <section key={section.title}>
-                <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+            {shownSections.length === 0 && (
+              <p className="rounded-xl border border-dashed border-line-strong p-7 text-center text-sm text-muted">No settings match.</p>
+            )}
+            {shownSections.map((section) => (
+              <section key={section.title} id={sectionId(section.title)} className="scroll-mt-24 rounded-xl border border-line bg-surface">
+                <h2 className="flex items-baseline gap-2 border-b border-line px-4 py-3 text-[15px] font-semibold">
                   {section.title}
+                  <span className="text-xs font-normal text-muted">{plural(section.registers.length, 'setting')}</span>
                 </h2>
-                <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+                <div className="divide-y divide-line">
                   {section.registers.map((definition) => (
                     <SettingRow
                       key={definition.name}
@@ -287,10 +341,8 @@ export default function InverterSettings() {
                       warnings={check.warnings[definition.name]}
                       inactive={check.inactive[definition.name]}
                       bounds={constraints.bounds[definition.name]}
-                      panelPrograms={panelSettings
-                        .filter((p) => p.affects?.includes(definition.name))
-                        .map((p) => p.program)}
-                      defaultValue={constraints.defaults[definition.name] ?? definition.default}
+                      panelPrograms={panelSettings.filter((p) => p.affects?.includes(definition.name)).map((p) => p.program)}
+                      defaultValue={defaultOf(definition)}
                       disabled={saving || readOnly}
                       onChange={(text) => setForm((f) => ({ ...f, [definition.name]: text }))}
                     />
@@ -298,16 +350,161 @@ export default function InverterSettings() {
                 </div>
               </section>
             ))}
-            {panelSettings.length > 0 && <PanelSettings settings={panelSettings} />}
+            {panelSettings.length > 0 && filter === 'all' && !q && <PanelSettings settings={panelSettings} />}
           </div>
         )}
-        {/* Independent of the inverter: set up even while it is unreachable. */}
-        <div className="mt-8">
-          <BmsSetup profileId={Number(profileId)} readOnly={readOnly} />
-        </div>
-      </main>
+
+        {!readOnly && editedCount > 0 && (
+          <>
+            <div aria-hidden="true" className="h-20" />
+            <div className="sticky bottom-20 z-10 -mt-16 flex items-center gap-2 rounded-xl bg-ink py-2 pr-2 pl-4 text-page shadow-xl md:bottom-4">
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{plural(editedCount, 'unsaved change')}</span>
+              <button
+                type="button"
+                onClick={() => registers && snapshot && setForm(toFormValues(registers, snapshot.values))}
+                className="h-9 rounded-lg border border-white/25 px-3 text-sm font-medium hover:bg-white/10"
+              >
+                Discard
+              </button>
+              <button
+                type="button"
+                disabled={hasErrors || changeCount === 0 || saving}
+                onClick={() => setDialog({ kind: 'review' })}
+                className="h-9 rounded-lg bg-page px-3 text-sm font-semibold text-ink disabled:opacity-50"
+              >
+                Review and save
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
+      <Dialog
+        open={dialog?.kind === 'review'}
+        title={`Write ${plural(changeCount, 'setting')} to the inverter?`}
+        width={560}
+        onClose={() => setDialog(null)}
+        actions={
+          <>
+            <Button onClick={() => setDialog(null)}>Keep editing</Button>
+            <Button variant="primary" onClick={() => void write()}>
+              {warnings.length || risks.length ? 'Write anyway' : 'Write to inverter'}
+            </Button>
+          </>
+        }
+      >
+        <p>The inverter applies each value straight away. EAM reads it back to confirm.</p>
+        <table className="mt-3 w-full overflow-hidden rounded-lg border border-line text-left text-sm text-ink">
+          <thead className="bg-surface-2 text-xs text-muted">
+            <tr>
+              <th scope="col" className="px-3 py-2 font-normal">Setting</th>
+              <th scope="col" className="px-3 py-2 font-normal">Now</th>
+              <th scope="col" className="px-3 py-2 font-normal">New</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(changes).map(([name, value]) => {
+              const d = definitionOf(name)!;
+              return (
+                <tr key={name} className="border-t border-line">
+                  <th scope="row" className="px-3 py-2 font-normal">
+                    {d.panelProgram && <span className="mr-1.5 font-mono text-[11px] text-muted">P{d.panelProgram}</span>}
+                    {d.label}
+                  </th>
+                  <td className="px-3 py-2 text-muted">{formatRegisterValue(d, snapshot?.values[name])}</td>
+                  <td className="px-3 py-2 font-semibold">{formatRegisterValue(d, value)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        {(risks.length > 0 || warnings.length > 0) && (
+          <ul className="mt-3 space-y-1.5 rounded-lg border border-warn-line bg-warn-bg px-3 py-2.5 text-sm text-warn-ink">
+            {[...risks, ...warnings].map((message) => (
+              <li key={message} className="flex gap-2">
+                <TriangleAlert className="mt-0.5 h-4 w-4 flex-none" />
+                <span>{message}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Dialog>
+
+      <Dialog
+        open={dialog !== null && dialog.kind !== 'review'}
+        title={
+          dialog?.kind === 'writing'
+            ? `Writing ${plural(dialog.count, 'setting')}…`
+            : dialog?.kind === 'error'
+              ? 'The inverter didn’t take the settings'
+              : dialog?.kind === 'done'
+                ? resultTitle(dialog.rows)
+                : ''
+        }
+        width={520}
+        onClose={() => dialog?.kind !== 'writing' && setDialog(null)}
+        actions={
+          dialog?.kind === 'writing' ? null : dialog?.kind === 'done' && dialog.rows.every((r) => r.ok) ? (
+            <Button variant="primary" onClick={() => setDialog(null)}>
+              Done
+            </Button>
+          ) : (
+            <>
+              <Button onClick={() => setDialog({ kind: 'review' })}>Retry</Button>
+              <Button variant="primary" onClick={() => setDialog(null)}>
+                Close
+              </Button>
+            </>
+          )
+        }
+      >
+        {dialog?.kind === 'writing' && (
+          <>
+            <p>Sending to the inverter, then reading each value back. Keep this page open.</p>
+            <div className="mt-3 h-1 overflow-hidden rounded bg-surface-2">
+              <div className="h-full w-3/5 animate-pulse rounded bg-accent" />
+            </div>
+          </>
+        )}
+        {dialog?.kind === 'error' && (
+          <p role="alert" className="text-crit-ink">
+            {dialog.message}
+          </p>
+        )}
+        {dialog?.kind === 'done' && (
+          <>
+            <p>
+              {dialog.rows.every((r) => r.ok)
+                ? `Read back at ${snapshot ? new Date(snapshot.readAt).toLocaleTimeString() : ''}.`
+                : 'The inverter accepted the write but reported the old value when read back. The failed setting is kept as an unsaved change so you can retry.'}
+            </p>
+            <ul className="mt-3 overflow-hidden rounded-lg border border-line text-sm text-ink">
+              {dialog.rows.map((r) => (
+                <li key={r.name} className="flex items-start gap-2.5 border-t border-line px-3.5 py-2.5 first:border-t-0">
+                  {r.ok ? <Check className="mt-0.5 h-4 w-4 flex-none text-good-ink" /> : <CircleAlert className="mt-0.5 h-4 w-4 flex-none text-crit-ink" />}
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span>
+                      {r.program && <span className="mr-1.5 font-mono text-[11px] text-muted">P{r.program}</span>}
+                      {r.label}
+                    </span>
+                    <span className={'text-xs ' + (r.ok ? 'text-good-ink' : 'text-crit-ink')}>{r.note}</span>
+                  </span>
+                  <span className="font-semibold tabular-nums">{r.value}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </Dialog>
     </div>
   );
+}
+
+function resultTitle(rows: ResultRow[]): string {
+  const ok = rows.filter((r) => r.ok).length;
+  if (ok === rows.length) return 'Saved. The inverter confirmed every value';
+  const failed = rows.length - ok;
+  return `Saved ${ok} of ${rows.length}. ${failed === 1 ? 'One setting' : `${failed} settings`} didn’t stick`;
 }
 
 function SettingRow({
@@ -341,42 +538,41 @@ function SettingRow({
 }) {
   const id = `setting-${definition.name}`;
   const inputClass =
-    'w-56 rounded-lg border px-3 py-1.5 text-sm dark:bg-gray-950 dark:text-gray-100 ' +
-    (errors
-      ? 'border-red-400 dark:border-red-600'
-      : changed
-        ? 'border-blue-400 dark:border-blue-500'
-        : 'border-gray-300 dark:border-gray-700');
+    'h-[38px] w-full rounded-lg border bg-surface px-3 text-sm text-ink disabled:opacity-60 sm:w-60 ' +
+    (errors ? 'border-crit' : changed ? 'border-accent ring-1 ring-accent' : 'border-line-strong');
 
   const [open, setOpen] = useState(false);
   const facts = [
-    definition.panelProgram && `Program ${definition.panelProgram}`,
     defaultValue !== undefined && `Default: ${formatRegisterValue(definition, defaultValue)}`,
   ].filter((fact): fact is string => Boolean(fact));
   const explained = definition.description || definition.optionDescriptions;
 
   return (
-    <div className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 ${inactive ? 'opacity-60' : ''}`}>
-      <div>
+    <div className={`flex flex-wrap items-start justify-between gap-3 px-4 py-3.5 ${changed ? 'bg-accent-soft' : ''}`}>
+      <div className={`min-w-0 flex-1 ${inactive ? 'opacity-60' : ''}`}>
         <div className="flex items-center gap-1.5">
-          <label htmlFor={id} className="text-sm font-medium text-gray-800 dark:text-gray-200">
+          <label htmlFor={id} className="text-[15px] font-medium text-ink">
             {definition.label}
           </label>
+          {definition.panelProgram && (
+            <span className="rounded bg-surface-2 px-1.5 font-mono text-[11px] text-muted">P{definition.panelProgram}</span>
+          )}
+          {changed && <span className="text-xs font-semibold text-accent">Edited</span>}
           {explained && (
             <button
               type="button"
               aria-label={`About ${definition.label}`}
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
-              className="rounded text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="rounded text-muted hover:text-ink"
             >
               <Info className="h-4 w-4" />
             </button>
           )}
         </div>
-        {inactive && <p className="mt-0.5 text-xs italic text-gray-500 dark:text-gray-400">{inactive}</p>}
+        {inactive && <p className="mt-0.5 text-xs text-warn-ink">{inactive}</p>}
         {facts.length > 0 && (
-          <p className="mt-0.5 flex gap-2 text-xs text-gray-500 dark:text-gray-400">
+          <p className="mt-0.5 flex gap-2 text-xs text-muted">
             {facts.map((fact) => (
               <span key={fact}>{fact}</span>
             ))}
@@ -386,15 +582,15 @@ function SettingRow({
           <a
             key={program}
             href={`#panel-${program}`}
-            className="mr-2 text-xs text-blue-600 hover:underline dark:text-blue-400"
+            className="mr-2 text-xs text-accent hover:underline"
           >
             Depends on panel program {program}
           </a>
         ))}
       </div>
-      <div className="flex flex-col items-end">
+      <div className="flex w-full flex-col items-stretch gap-1 sm:w-auto sm:items-end">
         {!definition.writable ? (
-          <span id={id} className="text-sm text-gray-600 dark:text-gray-300">
+          <span id={id} className="text-sm font-semibold text-ink">
             {formatRegisterValue(definition, current)}
           </span>
         ) : definition.options ? (
@@ -448,32 +644,32 @@ function SettingRow({
               className={inputClass}
             />
             {definition.unit && (
-              <span className="w-8 text-sm text-gray-500 dark:text-gray-400">{definition.unit}</span>
+              <span className="w-8 text-sm text-muted">{definition.unit}</span>
             )}
           </div>
         )}
         {bounds && (bounds.min !== undefined || bounds.max !== undefined) && (
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{formatRange(definition, bounds)}</p>
+          <p className="text-xs text-muted">{formatRange(definition, bounds)}</p>
         )}
         {warnings?.map((message) => (
-          <p key={message} className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+          <p key={message} className="max-w-60 text-xs text-warn-ink">
             {message}
           </p>
         ))}
         {errors?.map((message) => (
-          <p key={message} className="mt-1 text-xs text-red-600 dark:text-red-400">
+          <p key={message} className="max-w-60 text-xs font-medium text-crit-ink">
             {message}
           </p>
         ))}
       </div>
       {open && explained && (
-        <div className="basis-full rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-gray-800/60 dark:text-gray-300">
+        <div className="basis-full rounded-lg bg-surface-2 px-3 py-2 text-xs leading-relaxed text-muted">
           {definition.description && <p>{definition.description}</p>}
           {definition.options && definition.optionDescriptions && (
             <dl className="mt-1.5 space-y-1">
               {definition.options.map((option, index) => (
                 <div key={option}>
-                  <dt className="inline font-medium">{option}: </dt>
+                  <dt className="inline font-medium text-ink">{option}: </dt>
                   <dd className="inline">{definition.optionDescriptions![index]}</dd>
                 </div>
               ))}
@@ -489,26 +685,23 @@ function SettingRow({
 function PanelSettings({ settings }: { settings: PanelSetting[] }) {
   return (
     <section aria-labelledby="panel-settings-title">
-      <h2
-        id="panel-settings-title"
-        className="mb-1 text-sm font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400"
-      >
+      <h2 id="panel-settings-title" className="mb-1 text-[15px] font-semibold">
         Set on the inverter's panel
       </h2>
-      <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+      <p className="mb-3 text-sm text-muted">
         The app can't read or change these; they still change how the settings above behave.
       </p>
-      <div className="divide-y divide-gray-100 rounded-xl border border-gray-200 bg-white dark:divide-gray-800 dark:border-gray-800 dark:bg-gray-900">
+      <div className="divide-y divide-line rounded-xl border border-line bg-surface">
         {settings.map((setting) => (
           <div key={`${setting.program}-${setting.title}`} id={`panel-${setting.program}`} className="px-4 py-3">
-            <p className="text-sm font-medium text-gray-800 dark:text-gray-200">{setting.title}</p>
-            <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-[15px] font-medium text-ink">{setting.title}</p>
+            <p className="mt-0.5 text-xs text-muted">
               Program {setting.program} · Default: {setting.default}
             </p>
             {setting.options && (
-              <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{setting.options.join(', ')}</p>
+              <p className="mt-1 text-xs text-muted">{setting.options.join(', ')}</p>
             )}
-            <p className="mt-1 text-xs text-gray-600 dark:text-gray-300">{setting.description}</p>
+            <p className="mt-1 text-xs text-muted">{setting.description}</p>
           </div>
         ))}
       </div>

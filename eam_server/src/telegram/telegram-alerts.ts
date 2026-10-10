@@ -7,15 +7,18 @@ import { PrismaService } from '../prisma/prisma.service';
 import { clockTime, duration } from './messages';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
+import { alertKind } from '../alerts/alert-kind';
+import { NotificationSettingsService } from '../notifications/notification-settings.service';
+import { sendsToTelegram } from '../notifications/notification-settings';
 
 /** How long a logger or BMS reader is silent before it is reported. */
 const OFFLINE_AFTER_MS = 5 * 60_000;
 const DEFAULT_LOW_SOC = 20;
 
 /**
- * Alerts on change, sent to the linked chats of every member of the
- * inverter's household. State is in memory: after a restart the first
- * reading is a silent baseline.
+ * Alerts on change, recorded for the Alerts page and sent to the linked
+ * chats of every member of the inverter's household. State is in memory:
+ * after a restart the first reading is a silent baseline.
  */
 @Injectable()
 export class TelegramAlerts {
@@ -35,6 +38,7 @@ export class TelegramAlerts {
   constructor(
     private readonly prisma: PrismaService,
     private readonly bot: TelegramBot,
+    private readonly notifications: NotificationSettingsService,
     config: ConfigService,
   ) {
     const configured = Number(config.get<string>('TELEGRAM_LOW_SOC'));
@@ -151,14 +155,34 @@ export class TelegramAlerts {
       select: { name: true, householdId: true },
     });
     if (!profile) return;
+    // Kept for the Alerts page whether or not anyone has linked Telegram.
+    await this.prisma.alertEvent.create({
+      data: {
+        inverterProfileId: profileId,
+        kind: alertKind(message),
+        text: message,
+        source: bmsName ?? null,
+      },
+    });
     const links = await this.prisma.telegramLink.findMany({
       where: {
         user: { memberships: { some: { householdId: profile.householdId } } },
       },
       orderBy: { userId: 'asc' },
-      select: { chatId: true },
+      select: { chatId: true, userId: true },
     });
+    const settings = await this.notifications.forUsers(
+      links.map((l) => l.userId),
+    );
+    const kind = alertKind(message);
+    const now = new Date();
     const text = `${profile.name}${bmsName ? ` (${bmsName})` : ''}: ${message}`;
-    for (const { chatId } of links) await this.bot.send(chatId, text);
+    for (const { chatId, userId } of links) {
+      if (
+        sendsToTelegram(settings.get(userId)!, kind, now, this.bot.timeZone)
+      ) {
+        await this.bot.send(chatId, text);
+      }
+    }
   }
 }

@@ -1,10 +1,12 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
   Post,
   Req,
   Res,
@@ -20,6 +22,7 @@ import {
   type AuthResult,
   type IssuedTokens,
 } from './auth.service';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -42,12 +45,14 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   async register(
     @Body() dto: RegisterDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
     const tokens = await this.authService.register(
       dto.email,
       dto.password,
       dto.inviteCode,
+      req.get('user-agent'),
     );
     return this.respondWithTokens(tokens, res);
   }
@@ -57,9 +62,14 @@ export class AuthController {
   @UseGuards(ThrottlerGuard)
   async login(
     @Body() dto: LoginDto,
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
-    const tokens = await this.authService.login(dto.email, dto.password);
+    const tokens = await this.authService.login(
+      dto.email,
+      dto.password,
+      req.get('user-agent'),
+    );
     return this.respondWithTokens(tokens, res);
   }
 
@@ -71,6 +81,7 @@ export class AuthController {
    */
   @Get('dev-login')
   async devLogin(
+    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
     const notFound = () => new NotFoundException();
@@ -80,7 +91,10 @@ export class AuthController {
       throw notFound();
     const email = this.configService.get<string>('DEV_AUTO_LOGIN_EMAIL');
     if (!email) throw notFound();
-    return this.respondWithTokens(await this.authService.devLogin(email), res);
+    return this.respondWithTokens(
+      await this.authService.devLogin(email, req.get('user-agent')),
+      res,
+    );
   }
 
   // No @UseGuards here deliberately — this runs precisely when the access
@@ -124,6 +138,41 @@ export class AuthController {
   ): Promise<void> {
     await this.authService.logoutAll(user.userId);
     res.clearCookie(REFRESH_TOKEN_COOKIE, { path: REFRESH_TOKEN_COOKIE_PATH });
+  }
+
+  /** The signed-in browsers of the calling user; this one is marked current. */
+  @Get('sessions')
+  @UseGuards(AuthGuard('jwt'))
+  sessions(@CurrentUser() user: AuthenticatedUser, @Req() req: Request) {
+    return this.authService.sessions(user.userId, this.readRefreshCookie(req));
+  }
+
+  /** Signs one of the calling user's browsers out. */
+  @Delete('sessions/:sessionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard('jwt'))
+  async revokeSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('sessionId') sessionId: string,
+  ): Promise<void> {
+    await this.authService.revokeSession(user.userId, sessionId);
+  }
+
+  /** Changes the password; every other browser is signed out. */
+  @Post('password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard('jwt'), ThrottlerGuard)
+  async changePassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: ChangePasswordDto,
+    @Req() req: Request,
+  ): Promise<void> {
+    await this.authService.changePassword(
+      user.userId,
+      dto.currentPassword,
+      dto.newPassword,
+      this.readRefreshCookie(req),
+    );
   }
 
   @Get('me')

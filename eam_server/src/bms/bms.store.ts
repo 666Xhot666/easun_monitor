@@ -41,6 +41,31 @@ export class BmsStore {
     return row ? (row.payload as unknown as BmsReading) : null;
   }
 
+  /** Stored readings of a device in [from, to), newest first, a page at a time. */
+  async readings(
+    bmsDeviceId: number,
+    query: { from: Date; to: Date; limit: number; before?: Date },
+  ): Promise<{ id: number; timestamp: Date; reading: BmsReading }[]> {
+    const rows = await this.prisma.bmsLog.findMany({
+      where: {
+        bmsDeviceId,
+        timestamp: {
+          gte: query.from,
+          lt: query.before && query.before < query.to ? query.before : query.to,
+        },
+      },
+      orderBy: { timestamp: 'desc' },
+      take: query.limit,
+      select: { id: true, timestamp: true, payload: true },
+    });
+
+    return rows.map((row) => ({
+      id: row.id,
+      timestamp: row.timestamp,
+      reading: row.payload as unknown as BmsReading,
+    }));
+  }
+
   /**
    * Every stored reading in [from, to), oldest first, `batchSize` at a time
    * so a long export never holds the whole range in memory.

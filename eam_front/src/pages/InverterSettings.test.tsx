@@ -2,7 +2,7 @@ import { AuthContext, type AuthContextValue } from '../auth/context';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import InverterSettings from './InverterSettings';
 
@@ -61,11 +61,7 @@ function renderPage(
 
 describe('InverterSettings page', () => {
   let restore = () => {};
-  beforeEach(() => vi.spyOn(window, 'confirm').mockReturnValue(true));
-  afterEach(() => {
-    restore();
-    vi.restoreAllMocks();
-  });
+  afterEach(() => restore());
 
   it('shows the settings read from the inverter, with read-only ones as text', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230, RatedPower: 3200 }) })).restore;
@@ -73,7 +69,7 @@ describe('InverterSettings page', () => {
     expect(await screen.findByLabelText('Output priority')).toHaveValue('2');
     expect(screen.getByLabelText('Output voltage')).toHaveValue(230);
     expect(screen.getByText('3,200 W')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument();
   });
 
   it('writes only the changed settings and shows what the inverter confirmed', async () => {
@@ -85,13 +81,66 @@ describe('InverterSettings page', () => {
     restore = server.restore;
 
     await userEvent.selectOptions(await screen.findByLabelText('Output priority'), '0');
-    await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Review and save' }));
+
+    const review = screen.getByRole('dialog', { name: 'Write 1 setting to the inverter?' });
+    expect(within(review).getByRole('row', { name: /Output priority Solar-battery-utility \(SBU\) Utility first \(UTI\)/ })).toBeInTheDocument();
+    expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
+    await userEvent.click(within(review).getByRole('button', { name: 'Write to inverter' }));
 
     const patch = server.sent.find((c) => c.method === 'patch');
     expect(patch?.url).toBe('/api/inverter/7/settings');
     expect(JSON.parse(patch?.data)).toEqual({ changes: { OutputPriority: 0 } });
-    expect(await screen.findByText('Saved. The inverter confirmed the new values.')).toBeInTheDocument();
+    const result = await screen.findByRole('dialog', { name: 'Saved. The inverter confirmed every value' });
+    expect(within(result).getByText('Confirmed')).toBeInTheDocument();
+    await userEvent.click(within(result).getByRole('button', { name: 'Done' }));
     expect(screen.getByLabelText('Output priority')).toHaveValue('0');
+    expect(screen.queryByText('1 unsaved change')).not.toBeInTheDocument();
+  });
+
+  it('keeps a value the inverter did not take as an unsaved change', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) })).restore;
+
+    await userEvent.selectOptions(await screen.findByLabelText('Output priority'), '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Review and save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Write to inverter' }));
+
+    const result = await screen.findByRole('dialog', { name: 'Saved 0 of 1. One setting didn’t stick' });
+    expect(within(result).getByText('Inverter still reports Solar-battery-utility (SBU)')).toBeInTheDocument();
+    await userEvent.click(within(result).getByRole('button', { name: 'Close' }));
+    expect(screen.getByLabelText('Output priority')).toHaveValue('0');
+    expect(screen.getByText('1 unsaved change')).toBeInTheDocument();
+  });
+
+  it('discards unsaved changes', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) })).restore;
+
+    await userEvent.selectOptions(await screen.findByLabelText('Output priority'), '0');
+    await userEvent.click(screen.getByRole('button', { name: 'Discard' }));
+
+    expect(screen.getByLabelText('Output priority')).toHaveValue('2');
+    expect(screen.queryByText('1 unsaved change')).not.toBeInTheDocument();
+  });
+
+  it('finds settings by name or program, and shows only the changed ones on request', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) })).restore;
+    const user = userEvent.setup();
+
+    await user.type(await screen.findByRole('searchbox', { name: 'Search settings' }), 'voltage');
+    expect(screen.getByLabelText('Output voltage')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Output priority')).not.toBeInTheDocument();
+
+    await user.clear(screen.getByRole('searchbox', { name: 'Search settings' }));
+    await user.type(screen.getByRole('searchbox', { name: 'Search settings' }), '01');
+    expect(screen.getByLabelText('Output priority')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Output voltage')).not.toBeInTheDocument();
+
+    await user.clear(screen.getByRole('searchbox', { name: 'Search settings' }));
+    await user.selectOptions(screen.getByLabelText('Output priority'), '1');
+    await user.click(screen.getByRole('radio', { name: 'Changed · 1' }));
+    expect(screen.getByLabelText('Output priority')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Output voltage')).not.toBeInTheDocument();
   });
 
   it('blocks saving a value the inverter would refuse', async () => {
@@ -102,7 +151,7 @@ describe('InverterSettings page', () => {
     await userEvent.type(voltage, '230.25');
 
     expect(screen.getByText('Use steps of 0.1 V')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Review and save' })).toBeDisabled();
   });
 
   it('shows the inverter refusing a change', async () => {
@@ -113,16 +162,18 @@ describe('InverterSettings page', () => {
     ).restore;
 
     await userEvent.selectOptions(await screen.findByLabelText('Output priority'), '1');
-    await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Review and save' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Write to inverter' }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(/not allowed to be modified/);
+    const result = await screen.findByRole('dialog', { name: 'The inverter didn’t take the settings' });
+    expect(within(result).getByRole('alert')).toHaveTextContent(/not allowed to be modified/);
   });
 
   it('explains a setting: panel program, default and what each option does', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2 }) })).restore;
     await screen.findByLabelText('Output priority');
 
-    expect(screen.getByText('Program 01')).toBeInTheDocument();
+    expect(screen.getByText('P01')).toBeInTheDocument();
     expect(screen.getByText('Default: Utility first (UTI)')).toBeInTheDocument();
     expect(screen.queryByText('Which source powers the loads first.')).not.toBeInTheDocument();
 
@@ -163,7 +214,7 @@ describe('InverterSettings page', () => {
       await userEvent.type(bulk, '56.4');
 
       expect(await screen.findByText('Must be between 24 and 30 for a 24 V battery')).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Review and save' })).toBeDisabled();
     });
 
     it('flags an edit that contradicts an unchanged setting on both', async () => {
@@ -174,7 +225,7 @@ describe('InverterSettings page', () => {
       await userEvent.type(bulk, '26.5');
 
       expect(await screen.findAllByText('Bulk charging voltage must be at least the float charging voltage')).toHaveLength(2);
-      expect(screen.getByRole('button', { name: /Save/ })).toBeDisabled();
+      expect(screen.getByRole('button', { name: 'Review and save' })).toBeDisabled();
     });
   });
 
@@ -201,9 +252,11 @@ describe('InverterSettings page', () => {
       await userEvent.selectOptions(await screen.findByLabelText('Battery equalization'), '1');
       expect(screen.getByText('Never equalize a lithium battery')).toBeInTheDocument();
 
-      await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+      await userEvent.click(screen.getByRole('button', { name: 'Review and save' }));
+      const review = screen.getByRole('dialog');
+      expect(within(review).getByText('Never equalize a lithium battery')).toBeInTheDocument();
+      await userEvent.click(within(review).getByRole('button', { name: 'Write anyway' }));
 
-      expect(window.confirm).toHaveBeenCalledWith(expect.stringContaining('Never equalize a lithium battery'));
       const patch = server.sent.find((c) => c.method === 'patch');
       expect(JSON.parse(patch?.data)).toEqual({ changes: { BatteryEqModeEnabled: 1 }, acknowledgeWarnings: true });
     });
@@ -219,20 +272,19 @@ describe('InverterSettings page', () => {
     });
   });
 
-  it('shows risky settings with the others and confirms each one with its consequence', async () => {
+  it('shows risky settings with the others and their consequence before writing', async () => {
     const server = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, RemoteSwitch: 1 }) }));
     restore = server.restore;
     await screen.findByLabelText('Output priority');
     expect(screen.queryByRole('button', { name: 'Show advanced settings' })).not.toBeInTheDocument();
 
     await userEvent.selectOptions(screen.getByLabelText('Remote switch'), '0');
-    vi.mocked(window.confirm).mockReturnValueOnce(false);
-    await userEvent.click(screen.getByRole('button', { name: /Save 1 change/ }));
+    await userEvent.click(screen.getByRole('button', { name: 'Review and save' }));
 
-    expect(window.confirm).toHaveBeenCalledTimes(1);
-    expect(window.confirm).toHaveBeenCalledWith(
-      'Remote switch: Remote shutdown turns off the AC output.\n\nChange it anyway?',
-    );
+    const review = screen.getByRole('dialog');
+    expect(within(review).getByText('Remote switch: Remote shutdown turns off the AC output.')).toBeInTheDocument();
+    await userEvent.click(within(review).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
   });
 
@@ -274,7 +326,8 @@ describe('InverterSettings page', () => {
 
     expect(screen.getByLabelText('Max charging voltage (bulk)')).toHaveValue(28.7);
     expect(screen.getByLabelText('Float charging voltage')).toHaveValue(28.7);
-    expect(screen.getByRole('button', { name: 'Save 2 changes' })).toBeEnabled();
+    expect(screen.getByText('2 unsaved changes')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Review and save' })).toBeEnabled();
     expect(server.sent.some((c) => c.method === 'patch')).toBe(false);
   });
 
@@ -308,21 +361,12 @@ describe('InverterSettings page', () => {
     expect(within(screen.getByRole('status')).getByText(/Read from the inverter/)).toBeInTheDocument();
   });
 
-  it('offers the battery monitor setup, whatever the inverter does', async () => {
-    restore = renderPage(() => ({ status: 503, data: { statusCode: 503, message: 'Inverter unreachable' } })).restore;
-
-    expect(await screen.findByRole('heading', { name: 'Battery monitor (BMS)' })).toBeInTheDocument();
-    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
-  });
-
   it('shows a reader the settings without letting them change anything', async () => {
     restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) }), noConstraints, [], 'READER').restore;
 
     expect(await screen.findByLabelText('Output priority')).toBeDisabled();
     expect(screen.getByLabelText('Output voltage')).toBeDisabled();
-    expect(screen.queryByRole('button', { name: /Save/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument();
     expect(screen.getByText('Read-only: only a household admin can change settings.')).toBeInTheDocument();
-    expect(await screen.findByText('No BMS yet.')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Add BMS' })).not.toBeInTheDocument();
   });
 });

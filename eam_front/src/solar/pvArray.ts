@@ -41,7 +41,7 @@ export interface ArrayWarning {
 }
 
 /** Open-circuit voltage rises in the cold; this much headroom below the maximum is kept. */
-const COLD_VOC_MARGIN = 0.15;
+export const COLD_VOC_MARGIN = 0.15;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 

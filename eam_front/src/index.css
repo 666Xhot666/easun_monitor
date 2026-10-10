@@ -1,32 +1,164 @@
 @import "tailwindcss";
 
-/* Global reset. Layout (widths, backgrounds, spacing) is handled per-page
-   with Tailwind utility classes rather than here — this file only holds
-   things that apply everywhere. */
-:root {
-  color-scheme: light dark;
+/* dark: utilities follow the theme the app resolved (Account → Appearance),
+   not the OS setting directly: src/theme sets <html data-theme>. */
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
 
-  /* Chart series colors (validated categorical pair — see dataviz skill's
-     scripts/validate_palette.js: CVD ΔE 24.7/26.8, normal-vision ΔE
-     33.6/31.8, both well clear of the 8/15 floors) and chart chrome, kept
-     as custom properties so light/dark swap in one place and Recharts
-     (which takes plain color strings, not Tailwind classes) can still
-     reference them via var(). */
-  --chart-series-pv-power: #2a78d6;
-  --chart-series-battery-voltage: #eb6834;
-  --chart-grid: #e1e0d9;
-  --chart-axis: #898781;
+/* Colour tokens. Components use them through the Tailwind names below
+   (bg-surface, text-muted, border-line, bg-pv …); Recharts and inline SVG
+   take the custom properties directly via var(). */
+:root {
+  color-scheme: light;
+
+  --bg: oklch(0.982 0.003 80);
+  --side: oklch(0.965 0.004 80);
+  --surface: oklch(1 0 0);
+  --surface2: oklch(0.955 0.004 80);
+  --border: oklch(0.91 0.005 80);
+  --border2: oklch(0.84 0.006 80);
+  --text: oklch(0.22 0.01 80);
+  --muted: oklch(0.48 0.01 80);
+  --stripe: oklch(0.92 0.005 80);
+  --accent-bg: oklch(0.93 0.005 80);
+  --sel-bg: oklch(1 0 0);
+  --sel-fg: oklch(0.22 0.01 80);
+  --accent: oklch(0.52 0.15 255);
+  --accent-soft: oklch(0.965 0.02 255);
+  --on-accent: #fff;
+
+  /* One colour per energy source, everywhere. */
+  --pv: oklch(0.78 0.15 85);
+  --pv-fill: oklch(0.78 0.15 85 / 0.25);
+  --grid: oklch(0.6 0.13 250);
+  --grid-fill: oklch(0.6 0.13 250 / 0.2);
+  --batt: oklch(0.58 0.15 300);
+  --load: oklch(0.35 0.01 80);
+  --soc: oklch(0.62 0.11 185);
+
+  /* Status. */
+  --good: oklch(0.62 0.15 150);
+  --warn: oklch(0.72 0.16 60);
+  --crit: oklch(0.56 0.19 27);
+  --idle: oklch(0.7 0.005 80);
+  --good-bg: oklch(0.95 0.04 150);
+  --good-text: oklch(0.4 0.11 150);
+  --warn-bg: oklch(0.96 0.05 85);
+  --warn-text: oklch(0.45 0.11 70);
+  --warn-line: oklch(0.88 0.08 85);
+  --crit-bg: oklch(0.96 0.03 27);
+  --crit-text: oklch(0.47 0.17 27);
+  --crit-line: oklch(0.88 0.06 27);
+
+  /* Chart chrome. */
+  --chart-series-pv-power: var(--pv);
+  --chart-series-battery-voltage: var(--batt);
+  --chart-grid: var(--border);
+  --chart-axis: var(--muted);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --chart-series-pv-power: #3987e5;
-    --chart-series-battery-voltage: #d95926;
-    --chart-grid: #2c2c2a;
-    --chart-axis: #898781;
-  }
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --bg: oklch(0.17 0.005 80);
+  --side: oklch(0.19 0.005 80);
+  --surface: oklch(0.215 0.006 80);
+  --surface2: oklch(0.26 0.006 80);
+  --border: oklch(0.29 0.006 80);
+  --border2: oklch(0.36 0.007 80);
+  --text: oklch(0.95 0.004 80);
+  --muted: oklch(0.72 0.008 80);
+  --stripe: oklch(0.25 0.006 80);
+  --accent-bg: oklch(0.27 0.006 80);
+  --sel-bg: oklch(0.34 0.006 80);
+  --sel-fg: oklch(0.97 0.004 80);
+  --accent: oklch(0.74 0.12 255);
+  --accent-soft: oklch(0.25 0.035 255);
+  --on-accent: oklch(0.18 0.01 255);
+
+  --pv: oklch(0.82 0.14 85);
+  --pv-fill: oklch(0.82 0.14 85 / 0.22);
+  --grid: oklch(0.7 0.12 250);
+  --grid-fill: oklch(0.7 0.12 250 / 0.2);
+  --batt: oklch(0.72 0.13 300);
+  --load: oklch(0.88 0.005 80);
+  --soc: oklch(0.76 0.11 185);
+
+  --good: oklch(0.72 0.15 150);
+  --warn: oklch(0.8 0.14 80);
+  --crit: oklch(0.62 0.19 27);
+  --idle: oklch(0.5 0.005 80);
+  --good-bg: oklch(0.28 0.05 150);
+  --good-text: oklch(0.85 0.1 150);
+  --warn-bg: oklch(0.27 0.05 80);
+  --warn-text: oklch(0.88 0.1 85);
+  --warn-line: oklch(0.36 0.07 80);
+  --crit-bg: oklch(0.27 0.06 27);
+  --crit-text: oklch(0.86 0.08 27);
+  --crit-line: oklch(0.38 0.09 27);
+}
+
+@theme inline {
+  --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-page: var(--bg);
+  --color-side: var(--side);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface2);
+  --color-line: var(--border);
+  --color-line-strong: var(--border2);
+  --color-ink: var(--text);
+  --color-muted: var(--muted);
+  --color-stripe: var(--stripe);
+  --color-accent-bg: var(--accent-bg);
+  --color-sel: var(--sel-bg);
+  --color-on-sel: var(--sel-fg);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+
+  --color-pv: var(--pv);
+  --color-pv-fill: var(--pv-fill);
+  --color-grid: var(--grid);
+  --color-grid-fill: var(--grid-fill);
+  --color-batt: var(--batt);
+  --color-load: var(--load);
+  --color-soc: var(--soc);
+
+  --color-good: var(--good);
+  --color-warn: var(--warn);
+  --color-crit: var(--crit);
+  --color-idle: var(--idle);
+  --color-good-bg: var(--good-bg);
+  --color-good-ink: var(--good-text);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn-ink: var(--warn-text);
+  --color-warn-line: var(--warn-line);
+  --color-crit-bg: var(--crit-bg);
+  --color-crit-ink: var(--crit-text);
+  --color-crit-line: var(--crit-line);
 }
 
 body {
   margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* The moving dots on the Overview's energy-flow lines (dash period 20.1). */
+@keyframes eam-flow-dash {
+  to {
+    stroke-dashoffset: -40.2;
+  }
 }
