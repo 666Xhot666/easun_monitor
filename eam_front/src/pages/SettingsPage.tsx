@@ -1,6 +1,8 @@
 import { NavLink, Navigate, useParams } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
 import BmsSetup from '../bms/BmsSetup';
 import OutageSetup from '../outage/OutageSetup';
+import ServerAccess from '../server/ServerAccess';
 import { useLiveData } from '../shell/LiveData';
 import TelegramLink from '../telegram/TelegramLink';
 import { PageHeader } from '../ui';
@@ -29,13 +31,17 @@ const ADMIN_TABS: Tab[] = [
   { slug: 'account', label: 'Account', reader: true },
 ];
 
+/** The server owner's, whatever their household role. */
+const OWNER_TAB: Tab = { slug: 'server-access', label: 'Server access', reader: true };
+
 const READER_TABS: Tab[] = [{ slug: 'configuration', label: 'Current configuration', reader: true }, ...ADMIN_TABS.filter((t) => t.reader)];
 
 /** Configuration for this inverter and the household, one tab per area. */
 export default function SettingsPage() {
   const { tab } = useParams<{ tab?: string }>();
   const { profile, isAdmin } = useLiveData();
-  const tabs = isAdmin ? ADMIN_TABS : READER_TABS;
+  const { user } = useAuth();
+  const tabs = [...(isAdmin ? ADMIN_TABS : READER_TABS), ...(user?.server === 'OWNER' ? [OWNER_TAB] : [])];
   const base = `/dashboard/${profile.id}/settings`;
 
   if (!tab || !tabs.some((t) => t.slug === tab)) return <Navigate to={`${base}/${tabs[0].slug}`} replace />;
@@ -70,6 +76,7 @@ export default function SettingsPage() {
         </div>
       )}
       {tab === 'account' && <AccountSettings />}
+      {tab === 'server-access' && <ServerAccess />}
     </>
   );
 }

@@ -38,8 +38,22 @@ model User {
   telegramLink         TelegramLink?
   telegramCodes        TelegramLinkCode[]
   notificationSettings NotificationSettings?
+  /// May look at the server page; chosen by the server's owner.
+  serverViewer         Boolean               @default(false)
+  serverOwner          ServerOwner?
 
   @@map("users")
+}
+
+/// The server's owner: one user for the whole installation, apart from
+/// households. Runs the server page and chooses who else may look at it.
+/// One row only (id 1, checked in the database).
+model ServerOwner {
+  id     Int  @id @default(1)
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("server_owner")
 }
 
 /// What a member may do in a household: ADMIN everything, READER only read.

@@ -11,6 +11,7 @@ import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { ServerAccessService } from '../server-monitor/server-access.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 
 // Cost factor for bcrypt hashing — 12 is comfortably above the commonly
@@ -108,6 +109,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly invites: InvitesService,
+    private readonly serverAccess: ServerAccessService,
   ) {
     const configuredDays = Number(
       this.configService.get<string>('REFRESH_TOKEN_TTL_DAYS'),
@@ -148,18 +150,18 @@ export class AuthService {
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
     // With an invite, the user joins that household and gets none of their
-    // own; a bad code creates nothing.
-    const user = inviteCode
-      ? await this.prisma.$transaction(async (tx) => {
-          const created = await tx.user.create({
-            data: { email, passwordHash },
-          });
-          await this.invites.redeemIn(tx, inviteCode, created.id);
-          return created;
-        })
-      : await this.prisma.user.create({
-          data: { email, passwordHash, memberships: OWN_HOUSEHOLD },
-        });
+    // own; a bad code creates nothing. The installation's first account
+    // becomes the server's owner.
+    const user = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: inviteCode
+          ? { email, passwordHash }
+          : { email, passwordHash, memberships: OWN_HOUSEHOLD },
+      });
+      if (inviteCode) await this.invites.redeemIn(tx, inviteCode, created.id);
+      await this.serverAccess.claimIfUnowned(tx, created.id);
+      return created;
+    });
 
     // Auto-login on registration — the setup wizard immediately follows,
     // so making the user log in a second time right after signing up
@@ -200,15 +202,16 @@ export class AuthService {
   async devLogin(email: string, userAgent?: string): Promise<IssuedTokens> {
     const user =
       (await this.prisma.user.findUnique({ where: { email } })) ??
-      (await this.prisma.user.create({
-        data: {
-          email,
-          passwordHash: await bcrypt.hash(
-            randomBytes(32).toString('hex'),
-            BCRYPT_SALT_ROUNDS,
-          ),
-          memberships: OWN_HOUSEHOLD,
-        },
+      (await this.prisma.$transaction(async (tx) => {
+        const passwordHash = await bcrypt.hash(
+          randomBytes(32).toString('hex'),
+          BCRYPT_SALT_ROUNDS,
+        );
+        const created = await tx.user.create({
+          data: { email, passwordHash, memberships: OWN_HOUSEHOLD },
+        });
+        await this.serverAccess.claimIfUnowned(tx, created.id);
+        return created;
       }));
     return this.issueTokens(user.id, user.email, newSession(userAgent));
   }
@@ -313,6 +316,8 @@ export class AuthService {
     const { memberships, ...rest } = user;
     return {
       ...rest,
+      /** OWNER, VIEWER or null: what the user may do on the server page. */
+      server: await this.serverAccess.role(userId),
       adminHouseholdId:
         memberships.find((m) => m.role === 'ADMIN')?.household.id ?? null,
       households: memberships.map((m) => ({

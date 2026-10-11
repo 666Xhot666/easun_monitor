@@ -40,7 +40,11 @@ export interface AuthUser {
   households: { id: number; name: string; role: HouseholdRole }[];
   /** The inverters of all the user's households. */
   inverterProfiles: InverterProfile[];
+  /** The server page: its owner, someone the owner lets look, or neither. */
+  server: ServerRole | null;
 }
+
+export type ServerRole = 'OWNER' | 'VIEWER';
 
 export interface AuthResponse {
   accessToken: string;
