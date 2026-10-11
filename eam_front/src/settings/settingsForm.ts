@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 import { decimalsFor } from '../inverter/format';
 import type { RegisterDefinition } from '../inverter/types';
 
@@ -5,6 +6,9 @@ import type { RegisterDefinition } from '../inverter/types';
 export type FormValues = Record<string, string>;
 
 export interface SettingsSection {
+  /** Stable: for anchors and filters. */
+  key: string;
+  /** In the current language. */
   title: string;
   registers: RegisterDefinition[];
 }
@@ -17,9 +21,9 @@ export interface SettingsSection {
  * each change to them.
  */
 
-const SECTIONS: { title: string; names: string[] }[] = [
+const SECTIONS: { key: string; names: string[] }[] = [
   {
-    title: 'Output and source priority',
+    key: 'output',
     names: [
       'OutputMode',
       'OutputPriority', // 01
@@ -30,7 +34,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
     ],
   },
   {
-    title: 'Battery and charging',
+    key: 'battery',
     names: [
       'MaxChargingCurrent', // 02
       'MaxMainsChargingCurrent', // 11
@@ -47,7 +51,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
     ],
   },
   {
-    title: 'Equalization',
+    key: 'equalization',
     names: [
       'BatteryEqModeEnabled', // 33
       'EqChargingVoltage', // 34
@@ -57,7 +61,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
     ],
   },
   {
-    title: 'Protection and restart',
+    key: 'protection',
     names: [
       'OverloadAutoRestart', // 06
       'OverTempAutoRestart', // 07
@@ -65,7 +69,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
     ],
   },
   {
-    title: 'Display and sound',
+    key: 'display',
     names: [
       'BuzzerMode', // 18
       'BeepsWhilePrimarySourceInterrupted',
@@ -74,7 +78,7 @@ const SECTIONS: { title: string; names: string[] }[] = [
     ],
   },
   {
-    title: 'Power on/off and energy saving',
+    key: 'power',
     names: [
       'EnergySavingMode',
       'AutoACOutput',
@@ -91,15 +95,17 @@ const settingsOf = (definitions: RegisterDefinition[]) =>
 export function groupIntoSections(definitions: RegisterDefinition[]): SettingsSection[] {
   const settings = settingsOf(definitions);
   const writable = settings.filter((d) => d.writable);
-  const sections = SECTIONS.map(({ title, names }) => ({
-    title,
+  const title = (key: string) => i18n.t(`sections.${key}`);
+  const sections = SECTIONS.map(({ key, names }) => ({
+    key,
+    title: title(key),
     registers: names.flatMap((name) => writable.filter((d) => d.name === name)),
   }));
   const placed = new Set(sections.flatMap((s) => s.registers));
   const other = writable.filter((d) => !placed.has(d));
-  if (other.length) sections.push({ title: 'Other', registers: other });
-  sections.push({ title: 'Device information', registers: settings.filter((d) => !d.writable && d.verified !== false) });
-  sections.push({ title: 'Unverified registers', registers: settings.filter((d) => d.verified === false) });
+  if (other.length) sections.push({ key: 'other', title: title('other'), registers: other });
+  sections.push({ key: 'device', title: title('device'), registers: settings.filter((d) => !d.writable && d.verified !== false) });
+  sections.push({ key: 'unverified', title: title('unverified'), registers: settings.filter((d) => d.verified === false) });
   return sections.filter((s) => s.registers.length > 0);
 }
 
@@ -139,7 +145,7 @@ export function collectChanges(
 
     const value = Number(text);
     if (text === '' || !Number.isFinite(value)) {
-      errors[definition.name] = 'Enter a number';
+      errors[definition.name] = i18n.t('validation.enterNumber');
       continue;
     }
     if (original[definition.name] !== '' && value === Number(original[definition.name])) continue;
@@ -156,17 +162,17 @@ function validate(definition: RegisterDefinition, value: number): string | null 
   if (definition.options) {
     return Number.isInteger(value) && value >= 0 && value < definition.options.length
       ? null
-      : 'Pick one of the options';
+      : i18n.t('validation.pickOption');
   }
   if (
     (definition.min !== undefined && value < definition.min) ||
     (definition.max !== undefined && value > definition.max)
   ) {
-    return `Must be between ${definition.min ?? '-∞'} and ${definition.max ?? '∞'}${unit}`;
+    return i18n.t('validation.between', { min: definition.min ?? '-∞', max: definition.max ?? '∞', unit });
   }
   const scale = definition.scale ?? 1;
   if (Math.abs(Math.round(value / scale) * scale - value) > scale / 1000) {
-    return `Use steps of ${scale}${unit}`;
+    return i18n.t('validation.steps', { step: scale, unit });
   }
   return null;
 }

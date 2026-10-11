@@ -1,10 +1,11 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { proposeLithiumSettings, type BmsLimits } from './lithiumSetup';
 
-const FIELDS: { key: keyof BmsLimits; label: string }[] = [
-  { key: 'maxChargingVoltage', label: 'BMS max charging voltage (V)' },
-  { key: 'maxChargingCurrent', label: 'BMS max charging current (A)' },
-  { key: 'dischargeProtectionVoltage', label: 'BMS discharge protection voltage (V)' },
+const FIELDS: { key: keyof BmsLimits }[] = [
+  { key: 'maxChargingVoltage' },
+  { key: 'maxChargingCurrent' },
+  { key: 'dischargeProtectionVoltage' },
 ];
 
 /**
@@ -13,6 +14,7 @@ const FIELDS: { key: keyof BmsLimits; label: string }[] = [
  * as unsaved edits for the user to review and save.
  */
 export default function LithiumSetupHelper({ onPropose }: { onPropose: (settings: Record<string, number>) => void }) {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [limits, setLimits] = useState<Record<keyof BmsLimits, string>>({
     maxChargingVoltage: '',
@@ -29,25 +31,23 @@ export default function LithiumSetupHelper({ onPropose }: { onPropose: (settings
         onClick={() => setOpen(true)}
         className="text-sm font-medium text-accent hover:underline"
       >
-        Set up a lithium battery without BMS communication
+        {t('lithium.open')}
       </button>
     );
   }
 
   return (
     <section
-      aria-label="Lithium battery setup"
+      aria-label={t('lithium.label')}
       className="rounded-xl border border-line bg-surface px-4 py-3.5"
     >
       <p className="text-sm leading-relaxed text-muted">
-        Enter the limits from your battery's BMS specification. The proposed values follow the inverter manual and
-        appear below as unsaved changes. The panel's battery type (program 05) must be Lithium or User-Defined for them
-        to apply; the manual advises changing them with the inverter output off and restarting it afterwards.
+        {t('lithium.intro')}
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        {FIELDS.map(({ key, label }) => (
+        {FIELDS.map(({ key }) => (
           <label key={key} className="flex flex-col text-xs text-muted">
-            {label}
+            {t(`lithium.${key}`)}
             <input
               type="number"
               inputMode="decimal"
@@ -67,7 +67,7 @@ export default function LithiumSetupHelper({ onPropose }: { onPropose: (settings
           }}
           className="h-[38px] rounded-lg bg-ink px-4 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-50"
         >
-          Fill in proposed values
+          {t('lithium.fill')}
         </button>
       </div>
     </section>

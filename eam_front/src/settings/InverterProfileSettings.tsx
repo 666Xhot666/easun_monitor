@@ -1,4 +1,6 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import { unit, withUnit } from '../i18n/format';
 import { Link, useNavigate } from 'react-router-dom';
 import { Info } from 'lucide-react';
 import axios from '../lib/apiClient';
@@ -12,10 +14,10 @@ import { Dialog } from '../ui/Dialog';
 const POWER_PRESETS = ['3600', '5000', '6200'] as const;
 const VOLTAGES = ['12', '24', '48'] as const;
 const CHEMISTRIES: { value: BatteryType; label: string }[] = [
-  { value: 'LIFEPO4', label: 'LiFePO4' },
-  { value: 'LEAD_ACID', label: 'Lead-acid' },
-  { value: 'GEL', label: 'GEL' },
-  { value: 'USER_DEFINED', label: 'User-defined' },
+  { value: 'LIFEPO4', label: 'profile.chemistries.LIFEPO4' },
+  { value: 'LEAD_ACID', label: 'profile.chemistries.LEAD_ACID' },
+  { value: 'GEL', label: 'profile.chemistries.GEL' },
+  { value: 'USER_DEFINED', label: 'profile.chemistries.USER_DEFINED' },
 ];
 
 interface Form {
@@ -77,6 +79,7 @@ function Field({ label, htmlFor, hint, children }: { label: string; htmlFor: str
 
 /** The inverter as paired, editable by admins: how EAM reaches it and what it powers; removing it from EAM. */
 export default function InverterProfileSettings() {
+  const { t } = useTranslation();
   const { profile } = useLiveData();
   const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
@@ -106,7 +109,7 @@ export default function InverterProfileSettings() {
       await refreshUser();
       setSaved(true);
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t save the profile.'));
+      setError(extractErrorMessage(e, t('profile.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -119,9 +122,9 @@ export default function InverterProfileSettings() {
         ipAddress: form.ipAddress.trim(),
         port: Number(form.port) || 8899,
       });
-      setTest({ state: 'ok', message: `Connected — read ${data.sampledParameter} in ${data.latencyMs} ms.` });
+      setTest({ state: 'ok', message: t('profile.connected', { parameter: data.sampledParameter, ms: data.latencyMs }) });
     } catch (e) {
-      setTest({ state: 'failed', message: extractErrorMessage(e, 'Couldn’t reach the logger at that address.') });
+      setTest({ state: 'failed', message: extractErrorMessage(e, t('profile.unreachable')) });
     }
   }
 
@@ -133,19 +136,19 @@ export default function InverterProfileSettings() {
       await refreshUser();
       navigate('/dashboard', { replace: true });
     } catch (e) {
-      setRemoveError(extractErrorMessage(e, 'Couldn’t remove the inverter.'));
+      setRemoveError(extractErrorMessage(e, t('profile.removeFailed')));
     }
   }
 
   return (
     <form onSubmit={(e) => void save(e)} className="space-y-4">
       <Card>
-        <CardTitle>Connection</CardTitle>
+        <CardTitle>{t('profile.connection')}</CardTitle>
         <div className="mt-3 grid gap-4 md:grid-cols-3">
-          <Field label="Name" htmlFor="profile-name">
+          <Field label={t('profile.name')} htmlFor="profile-name">
             <input id="profile-name" className={input} value={form.name} onChange={(e) => update({ name: e.target.value })} />
           </Field>
-          <Field label="Logger IP or hostname" htmlFor="profile-ip" hint="Find it in your router’s device list or in the SmartESS app.">
+          <Field label={t('profile.ip')} htmlFor="profile-ip" hint={t('profile.ipHint')}>
             <input
               id="profile-ip"
               className={input}
@@ -156,13 +159,13 @@ export default function InverterProfileSettings() {
               }}
             />
           </Field>
-          <Field label="Port" htmlFor="profile-port" hint="Usually 8899.">
+          <Field label={t('profile.port')} htmlFor="profile-port" hint={t('profile.portHint')}>
             <input id="profile-port" type="number" min={1} max={65535} className={input} value={form.port} onChange={(e) => update({ port: e.target.value })} />
           </Field>
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <Button onClick={() => void testConnection()} disabled={test.state === 'testing' || !form.ipAddress.trim()}>
-            {test.state === 'testing' ? 'Testing…' : 'Test connection'}
+            {test.state === 'testing' ? t('profile.testing') : t('profile.test')}
           </Button>
           {(test.state === 'ok' || test.state === 'failed') && (
             <p role="status" className={'text-sm ' + (test.state === 'ok' ? 'text-good-ink' : 'text-crit-ink')}>
@@ -173,19 +176,19 @@ export default function InverterProfileSettings() {
       </Card>
 
       <Card>
-        <CardTitle>Power and battery bank</CardTitle>
+        <CardTitle>{t('profile.powerAndBattery')}</CardTitle>
         <div className="mt-3 space-y-4">
           <div>
-            <p className="mb-1.5 text-sm font-medium">Rated power</p>
+            <p className="mb-1.5 text-sm font-medium">{t('profile.ratedPower')}</p>
             <Segmented
-              ariaLabel="Rated power"
+              ariaLabel={t('profile.ratedPower')}
               value={form.power}
               onChange={(power) => update({ power })}
-              options={[...POWER_PRESETS.map((w) => ({ value: w as string, label: `${(Number(w) / 1000).toFixed(1)} kW` })), { value: 'custom', label: 'Custom' }]}
+              options={[...POWER_PRESETS.map((w) => ({ value: w as string, label: withUnit(Number(w) / 1000, 'kW', 1) })), { value: 'custom', label: t('profile.custom') }]}
             />
             {form.power === 'custom' && (
               <div className="mt-2 max-w-60">
-                <Field label="Rated power (W)" htmlFor="profile-power">
+                <Field label={t('profile.ratedPowerW')} htmlFor="profile-power">
                   <input id="profile-power" type="number" min={1} className={input} value={form.customPower} onChange={(e) => update({ customPower: e.target.value })} />
                 </Field>
               </div>
@@ -193,21 +196,26 @@ export default function InverterProfileSettings() {
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <p className="mb-1.5 text-sm font-medium">Battery voltage</p>
+              <p className="mb-1.5 text-sm font-medium">{t('profile.batteryVoltage')}</p>
               <Segmented
-                ariaLabel="Battery voltage"
+                ariaLabel={t('profile.batteryVoltage')}
                 value={form.batteryNominalVoltage}
                 onChange={(batteryNominalVoltage) => update({ batteryNominalVoltage })}
-                options={VOLTAGES.map((v) => ({ value: v as string, label: `${v} V` }))}
+                options={VOLTAGES.map((v) => ({ value: v as string, label: `${v} ${unit('V')}` }))}
               />
             </div>
             <div>
-              <p className="mb-1.5 text-sm font-medium">Chemistry</p>
-              <Segmented ariaLabel="Chemistry" value={form.batteryType} onChange={(batteryType) => update({ batteryType })} options={CHEMISTRIES} />
+              <p className="mb-1.5 text-sm font-medium">{t('profile.chemistry')}</p>
+              <Segmented
+                ariaLabel={t('profile.chemistry')}
+                value={form.batteryType}
+                onChange={(batteryType) => update({ batteryType })}
+                options={CHEMISTRIES.map((c) => ({ ...c, label: t(c.label) }))}
+              />
             </div>
           </div>
           <div className="max-w-60">
-            <Field label="Capacity (Ah)" htmlFor="profile-capacity">
+            <Field label={t('profile.capacity')} htmlFor="profile-capacity">
               <input
                 id="profile-capacity"
                 type="number"
@@ -221,9 +229,9 @@ export default function InverterProfileSettings() {
           <p className="flex items-start gap-2 rounded-lg bg-surface-2 px-3 py-2.5 text-[13px] text-muted">
             <Info className="mt-0.5 h-4 w-4 flex-none" />
             <span>
-              Charge and cut-off voltages are written to the inverter itself. Change them in{' '}
+              {t('profile.voltagesHint')}{' '}
               <Link to={`/dashboard/${profile.id}/settings/inverter-settings`} className="text-accent underline">
-                Inverter settings
+                {t('profile.inverterSettings')}
               </Link>
               .
             </span>
@@ -232,26 +240,26 @@ export default function InverterProfileSettings() {
       </Card>
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        {saved && <span className="text-sm text-good-ink">Saved.</span>}
+        {saved && <span className="text-sm text-good-ink">{t('profile.saved')}</span>}
         {error && (
           <span role="alert" className="text-sm text-crit-ink">
             {error}
           </span>
         )}
         <Button type="submit" variant="primary" disabled={!dirty || saving}>
-          {saving ? 'Saving…' : 'Save profile'}
+          {saving ? t('profile.saving') : t('profile.save')}
         </Button>
       </div>
 
       {canRemove && (
         <Card>
-          <CardTitle>Remove inverter</CardTitle>
+          <CardTitle>{t('profile.remove')}</CardTitle>
           <p className="mt-2 text-sm text-muted">
-            Removes {profile.name} from EAM. Its recorded history is kept; the inverter and its logger are not changed.
+            {t('profile.removeIntro', { name: profile.name })}
           </p>
           <div className="mt-4">
             <Button variant="danger-soft" onClick={() => setConfirming(true)}>
-              Remove {profile.name}…
+              {t('profile.removeNamed', { name: profile.name })}
             </Button>
           </div>
           {removeError && (
@@ -263,18 +271,18 @@ export default function InverterProfileSettings() {
       )}
       <Dialog
         open={confirming}
-        title={`Remove ${profile.name}?`}
+        title={t('profile.removeTitle', { name: profile.name })}
         onClose={() => setConfirming(false)}
         actions={
           <>
-            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button onClick={() => setConfirming(false)}>{t('common.cancel')}</Button>
             <Button variant="danger" onClick={() => void remove()}>
-              Remove inverter
+              {t('profile.remove')}
             </Button>
           </>
         }
       >
-        EAM stops reading it. Its recorded history is kept.
+        {t('profile.removeBody')}
       </Dialog>
     </form>
   );
