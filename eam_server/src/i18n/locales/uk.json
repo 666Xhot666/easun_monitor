@@ -1,0 +1,6 @@
+{
+  "units": { "hours": "{{count}} год", "minutes": "{{count}} хв" },
+  "alerts": {
+    "batteryLow": "Низький заряд акумулятора: {{soc}} %"
+  }
+}

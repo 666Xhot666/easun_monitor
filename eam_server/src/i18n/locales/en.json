@@ -1,0 +1,6 @@
+{
+  "units": { "hours": "{{count}} h", "minutes": "{{count}} min" },
+  "alerts": {
+    "batteryLow": "Battery low: {{soc}} %"
+  }
+}

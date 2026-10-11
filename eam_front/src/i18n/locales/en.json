@@ -858,7 +858,7 @@
     "tokenFailed": "Couldn't make a new token.",
     "removeFailed": "Couldn't remove the address.",
     "title": "Outage schedule",
-    "noAddress": "No address yet. With one set, the outage schedule reader checks the DTEK Dnipro site for it.",
+    "noAddress": "No address yet. With one set, the outage schedule reader checks the DTEK site for it.",
     "lastAsked": "Reader last asked {{age}} ago",
     "check": "Check the outage schedule",
     "newToken": "New reader token",
