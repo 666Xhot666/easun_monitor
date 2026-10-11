@@ -6,7 +6,10 @@ import { useLiveData } from '../shell/LiveData';
 import { Badge, Button, Dot, PageHeader, Segmented } from '../ui';
 
 const PAGE = 50;
-type Filter = 'all' | AlertEvent['kind'];
+type Filter = 'all' | 'outages' | Exclude<AlertEvent['kind'], 'schedule' | 'outage' | 'schedule-unavailable'>;
+const OUTAGE_KINDS: AlertEvent['kind'][] = ['schedule', 'outage', 'schedule-unavailable'];
+const matches = (kind: AlertEvent['kind'], filter: Filter) =>
+  filter === 'all' || (filter === 'outages' ? OUTAGE_KINDS.includes(kind) : kind === filter);
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'fault', label: 'Faults' },
@@ -14,6 +17,7 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'grid', label: 'Grid' },
   { value: 'battery', label: 'Battery' },
   { value: 'connection', label: 'Connection' },
+  { value: 'outages', label: 'Outages' },
 ];
 
 /** What is wrong right now, and every recorded fault, warning, grid change and outage. */
@@ -62,8 +66,8 @@ export default function AlertsPage() {
     ...(reading?.alerts?.faults ?? []).map((text) => ({ text, kind: 'Fault' as const })),
     ...(reading?.alerts?.warnings ?? []).map((text) => ({ text, kind: 'Warning' as const })),
   ];
-  const count = (kind: Filter) => (events ?? []).filter((e) => kind === 'all' || e.kind === kind).length;
-  const shown = (events ?? []).filter((e) => filter === 'all' || e.kind === filter);
+  const count = (f: Filter) => (events ?? []).filter((e) => matches(e.kind, f)).length;
+  const shown = (events ?? []).filter((e) => matches(e.kind, filter));
 
   return (
     <>

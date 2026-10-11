@@ -32,6 +32,39 @@ describe('notification settings', () => {
     expect(merged.quietHours).toBe(true);
   });
 
+  it('sends the outage schedule notices, with a 15 minute lead and confirmed outages only', () => {
+    for (const kind of [
+      'schedule',
+      'outage',
+      'schedule-unavailable',
+    ] as const) {
+      expect(DEFAULT_SETTINGS.channels[kind]).toEqual({
+        inApp: true,
+        telegram: true,
+      });
+    }
+    expect(DEFAULT_SETTINGS.outageLeadMinutes).toBe(15);
+    expect(DEFAULT_SETTINGS.possibleOutages).toBe(false);
+  });
+
+  it('takes a lead time of whole minutes from 1 to 120, and the possible outages switch', () => {
+    const merged = mergeSettings(DEFAULT_SETTINGS, {
+      outageLeadMinutes: 30,
+      possibleOutages: true,
+    });
+    expect(merged.outageLeadMinutes).toBe(30);
+    expect(merged.possibleOutages).toBe(true);
+    for (const wrong of [0, 121, 2.5, '20', null]) {
+      expect(
+        mergeSettings(merged, { outageLeadMinutes: wrong }).outageLeadMinutes,
+      ).toBe(30);
+    }
+    // Stored before these existed: the defaults.
+    const old = mergeSettings({ channels: {}, quietHours: false } as never, {});
+    expect(old.outageLeadMinutes).toBe(15);
+    expect(old.possibleOutages).toBe(false);
+  });
+
   it('fills in kinds missing from what was stored', () => {
     expect(
       mergeSettings({ channels: {}, quietHours: false } as never, {}).channels

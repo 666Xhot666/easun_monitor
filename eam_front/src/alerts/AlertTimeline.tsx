@@ -3,7 +3,7 @@ import { format, isSameDay, subDays } from 'date-fns';
 /** GET /api/inverter/:profileId/alerts item. */
 export interface AlertEvent {
   id: number;
-  kind: 'fault' | 'warning' | 'grid' | 'battery' | 'connection';
+  kind: 'fault' | 'warning' | 'grid' | 'battery' | 'connection' | 'schedule' | 'outage' | 'schedule-unavailable';
   text: string;
   source: string | null;
   at: string;
@@ -15,6 +15,9 @@ const DOT: Record<AlertEvent['kind'], string> = {
   battery: 'bg-warn',
   grid: 'bg-grid',
   connection: 'bg-idle',
+  schedule: 'bg-grid',
+  outage: 'bg-warn',
+  'schedule-unavailable': 'bg-idle',
 };
 const LABEL: Record<AlertEvent['kind'], string> = {
   fault: 'Fault',
@@ -22,6 +25,9 @@ const LABEL: Record<AlertEvent['kind'], string> = {
   battery: 'Battery',
   grid: 'Grid',
   connection: 'Connection',
+  schedule: 'Schedule',
+  outage: 'Outage soon',
+  'schedule-unavailable': 'Schedule check',
 };
 
 function dayHeading(day: Date, today: Date): string {

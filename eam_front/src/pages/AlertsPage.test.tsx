@@ -62,6 +62,24 @@ describe('AlertsPage', () => {
     expect(screen.getByText('BMS alarm: Cell overvoltage')).toBeInTheDocument();
   });
 
+  it('keeps the outage schedule notices under one filter', async () => {
+    restore = renderPage(() => [
+      { id: 8, kind: 'outage', text: 'Outage in 15 min: 18:00–20:00', source: null, at: at(17) },
+      { id: 7, kind: 'schedule-unavailable', text: 'Outage schedule back after 14 h', source: null, at: at(16) },
+      { id: 6, kind: 'schedule', text: 'Outage schedule updated', source: null, at: at(15) },
+      ...page1,
+    ]).restore;
+    const user = userEvent.setup();
+    await screen.findByText('Outage schedule updated');
+
+    await user.click(screen.getByRole('radio', { name: 'Outages · 3' }));
+
+    expect(screen.queryByText('Grid restored')).not.toBeInTheDocument();
+    expect(screen.getByText('Outage in 15 min: 18:00–20:00')).toBeInTheDocument();
+    expect(screen.getByText('Outage soon')).toBeInTheDocument();
+    expect(screen.getByText('Schedule')).toBeInTheDocument();
+  });
+
   it('pages back through older alerts', async () => {
     const full = Array.from({ length: 50 }, (_, i) => ({ id: 100 - i, kind: 'grid', text: `Alert ${100 - i}`, source: null, at: at(12) }));
     const server = renderPage((params) => (params.before ? [{ id: 1, kind: 'fault', text: 'Faults cleared', source: null, at: at(1) }] : full));

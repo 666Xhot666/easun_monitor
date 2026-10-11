@@ -8,6 +8,9 @@ export const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   'grid',
   'battery',
   'connection',
+  'schedule',
+  'outage',
+  'schedule-unavailable',
   'summary',
 ];
 
@@ -22,6 +25,10 @@ export interface NotificationSettings {
   channels: Record<NotificationKind, Channels>;
   /** From 23:00 to 07:00 only faults reach Telegram. */
   quietHours: boolean;
+  /** How long before an outage starts the "Outage in" notice comes. */
+  outageLeadMinutes: number;
+  /** The notice also before possible outages, not only confirmed ones. */
+  possibleOutages: boolean;
 }
 
 /** What everyone had before there were settings: Telegram gets everything. */
@@ -32,10 +39,17 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
     grid: { inApp: true, telegram: true },
     battery: { inApp: true, telegram: true },
     connection: { inApp: true, telegram: true },
+    schedule: { inApp: true, telegram: true },
+    outage: { inApp: true, telegram: true },
+    'schedule-unavailable': { inApp: true, telegram: true },
     summary: { inApp: false, telegram: true },
   },
   quietHours: false,
+  outageLeadMinutes: 15,
+  possibleOutages: false,
 };
+
+export const OUTAGE_LEAD_MINUTES = { min: 1, max: 120 };
 
 const QUIET_FROM_HOUR = 23;
 const QUIET_UNTIL_HOUR = 7;
@@ -44,7 +58,12 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** `patch` applied over `base`, keeping only known kinds and boolean switches. */
+const isLeadMinutes = (value: unknown): value is number =>
+  Number.isInteger(value) &&
+  (value as number) >= OUTAGE_LEAD_MINUTES.min &&
+  (value as number) <= OUTAGE_LEAD_MINUTES.max;
+
+/** `patch` applied over `base`, keeping only known kinds and valid values. */
 export function mergeSettings(
   base: NotificationSettings,
   patch: unknown,
@@ -70,7 +89,22 @@ export function mergeSettings(
     isRecord(patch) && typeof patch.quietHours === 'boolean'
       ? patch.quietHours
       : base.quietHours === true;
-  return { channels, quietHours };
+  const pick = <T>(
+    key: 'outageLeadMinutes' | 'possibleOutages',
+    valid: (v: unknown) => v is T,
+  ): T =>
+    isRecord(patch) && valid(patch[key])
+      ? patch[key]
+      : valid(base[key])
+        ? base[key]
+        : (DEFAULT_SETTINGS[key] as T);
+  const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean';
+  return {
+    channels,
+    quietHours,
+    outageLeadMinutes: pick('outageLeadMinutes', isLeadMinutes),
+    possibleOutages: pick('possibleOutages', isBoolean),
+  };
 }
 
 /** The hour of `at` on the clock of `timeZone`. */
