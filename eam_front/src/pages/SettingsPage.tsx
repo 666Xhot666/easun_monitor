@@ -1,5 +1,6 @@
 import { NavLink, Navigate, useParams } from 'react-router-dom';
 import BmsSetup from '../bms/BmsSetup';
+import OutageSetup from '../outage/OutageSetup';
 import { useLiveData } from '../shell/LiveData';
 import TelegramLink from '../telegram/TelegramLink';
 import { PageHeader } from '../ui';
@@ -22,6 +23,7 @@ const ADMIN_TABS: Tab[] = [
   { slug: 'inverter-settings', label: 'Inverter settings', reader: false },
   { slug: 'solar', label: 'Solar array', reader: false },
   { slug: 'battery-monitor', label: 'Battery monitor', reader: false },
+  { slug: 'outage-schedule', label: 'Outage schedule', reader: true },
   { slug: 'household', label: 'Household', reader: true },
   { slug: 'notifications', label: 'Notifications', reader: true },
   { slug: 'account', label: 'Account', reader: true },
@@ -59,6 +61,7 @@ export default function SettingsPage() {
       {(tab === 'inverter-settings' || tab === 'configuration') && <InverterSettings />}
       {tab === 'solar' && <SolarArrayPage />}
       {tab === 'battery-monitor' && <BmsSetup profileId={profile.id} readOnly={!isAdmin} />}
+      {tab === 'outage-schedule' && <OutageSetup profileId={profile.id} readOnly={!isAdmin} />}
       {tab === 'household' && <HouseholdPage />}
       {tab === 'notifications' && (
         <div className="space-y-4">

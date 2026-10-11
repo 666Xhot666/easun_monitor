@@ -203,6 +203,7 @@ model InverterProfile {
   hourlyLogs        InverterLogHourly[]
   settingsSnapshots InverterSettingsSnapshot[]
   bmsDevices        BmsDevice[]
+  outageSource      OutageSource?
   alertEvents       AlertEvent[]
 
   /// One profile per physical logger, so two poll loops never share a device.
@@ -405,4 +406,173 @@ model NotificationSettings {
   user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("notification_settings")
+}
+
+enum OutageHouseState {
+  /// The reader has not looked the house up yet (new or changed address).
+  PENDING
+  FOUND
+  /// The house is not on the site's list for the street.
+  NOT_FOUND
+}
+
+/// Where an inverter's outage schedule comes from: a DTEK site and the
+/// address on it, at most one per inverter. The outage schedule reader asks
+/// for it with its token and checks it.
+model OutageSource {
+  id                 Int              @id @default(autoincrement())
+  /// DTEK site key; "dnem" (DTEK Dnipro) is the only one so far.
+  site               String           @default("dnem")
+  /// City, street and house in the site's own spelling.
+  city               String
+  street             String
+  house              String
+  enabled            Boolean          @default(true)
+  houseState         OutageHouseState @default(PENDING)
+  /// The house's outage groups as the reader found them (e.g. GPV5.2);
+  /// empty while pending, not found, or when the site lists none.
+  groups             String[]         @default([])
+  tokenHash          String           @unique
+  /// When the reader last asked for this source.
+  lastSeenAt         DateTime?
+  /// When someone in the app asked for a check now; done once a later check
+  /// is stored.
+  refreshRequestedAt DateTime?
+
+  checks         OutageCheck[]
+  weeklyPatterns OutageWeeklyPattern[]
+  confirmedDays  OutageConfirmedDay[]
+  events         OutageEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  inverterProfileId Int             @unique
+  inverterProfile   InverterProfile @relation(fields: [inverterProfileId], references: [id], onDelete: Cascade)
+
+  @@map("outage_sources")
+}
+
+/// A DTEK site's city -> streets list, uploaded by the reader for the address
+/// pickers and replaced when it changes.
+model OutageSiteStreets {
+  site      String   @id
+  /// { city: [street, ...] }
+  streets   Json
+  /// sha256 of the uploaded list, to tell an unchanged one.
+  hash      String
+  updatedAt DateTime @updatedAt
+
+  @@map("outage_site_streets")
+}
+
+/// How one check of the site went: OK, or why it failed (see the reader's
+/// SiteError kinds).
+enum OutageCheckOutcome {
+  OK
+  CHALLENGE
+  REJECTED
+  SHAPE
+  SERVER
+  NETWORK
+}
+
+/// One check of the site by the reader, whatever its outcome. Tells "no
+/// outage was scheduled" (an OK check saw none) from "not known" (checks
+/// failed).
+model OutageCheck {
+  id          Int                @id @default(autoincrement())
+  /// When the reader made the check; with the source, identifies it.
+  checkedAt   DateTime
+  outcome     OutageCheckOutcome
+  /// Whether the check went through the browser.
+  usedBrowser Boolean            @default(false)
+  error       String?
+
+  sourceId Int
+  source   OutageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, checkedAt])
+  @@map("outage_checks")
+}
+
+/// A version of one group's weekly pattern; a new row only when it changes.
+model OutageWeeklyPattern {
+  id     Int      @id @default(autoincrement())
+  group  String
+  /// { "1" (Monday) .. "7": [24 slot statuses] }
+  days   Json
+  /// sha256 of `days`, to tell an unchanged pattern.
+  hash   String
+  /// When a check first saw this version.
+  seenAt DateTime
+
+  sourceId Int
+  source   OutageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, group, seenAt])
+  @@map("outage_weekly_patterns")
+}
+
+/// One group's confirmed schedule for one Kyiv day: the latest version seen,
+/// kept after the day has passed.
+model OutageConfirmedDay {
+  id          Int      @id @default(autoincrement())
+  day         DateTime @db.Date
+  group       String
+  /// [24 slot statuses], 00:00-01:00 first.
+  slots       Json
+  /// The site's "updated" stamp of this version, Kyiv time.
+  siteUpdated String
+  /// When a check first saw the day, and when the slots last changed.
+  firstSeenAt DateTime
+  changedAt   DateTime
+
+  sourceId Int
+  source   OutageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@unique([sourceId, group, day])
+  @@map("outage_confirmed_days")
+}
+
+enum OutageEventKind {
+  /// A window of the confirmed schedule of the house's group(s).
+  SCHEDULE
+  /// A repair outage the site lists for the house itself.
+  REPAIR
+}
+
+enum OutageEventStatus {
+  OFF
+  POSSIBLE
+  UNKNOWN
+}
+
+/// One outage as the checks saw it over time: when it was announced, how its
+/// times were revised, and whether it was withdrawn (gone from the site before
+/// its end: finished early or cancelled). Events that have ended are kept as
+/// last seen.
+model OutageEvent {
+  id             Int               @id @default(autoincrement())
+  kind           OutageEventKind
+  status         OutageEventStatus
+  /// The site's description of a repair, e.g. "Аварійні ремонтні роботи".
+  description    String?
+  /// The times as last seen.
+  start          DateTime
+  end            DateTime
+  /// The times when first seen.
+  announcedStart DateTime
+  announcedEnd   DateTime
+  firstSeenAt    DateTime
+  lastSeenAt     DateTime
+  /// When a check last changed its times or description.
+  revisedAt      DateTime?
+  withdrawnAt    DateTime?
+
+  sourceId Int
+  source   OutageSource @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+
+  @@index([sourceId, start])
+  @@map("outage_events")
 }

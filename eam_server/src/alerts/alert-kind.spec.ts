@@ -14,6 +14,14 @@ describe('alertKind', () => {
     ['Logger back online after 7 min', 'connection'],
     ['BMS reader silent since 03:10', 'connection'],
     ['BMS reader back online after 2 min', 'connection'],
+    ['Outage schedule updated', 'schedule'],
+    ['Outage in 15 min: 18:00–20:00', 'outage'],
+    ['Possible outage in 15 min: 18:00–20:00', 'outage'],
+    [
+      'Outage schedule unavailable: no successful check for 12 h',
+      'schedule-unavailable',
+    ],
+    ['Outage schedule back after 14 h', 'schedule-unavailable'],
   ])('files "%s" under %s', (message, kind) => {
     expect(alertKind(message)).toBe(kind);
   });

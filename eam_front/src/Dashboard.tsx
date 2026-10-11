@@ -4,6 +4,7 @@ import EnergyTotals from './energy/EnergyTotals';
 import Last24Hours from './energy/Last24Hours';
 import { sceneValues } from './energy/overviewModel';
 import { describeDeviceStatus } from './inverter/useDeviceStatus';
+import OutageCard from './outage/OutageCard';
 import PvArrayTile from './solar/PvArrayTile';
 import { computeArray } from './solar/pvArray';
 import { usePanelTypes } from './solar/usePanelTypes';
@@ -112,6 +113,7 @@ export default function Dashboard() {
         <div className="lg:col-span-2">
           <Last24Hours profileId={profile.id} historyHref={`${base}/history`} />
         </div>
+        <OutageCard profileId={profile.id} />
       </div>
     </>
   );

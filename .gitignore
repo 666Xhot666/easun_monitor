@@ -71,3 +71,8 @@ generated/
 # Dev-only serial captures (DEV_CAPTURE_DIR), one JSON-lines file per capture.
 # =============================================================================
 .dev-captures/
+
+# =============================================================================
+# The outage schedule reader's state (OUTAGE_STATE_FILE).
+# =============================================================================
+.outage-reader-state.json

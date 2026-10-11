@@ -8,6 +8,7 @@ import { SolarModule } from './solar/solar.module';
 import { HouseholdsModule } from './households/households.module';
 import { BmsLatestModule } from './bms/bms-latest';
 import { BmsModule } from './bms/bms.module';
+import { OutageModule } from './outage/outage.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { InverterModule } from './inverter/inverter.module';
@@ -36,6 +37,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     SolarModule,
     BmsLatestModule,
     BmsModule,
+    OutageModule,
     TelegramModule,
     NotificationsModule,
   ],

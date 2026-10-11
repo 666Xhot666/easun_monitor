@@ -71,7 +71,7 @@ describe('SettingsPage', () => {
 
     const tabs = within(screen.getByRole('navigation', { name: 'Settings' })).getAllByRole('link');
     expect(tabs.map((t) => t.textContent)).toEqual([
-      'Inverter', 'Inverter settings', 'Solar array', 'Battery monitor', 'Household', 'Notifications', 'Account',
+      'Inverter', 'Inverter settings', 'Solar array', 'Battery monitor', 'Outage schedule', 'Household', 'Notifications', 'Account',
     ]);
     expect(screen.getByTestId('where')).toHaveTextContent('/dashboard/1/settings/inverter');
     expect(screen.getByLabelText('Logger IP or hostname')).toHaveValue('192.168.1.48');
@@ -81,7 +81,7 @@ describe('SettingsPage', () => {
     restore = renderSettings('READER', '/dashboard/1/settings/solar').server.restore;
 
     const tabs = within(screen.getByRole('navigation', { name: 'Settings' })).getAllByRole('link');
-    expect(tabs.map((t) => t.textContent)).toEqual(['Current configuration', 'Household', 'Notifications', 'Account']);
+    expect(tabs.map((t) => t.textContent)).toEqual(['Current configuration', 'Outage schedule', 'Household', 'Notifications', 'Account']);
     expect(screen.getByTestId('where')).toHaveTextContent('/dashboard/1/settings/configuration');
   });
 

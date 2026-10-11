@@ -1,14 +1,16 @@
 #!/bin/sh
-# Installs the serial logger or the BMS reader as a systemd service on Linux:
+# Installs the serial logger, the BMS reader or the outage schedule reader as
+# a systemd service on Linux:
 # it starts at boot and is restarted whenever it exits.
 #
 #   SERIAL_RX_PORT=/dev/serial/by-id/A SERIAL_TX_PORT=/dev/serial/by-id/B \
 #     scripts/install-linux-service.sh serial-logger
 #   scripts/install-linux-service.sh bms-reader
+#   scripts/install-linux-service.sh outage-reader
 #
 # Run as the user the service runs as (not root); it uses sudo. Build first:
-# `cd eam_server && npx nest build`. The BMS reader reads its settings from
-# its .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
+# `cd eam_server && npx nest build`. The BMS reader and the outage reader read
+# their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
 # Uninstall:
 #   sudo systemctl disable --now easun-<name>
 #   sudo rm /etc/systemd/system/easun-<name>.service
@@ -16,8 +18,8 @@
 set -eu
 
 NAME="${1:-}"
-if [ "$NAME" != "serial-logger" ] && [ "$NAME" != "bms-reader" ]; then
-    echo "Usage: $0 <serial-logger|bms-reader>" >&2
+if [ "$NAME" != "serial-logger" ] && [ "$NAME" != "bms-reader" ] && [ "$NAME" != "outage-reader" ]; then
+    echo "Usage: $0 <serial-logger|bms-reader|outage-reader>" >&2
     exit 1
 fi
 
@@ -57,6 +59,9 @@ Environment=SERIAL_TX_BAUD=$TX_BAUD"
         # raw Bluetooth (HCI) access for this service only
         EXTRA="AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN"
+        ;;
+    outage-reader)
+        EXTRA=""
         ;;
 esac
 

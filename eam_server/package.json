@@ -22,7 +22,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "serial-logger": "nest build && node dist/serial-logger/main",
-    "bms-reader": "nest build && node dist/bms-reader/main"
+    "bms-reader": "nest build && node dist/bms-reader/main",
+    "outage-reader": "nest build && node dist/outage-reader/main"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",
@@ -75,6 +76,7 @@
     "typescript": "^6.0.2"
   },
   "optionalDependencies": {
-    "@stoprocent/noble": "^2.8.0"
+    "@stoprocent/noble": "^2.8.0",
+    "playwright": "^1.64.0"
   }
 }
