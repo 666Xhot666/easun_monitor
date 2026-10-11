@@ -1,17 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
-import { duration } from '../telegram/messages';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { STALE_AFTER_MS } from './forecast';
 
 /** Why the checks fail, by the last check's outcome. */
+/** Why the reader failed, by check outcome: keys of outage.reasons in the catalogs. */
 const FAILURE: Record<string, string> = {
-  CHALLENGE: 'the site blocked the reader',
-  REJECTED: 'the site blocked the reader',
-  SHAPE: "the site's page has changed",
-  SERVER: 'the site was down',
-  NETWORK: 'the site could not be reached',
+  CHALLENGE: 'blocked',
+  REJECTED: 'blocked',
+  SHAPE: 'changed',
+  SERVER: 'down',
+  NETWORK: 'unreachable',
 };
 
 /**
@@ -79,21 +79,19 @@ export class OutageAvailability {
       if (reportedSince !== undefined) return;
       this.down.set(source.id, good);
       if (baseline) return;
-      const why =
-        last && last.outcome !== 'OK'
-          ? FAILURE[last.outcome]
-          : 'the reader has not reported';
-      await this.alerts.toHousehold(
-        source.inverterProfileId,
-        `Outage schedule unavailable: no successful check for ${duration(now.getTime() - good)}; ${why}`,
-      );
+      const reason =
+        last && last.outcome !== 'OK' ? FAILURE[last.outcome] : 'silent';
+      await this.alerts.toHousehold(source.inverterProfileId, {
+        key: 'scheduleUnavailable',
+        params: { forMs: now.getTime() - good, reason },
+      });
       return;
     }
     if (reportedSince === undefined) return;
     this.down.delete(source.id);
-    await this.alerts.toHousehold(
-      source.inverterProfileId,
-      `Outage schedule back after ${duration(good - reportedSince)}`,
-    );
+    await this.alerts.toHousehold(source.inverterProfileId, {
+      key: 'scheduleBack',
+      params: { downMs: good - reportedSince },
+    });
   }
 }

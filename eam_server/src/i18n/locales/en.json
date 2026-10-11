@@ -15,6 +15,38 @@
     "loggerDown": "Logger not answering since {{sinceAt}}",
     "loggerBack": "Logger back online after {{downMs}}",
     "bmsSilent": "BMS reader silent since {{sinceAt}}",
-    "bmsBack": "BMS reader back online after {{silentMs}}"
+    "bmsBack": "BMS reader back online after {{silentMs}}",
+    "scheduleUnavailable": "Outage schedule unavailable: no successful check for {{forMs}}; {{reason}}",
+    "scheduleBack": "Outage schedule back after {{downMs}}"
+  },
+  "outage": {
+    "updated": "Outage schedule updated",
+    "today": "today",
+    "tomorrow": "tomorrow",
+    "published": "Schedule for {{day}} published",
+    "publishedEmpty": "Schedule for {{day}} published: no outages",
+    "what": {
+      "OFF": "off",
+      "POSSIBLE": "possible outage",
+      "UNKNOWN": "unclear"
+    },
+    "repair": "repair on the house",
+    "repairAbout": "repair on the house: {{description}}",
+    "new": "{{when}} {{what}} (new)",
+    "newRepair": "{{when}} {{what}}",
+    "revised": "{{before}} → {{after}} {{what}}",
+    "cancelled": "{{when}} {{what}} cancelled",
+    "soon": "Outage in {{minutes}} min: {{from}}–{{to}}",
+    "possibleSoon": "Possible outage in {{minutes}} min: {{from}}–{{to}}",
+    "weekly": " (weekly pattern, not confirmed)",
+    "battery": "Battery {{soc}} %",
+    "stale": "The schedule was last checked {{hours}} h ago",
+    "reasons": {
+      "blocked": "the site blocked the reader",
+      "changed": "the site's page has changed",
+      "down": "the site was down",
+      "unreachable": "the site could not be reached",
+      "silent": "the reader has not reported"
+    }
   }
 }

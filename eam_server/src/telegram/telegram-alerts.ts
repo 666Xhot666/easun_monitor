@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
   alertKindOf,
@@ -10,13 +11,8 @@ import {
 import { languageOr, type Language } from '../i18n/languages';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
-import { alertKind } from '../alerts/alert-kind';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { sendsToTelegram } from '../notifications/notification-settings';
-
-/** The kind of an alert, by its key (text-only alerts by their wording). */
-const kindOf = (message: AlertMessage | string) =>
-  typeof message === 'string' ? alertKind(message) : alertKindOf(message.key);
 
 /** How long a logger or BMS reader is silent before it is reported. */
 const OFFLINE_AFTER_MS = 5 * 60_000;
@@ -159,7 +155,7 @@ export class TelegramAlerts {
    */
   async toHousehold(
     profileId: number,
-    message: AlertMessage | string,
+    message: AlertMessage,
     bmsName?: string,
   ): Promise<void> {
     if (await this.record(profileId, message, bmsName)) {
@@ -170,7 +166,7 @@ export class TelegramAlerts {
   /** Keeps the alert for the Alerts page; false if the inverter is gone. */
   async record(
     profileId: number,
-    message: AlertMessage | string,
+    message: AlertMessage,
     bmsName?: string,
   ): Promise<boolean> {
     const exists = await this.prisma.inverterProfile.count({
@@ -181,12 +177,10 @@ export class TelegramAlerts {
     await this.prisma.alertEvent.create({
       data: {
         inverterProfileId: profileId,
-        kind: kindOf(message),
+        kind: alertKindOf(message.key),
         text: this.word(message, 'en'),
-        ...(typeof message !== 'string' && {
-          key: message.key,
-          params: message.params,
-        }),
+        key: message.key,
+        params: message.params as Prisma.InputJsonValue | undefined,
         source: bmsName ?? null,
       },
     });
@@ -199,7 +193,7 @@ export class TelegramAlerts {
    */
   async toChats(
     profileId: number,
-    message: AlertMessage | string,
+    message: AlertMessage,
     options: { bmsName?: string; userIds?: number[] } = {},
   ): Promise<void> {
     const profile = await this.prisma.inverterProfile.findUnique({
@@ -222,7 +216,7 @@ export class TelegramAlerts {
     const settings = await this.notifications.forUsers(
       links.map((l) => l.userId),
     );
-    const kind = kindOf(message);
+    const kind = alertKindOf(message.key);
     const now = new Date();
     const { bmsName } = options;
     const from = `${profile.name}${bmsName ? ` (${bmsName})` : ''}`;
@@ -246,10 +240,8 @@ export class TelegramAlerts {
     return this.word({ key: alert.key, params }, language);
   }
 
-  /** The alert in `language`; a text-only alert as it is. */
-  private word(message: AlertMessage | string, language: Language): string {
-    return typeof message === 'string'
-      ? message
-      : alertText(message, language, this.bot.timeZone);
+  /** The alert in `language`. */
+  private word(message: AlertMessage, language: Language): string {
+    return alertText(message, language, this.bot.timeZone);
   }
 }

@@ -54,7 +54,7 @@ describe('scheduleUpdateText', () => {
         description: 'Аварійні ремонтні роботи',
       },
     ];
-    expect(scheduleUpdateText(changes, NOW, TZ)).toBe(
+    expect(scheduleUpdateText(changes, NOW, TZ, 'en')).toBe(
       [
         'Outage schedule updated',
         'Schedule for tomorrow (Tue 13 Oct) published',
@@ -65,17 +65,33 @@ describe('scheduleUpdateText', () => {
         'Wed 14 Oct 00:00–02:00 off cancelled',
       ].join('\n'),
     );
+    expect(scheduleUpdateText(changes, NOW, TZ, 'uk')).toBe(
+      [
+        'Графік відключень оновлено',
+        'Опубліковано графік на завтра (вт, 13 жовт.)',
+        'Сьогодні 21:00–22:00 → 21:00–22:30 відключення',
+        'Сьогодні 21:10–завтра 03:00 ремонт на будинку: Аварійні ремонтні роботи',
+        'Сьогодні 22:00–23:00 можливе відключення (нове)',
+        'Завтра 18:00–20:00 відключення (нове)',
+        'Ср, 14 жовт. 00:00–02:00 відключення скасовано',
+      ].join('\n'),
+    );
   });
 
   it('says a published day has no outages', () => {
     expect(
-      scheduleUpdateText([{ type: 'published', day: '2026-10-13' }], NOW, TZ),
+      scheduleUpdateText(
+        [{ type: 'published', day: '2026-10-13' }],
+        NOW,
+        TZ,
+        'en',
+      ),
     ).toBe(
       'Outage schedule updated\nSchedule for tomorrow (Tue 13 Oct) published: no outages',
     );
   });
 
   it('has nothing to say without changes', () => {
-    expect(scheduleUpdateText([], NOW, TZ)).toBeNull();
+    expect(scheduleUpdateText([], NOW, TZ, 'en')).toBeNull();
   });
 });

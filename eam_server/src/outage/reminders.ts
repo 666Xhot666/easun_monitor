@@ -1,3 +1,6 @@
+import type { Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
+import type { AlertMessage } from '../alerts/alert-message';
 import type { ForecastWindow } from './forecast';
 
 /** A household member's "Outage soon" choices. */
@@ -43,7 +46,10 @@ export function reminderText(
   now: Date,
   context: { soc: number | null; staleHours: number | null },
   timeZone: string,
+  language: Language,
 ): string {
+  const t = (key: string, values?: Record<string, string | number>) =>
+    translate(language, `outage.${key}`, values);
   const clock = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     hour: '2-digit',
@@ -55,14 +61,42 @@ export function reminderText(
     Math.round((window.start.getTime() - now.getTime()) / 60_000),
   );
   const sure = window.source !== 'weekly' && window.status === 'off';
-  let text = `${sure ? 'Outage' : 'Possible outage'} in ${minutes} min: ${clock.format(window.start)}–${clock.format(window.end)}`;
+  let text = t(sure ? 'soon' : 'possibleSoon', {
+    minutes,
+    from: clock.format(window.start),
+    to: clock.format(window.end),
+  });
   if (window.source === 'repair') {
-    text += `, repair on the house${window.description ? `: ${window.description}` : ''}`;
+    text += `, ${window.description ? t('repairAbout', { description: window.description }) : t('repair')}`;
   }
-  if (window.source === 'weekly') text += ' (weekly pattern, not confirmed)';
-  if (context.soc !== null) text += `\nBattery ${Math.round(context.soc)} %`;
+  if (window.source === 'weekly') text += t('weekly');
+  if (context.soc !== null) {
+    text += `\n${t('battery', { soc: Math.round(context.soc) })}`;
+  }
   if (context.staleHours !== null) {
-    text += `\nThe schedule was last checked ${context.staleHours} h ago`;
+    text += `\n${t('stale', { hours: context.staleHours })}`;
   }
   return text;
+}
+
+/** A reminder as an alert, worded when shown (see alert-message.ts). */
+export function reminderMessage(
+  window: ForecastWindow,
+  now: Date,
+  context: { soc: number | null; staleHours: number | null },
+): AlertMessage {
+  return {
+    key: 'outageSoon',
+    params: {
+      window: JSON.parse(JSON.stringify(window)),
+      madeAt: now.toISOString(),
+      ...context,
+    },
+  };
+}
+
+/** The window of a stored "outageSoon" alert, with its dates back. */
+export function windowOf(params: Record<string, unknown>): ForecastWindow {
+  const w = params.window as ForecastWindow & { start: string; end: string };
+  return { ...w, start: new Date(w.start), end: new Date(w.end) };
 }
