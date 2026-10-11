@@ -17,7 +17,20 @@
     "bmsSilent": "Зчитувач BMS мовчить з {{sinceAt}}",
     "bmsBack": "Зчитувач BMS знову на зв’язку, мовчав {{silentMs}}",
     "scheduleUnavailable": "Графік відключень недоступний: жодної вдалої перевірки вже {{forMs}}; {{reason}}",
-    "scheduleBack": "Графік відключень знову доступний після {{downMs}} перерви"
+    "scheduleBack": "Графік відключень знову доступний після {{downMs}} перерви",
+    "serverHot": "Сервер: перегрів, {{celsius}} °C ({{sensor}})",
+    "serverCool": "Сервер: температура знизилася до {{celsius}} °C",
+    "serverStorageLow": "Сервер: мало місця на {{mount}}, вільно {{freePercent}} % ({{freeGb}} ГБ)",
+    "serverStorageBack": "Сервер: на {{mount}} знову вільно {{freePercent}} %",
+    "serverMemoryShort": "Сервер: бракує пам’яті, зайнято {{usedPercent}} %, підкачки зайнято {{swapGb}} ГБ",
+    "serverMemoryBack": "Сервер: пам’яті знову досить, зайнято {{usedPercent}} %",
+    "serverSecurityUpdates_one": "Сервер: доступне {{count}} оновлення безпеки (усього оновлень: {{packages}})",
+    "serverSecurityUpdates_few": "Сервер: доступно {{count}} оновлення безпеки (усього оновлень: {{packages}})",
+    "serverSecurityUpdates_many": "Сервер: доступно {{count}} оновлень безпеки (усього оновлень: {{packages}})",
+    "serverSecurityUpdates_other": "Сервер: доступно {{count}} оновлення безпеки (усього оновлень: {{packages}})",
+    "serverRestart": "Сервер: після оновлень потрібен перезапуск",
+    "serverAgentSilent": "Сервер: агент мовчить з {{sinceAt}}",
+    "serverAgentBack": "Сервер: агент знову на зв’язку, мовчав {{silentMs}}"
   },
   "outage": {
     "updated": "Графік відключень оновлено",

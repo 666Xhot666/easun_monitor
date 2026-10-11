@@ -3,7 +3,7 @@
  * catalogs are JSON, one per language; a missing text falls back to
  * English, then to its key.
  */
-import type { Language } from './languages';
+import { LOCALES, type Language } from './languages';
 import en from './locales/en.json';
 import uk from './locales/uk.json';
 
@@ -20,6 +20,16 @@ function lookup(catalog: Catalog, key: string): string | undefined {
   return typeof at === 'string' ? at : undefined;
 }
 
+/** `key`'s plural form for `count` ("_one", "_few", ...), if the catalog has one. */
+function plural(
+  language: Language,
+  key: string,
+  count: number,
+): string | undefined {
+  const form = new Intl.PluralRules(LOCALES[language]).select(count);
+  return lookup(CATALOGS[language], `${key}_${form}`);
+}
+
 /** The text of `key` in `language`, with each {{name}} filled from `values`. */
 export function translate(
   language: Language,
@@ -27,7 +37,8 @@ export function translate(
   values: Record<string, string | number> = {},
 ): string {
   const text =
-    lookup(CATALOGS[language], key) ?? lookup(CATALOGS.en, key) ?? key;
+    (typeof values.count === 'number' && plural(language, key, values.count)) ||
+    (lookup(CATALOGS[language], key) ?? lookup(CATALOGS.en, key) ?? key);
   return text.replace(/\{\{(\w+)\}\}/g, (all, name: string) =>
     name in values ? String(values[name]) : all,
   );

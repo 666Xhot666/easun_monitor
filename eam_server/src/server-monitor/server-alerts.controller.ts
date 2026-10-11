@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Put, Query, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { languageOr } from '../i18n/languages';
 import { ServerAlertsService } from './server-alerts.service';
 
 /**
@@ -16,8 +17,8 @@ export class ServerAlertsController {
    * The limits and the recent notices. Owner and viewers.
    */
   @Get()
-  get(@CurrentUser() user: AuthenticatedUser) {
-    return this.alerts.get(user.userId);
+  get(@CurrentUser() user: AuthenticatedUser, @Query('lang') lang?: string) {
+    return this.alerts.get(user.userId, languageOr(lang));
   }
 
   /**

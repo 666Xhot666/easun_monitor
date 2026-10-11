@@ -3,7 +3,7 @@
  * reader's language when shown (Alerts page) or sent (Telegram). The
  * texts are in i18n/locales under "alerts".
  */
-import type { Language } from '../i18n/languages';
+import { LOCALES, type Language } from '../i18n/languages';
 import { duration, translate } from '../i18n/translate';
 import { registerMapFor } from '../inverter/registers/register-translations';
 import { clockTime } from '../telegram/messages';
@@ -82,7 +82,14 @@ function word(
   if (name.endsWith('At')) return clockTime(new Date(String(value)), timeZone);
   if (name === 'reason')
     return translate(language, `outage.reasons.${String(value)}`);
-  return typeof value === 'number' ? value : String(value);
+  if (typeof value !== 'number') return String(value);
+  // Whole numbers stay numbers: a count picks its plural form.
+  return Number.isInteger(value)
+    ? value
+    : new Intl.NumberFormat(LOCALES[language], {
+        maximumFractionDigits: 1,
+        useGrouping: false,
+      }).format(value);
 }
 
 /** The alert in `language`, with clock times in `timeZone`. */

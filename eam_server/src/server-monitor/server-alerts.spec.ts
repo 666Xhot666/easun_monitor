@@ -1,3 +1,5 @@
+import { alertText } from '../alerts/alert-message';
+import type { Language } from '../i18n/languages';
 import type { HostSample } from '../server-agent/sample';
 import { serverAlerts, type AlertThresholds } from './server-alerts';
 
@@ -38,8 +40,8 @@ const sample = (
   ...(over.updates !== undefined && { updates: over.updates }),
 });
 
-/** Feeds samples in turn, collecting the notices. */
-function run(samples: HostSample[]) {
+/** Feeds samples in turn, collecting the notices as worded in `language`. */
+function run(samples: HostSample[], language: Language = 'en') {
   let state;
   const notices = [];
   for (const s of samples) {
@@ -47,7 +49,10 @@ function run(samples: HostSample[]) {
     state = result.state;
     notices.push(...result.notices);
   }
-  return notices;
+  return notices.map((n) => ({
+    kind: n.kind,
+    text: alertText(n, language, 'UTC'),
+  }));
 }
 
 describe('serverAlerts', () => {
@@ -101,6 +106,17 @@ describe('serverAlerts', () => {
     ]);
   });
 
+  it('words the notices in Ukrainian', () => {
+    expect(
+      run([sample(), sample({ freeGb: 16 }), sample({ freeGb: 25 })], 'uk').map(
+        (n) => n.text,
+      ),
+    ).toEqual([
+      'Сервер: мало місця на /, вільно 8 % (16 ГБ)',
+      'Сервер: на / знову вільно 12,5 %',
+    ]);
+  });
+
   it('says memory is short after five readings over the limit, and when it is enough again', () => {
     const short = Array.from({ length: 5 }, () => sample({ availableGb: 0.4 }));
     expect(
@@ -114,7 +130,7 @@ describe('serverAlerts', () => {
     ).toEqual([
       {
         kind: 'server-memory',
-        text: 'Server: memory short, 95 % used, swap 1.0 GB used',
+        text: 'Server: memory short, 95 % used, swap 1 GB used',
       },
       { kind: 'server-memory', text: 'Server: memory back to 75 % used' },
     ]);

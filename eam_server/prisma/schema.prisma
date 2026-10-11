@@ -121,9 +121,14 @@ model ServerAlertSettings {
 model ServerAlertEvent {
   id   Int      @id @default(autoincrement())
   /// server-heat | server-storage | server-memory | server-agent | server-updates
-  kind String
-  text String
-  at   DateTime @default(now())
+  kind   String
+  /// In English; shown as is when there is no key (notices kept before keys).
+  text   String
+  /// The message key under "alerts" in src/i18n/locales, worded per reader.
+  key    String?
+  /// The message's values (see src/alerts/alert-message.ts).
+  params Json?
+  at     DateTime @default(now())
 
   @@index([at])
   @@map("server_alert_events")

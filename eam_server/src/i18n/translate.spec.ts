@@ -13,6 +13,33 @@ describe('translate', () => {
     expect(translate('uk', 'no.such.key')).toBe('no.such.key');
   });
 
+  it('picks the plural form of the language for a count', () => {
+    expect(
+      translate('en', 'alerts.serverSecurityUpdates', {
+        count: 1,
+        packages: 4,
+      }),
+    ).toBe('Server: 1 security update available (4 updates in all)');
+    expect(
+      translate('en', 'alerts.serverSecurityUpdates', {
+        count: 3,
+        packages: 4,
+      }),
+    ).toBe('Server: 3 security updates available (4 updates in all)');
+    expect(
+      translate('uk', 'alerts.serverSecurityUpdates', {
+        count: 3,
+        packages: 4,
+      }),
+    ).toBe('Сервер: доступно 3 оновлення безпеки (усього оновлень: 4)');
+    expect(
+      translate('uk', 'alerts.serverSecurityUpdates', {
+        count: 5,
+        packages: 9,
+      }),
+    ).toBe('Сервер: доступно 5 оновлень безпеки (усього оновлень: 9)');
+  });
+
   it('says how long in the language', () => {
     expect(duration(7_800_000, 'en')).toBe('2 h 10 min');
     expect(duration(7_800_000, 'uk')).toBe('2 год 10 хв');
@@ -28,7 +55,12 @@ describe('catalogs', () => {
       typeof v === 'string' ? [prefix + k] : keys(v, `${prefix}${k}.`),
     );
 
-  it('have the same texts in English and Ukrainian', () => {
-    expect(keys(uk).sort()).toEqual(keys(en).sort());
+  it('have the same texts in English and Ukrainian, plural forms aside', () => {
+    const unique = (tree: Tree) => [
+      ...new Set(
+        keys(tree).map((k) => k.replace(/_(zero|one|two|few|many|other)$/, '')),
+      ),
+    ];
+    expect(unique(uk).sort()).toEqual(unique(en).sort());
   });
 });

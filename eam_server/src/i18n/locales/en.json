@@ -17,7 +17,18 @@
     "bmsSilent": "BMS reader silent since {{sinceAt}}",
     "bmsBack": "BMS reader back online after {{silentMs}}",
     "scheduleUnavailable": "Outage schedule unavailable: no successful check for {{forMs}}; {{reason}}",
-    "scheduleBack": "Outage schedule back after {{downMs}}"
+    "scheduleBack": "Outage schedule back after {{downMs}}",
+    "serverHot": "Server: overheating, {{celsius}} °C ({{sensor}})",
+    "serverCool": "Server: temperature back to {{celsius}} °C",
+    "serverStorageLow": "Server: storage low on {{mount}}, {{freePercent}} % free ({{freeGb}} GB)",
+    "serverStorageBack": "Server: storage on {{mount}} back to {{freePercent}} % free",
+    "serverMemoryShort": "Server: memory short, {{usedPercent}} % used, swap {{swapGb}} GB used",
+    "serverMemoryBack": "Server: memory back to {{usedPercent}} % used",
+    "serverSecurityUpdates_one": "Server: {{count}} security update available ({{packages}} updates in all)",
+    "serverSecurityUpdates_other": "Server: {{count}} security updates available ({{packages}} updates in all)",
+    "serverRestart": "Server: restart required after updates",
+    "serverAgentSilent": "Server: agent silent since {{sinceAt}}",
+    "serverAgentBack": "Server: agent back after {{silentMs}}"
   },
   "outage": {
     "updated": "Outage schedule updated",
