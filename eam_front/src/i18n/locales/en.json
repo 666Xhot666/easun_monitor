@@ -742,5 +742,70 @@
     "removeNamed": "Remove {{name}}…",
     "removeTitle": "Remove {{name}}?",
     "removeBody": "EAM stops reading it. Its recorded history is kept."
+  },
+  "solar": {
+    "array": "Array",
+    "panelTypes": "Panel types",
+    "saveFailed": "Couldn't save the array.",
+    "panelType": "Panel type",
+    "none": "— None —",
+    "inSeries": "Panels in series per string",
+    "fewerInSeries": "Fewer panels in series",
+    "moreInSeries": "More panels in series",
+    "strings": "Strings in parallel",
+    "fewerStrings": "Fewer strings",
+    "moreStrings": "More strings",
+    "ratings": "Array ratings",
+    "panelsCount": "{{count}} panels ({{layout}})",
+    "stringLayout": "String layout",
+    "stringN": "String {{n}}",
+    "chooseFirst": "Choose a panel type and the wiring to see the array ratings.",
+    "voltageTitle": "Voltage against the inverter’s PV input",
+    "levels": {
+      "danger": "Danger",
+      "warning": "Warning",
+      "info": "Note"
+    },
+    "limits": "Inverter PV input limits",
+    "limitsHint": "(from the specification table in the manual; optional)",
+    "limitFields": {
+      "pvMaxVocV": "Max open-circuit voltage (V)",
+      "pvMpptMinV": "MPPT minimum (V)",
+      "pvMpptMaxV": "MPPT maximum (V)",
+      "pvMaxPowerW": "Max PV input power (W)",
+      "pvMaxCurrentA": "Max PV input current (A)"
+    },
+    "saved": "Saved.",
+    "save": "Save array",
+    "barLabel": "Voltage against the inverter’s PV input: Vmp {{vmp}}, Voc {{voc}}, cold-morning Voc {{cold}}",
+    "mpptWindowValue": "MPPT window {{min}}–{{max}}",
+    "maxVocValue": "max Voc {{value}}",
+    "mpptWindow": "MPPT window",
+    "coldVoc": "Cold-morning Voc",
+    "maxVoc": "Max Voc",
+    "coldHint": "Cold-morning Voc is the open-circuit voltage plus the {{margin}}% kept in reserve for cold weather.",
+    "warn": {
+      "vocAbove": "Open-circuit voltage {{voc}} is above the inverter maximum of {{max}} and can damage it.",
+      "vocNear": "Open-circuit voltage {{voc}} is within 15% of the {{max}} maximum; it rises on cold mornings.",
+      "vmpBelow": "Working voltage {{vmp}} is below the MPPT range (from {{min}}): the inverter cannot track the array well.",
+      "vmpAbove": "Working voltage {{vmp}} is above the MPPT range (up to {{max}}).",
+      "powerAbove": "Array power {{power}} is above the {{max}} PV input rating; the inverter caps what it takes.",
+      "currentAbove": "Short-circuit current {{current}} is above the {{max}} PV input limit."
+    },
+    "types": {
+      "saveFailed": "Couldn't save the panel type.",
+      "deleteFailed": "Couldn't delete the panel type.",
+      "empty": "No panel types yet. Add the one on your roof from its datasheet.",
+      "name": "Name",
+      "edit": "Edit",
+      "editNamed": "Edit {{name}}",
+      "delete": "Delete",
+      "deleteNamed": "Delete {{name}}",
+      "add": "Add panel type",
+      "save": "Save",
+      "deleteTitle": "Delete the panel type “{{name}}”?",
+      "deleteBody": "Panel types an inverter still uses can’t be deleted."
+    },
+    "arrayOf": "{{name}}'s array"
   }
 }

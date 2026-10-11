@@ -25,3 +25,11 @@ export const clock = (at: Date | number | string): string =>
 
 /** date-fns locale for the current language: Ukrainian month and day names, or British English. */
 export const dateLocale = (): Locale => (currentLanguage() === 'uk' ? uk : enGB);
+
+/** A measured value as is (2700, 21.7), with only the decimal separator of the current language. */
+export function plain(value: number): string {
+  return new Intl.NumberFormat(currentLocale(), { useGrouping: false, maximumFractionDigits: 3 }).format(value);
+}
+
+/** "2700 W", "21.7 A": a measured value with its unit, without thousands separators. */
+export const plainUnit = (value: number, u: Unit): string => `${plain(value)} ${unit(u)}`;

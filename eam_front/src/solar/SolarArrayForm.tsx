@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { plain, plainUnit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import type { InverterProfile } from '../auth/types';
@@ -18,12 +20,12 @@ const FIELDS = [
 type Field = (typeof FIELDS)[number];
 type Form = Record<Field, string>;
 
-const LIMITS: { field: Field; label: string }[] = [
-  { field: 'pvMaxVocV', label: 'Max open-circuit voltage (V)' },
-  { field: 'pvMpptMinV', label: 'MPPT minimum (V)' },
-  { field: 'pvMpptMaxV', label: 'MPPT maximum (V)' },
-  { field: 'pvMaxPowerW', label: 'Max PV input power (W)' },
-  { field: 'pvMaxCurrentA', label: 'Max PV input current (A)' },
+const LIMITS: { field: Field }[] = [
+  { field: 'pvMaxVocV' },
+  { field: 'pvMpptMinV' },
+  { field: 'pvMpptMaxV' },
+  { field: 'pvMaxPowerW' },
+  { field: 'pvMaxCurrentA' },
 ];
 
 const WARNING_STYLES: Record<ArrayWarning['level'], string> = {
@@ -57,6 +59,7 @@ interface Props {
 
 /** The inverter's solar array (panel type and wiring) and its PV input limits, with the array's ratings. */
 export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly = false }: Props) {
+  const { t } = useTranslation();
   const [form, setForm] = useState<Form>(() => toForm(profile));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -98,7 +101,7 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
       setSaved(true);
       onSaved();
     } catch (e) {
-      setError(extractErrorMessage(e, "Couldn't save the array."));
+      setError(extractErrorMessage(e, t('solar.saveFailed')));
     } finally {
       setSaving(false);
     }
@@ -159,42 +162,42 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
   return (
     <form onSubmit={(e) => void save(e)} className="space-y-4">
       <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-        <h3 className="text-[15px] font-semibold">Array</h3>
+        <h3 className="text-[15px] font-semibold">{t('solar.array')}</h3>
         <div className="mt-3 grid gap-4 md:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)]">
           <label className={labelClass}>
-            Panel type
+            {t('solar.panelType')}
             <select
               value={form.pvPanelTypeId}
               disabled={readOnly}
               onChange={(e) => update('pvPanelTypeId')(e.target.value)}
               className={inputClass}
             >
-              <option value="">— None —</option>
-              {panelTypes.map((t) => (
-                <option key={t.id} value={String(t.id)}>
-                  {t.name} · {t.maxPowerW} W
+              <option value="">{t('solar.none')}</option>
+              {panelTypes.map((type) => (
+                <option key={type.id} value={String(type.id)}>
+                  {type.name} · {plainUnit(type.maxPowerW, 'W')}
                 </option>
               ))}
             </select>
           </label>
-          {stepper('pvPanelsInSeries', 'Panels in series per string', 'Fewer panels in series', 'More panels in series')}
-          {stepper('pvStrings', 'Strings in parallel', 'Fewer strings', 'More strings')}
+          {stepper('pvPanelsInSeries', t('solar.inSeries'), t('solar.fewerInSeries'), t('solar.moreInSeries'))}
+          {stepper('pvStrings', t('solar.strings'), t('solar.fewerStrings'), t('solar.moreStrings'))}
         </div>
 
-        <section aria-label="Array ratings" className="mt-4">
+        <section aria-label={t('solar.ratings')} className="mt-4">
           {array && inSeries && strings ? (
             <>
               <p className="flex flex-wrap items-baseline gap-x-2">
                 <span className="text-xl font-semibold">
-                  {array.panels} panels ({inSeries}S{strings}P)
+                  {t('solar.panelsCount', { count: array.panels, layout: `${inSeries}S${strings}P` })}
                 </span>
                 <span className="text-xl font-semibold text-muted">·</span>
-                <span className="text-xl font-semibold tabular-nums">{array.powerW} W</span>
+                <span className="text-xl font-semibold tabular-nums">{plainUnit(array.powerW, 'W')}</span>
               </p>
-              <ul aria-label="String layout" className="mt-3 flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
+              <ul aria-label={t('solar.stringLayout')} className="mt-3 flex flex-col gap-2 rounded-lg bg-surface-2 p-3">
                 {Array.from({ length: Math.min(strings, 8) }, (_, i) => (
-                  <li key={i} aria-label={`String ${i + 1}`} className="flex items-center gap-3">
-                    <span className="w-16 flex-none font-mono text-xs text-muted">String {i + 1}</span>
+                  <li key={i} aria-label={t('solar.stringN', { n: i + 1 })} className="flex items-center gap-3">
+                    <span className="w-16 flex-none font-mono text-xs text-muted">{t('solar.stringN', { n: i + 1 })}</span>
                     <span className="flex flex-wrap gap-1">
                       {Array.from({ length: Math.min(inSeries, 30) }, (_, j) => (
                         <span key={j} className="h-8 w-6 rounded-[3px] border border-pv bg-pv-fill" />
@@ -205,10 +208,10 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
               </ul>
               <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
                 {[
-                  ['Vmp', `${array.vmpV} V`],
-                  ['Voc', `${array.vocV} V`],
-                  ['Imp', `${array.impA} A`],
-                  ['Isc', `${array.iscA} A`],
+                  ['Vmp', plainUnit(array.vmpV, 'V')],
+                  ['Voc', plainUnit(array.vocV, 'V')],
+                  ['Imp', plainUnit(array.impA, 'A')],
+                  ['Isc', plainUnit(array.iscA, 'A')],
                 ].map(([label, value]) => (
                   <p key={label}>
                     <span className="block text-xs text-muted">{label}</span>{' '}
@@ -218,19 +221,19 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
               </div>
             </>
           ) : (
-            <p className="text-sm text-muted">Choose a panel type and the wiring to see the array ratings.</p>
+            <p className="text-sm text-muted">{t('solar.chooseFirst')}</p>
           )}
         </section>
       </section>
 
       <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-        <h3 className="text-[15px] font-semibold">Voltage against the inverter’s PV input</h3>
+        <h3 className="text-[15px] font-semibold">{t('solar.voltageTitle')}</h3>
         {array && <VoltageBar vmpV={array.vmpV} vocV={array.vocV} {...limits} />}
         {warnings.length > 0 && (
           <ul className="mt-3 space-y-2 text-sm">
             {warnings.map((w) => (
               <li key={w.message} className={'rounded-lg px-3 py-2.5 ' + WARNING_STYLES[w.level]}>
-                <b className="mr-2 font-semibold">{w.level === 'danger' ? 'Danger' : w.level === 'warning' ? 'Warning' : 'Note'}</b>
+                <b className="mr-2 font-semibold">{t(`solar.levels.${w.level}`)}</b>
                 {w.message}
               </li>
             ))}
@@ -238,18 +241,18 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
         )}
         <fieldset className="mt-4">
           <legend className="text-sm font-medium">
-            Inverter PV input limits <span className="font-normal text-muted">(from the specification table in the manual; optional)</span>
+            {t('solar.limits')} <span className="font-normal text-muted">{t('solar.limitsHint')}</span>
           </legend>
           <div className="mt-2 grid grid-cols-2 gap-3 md:grid-cols-5">
-            {LIMITS.map(({ field, label }) => (
-              <div key={field}>{numberInput(field, label)}</div>
+            {LIMITS.map(({ field }) => (
+              <div key={field}>{numberInput(field, t(`solar.limitFields.${field}`))}</div>
             ))}
           </div>
         </fieldset>
       </section>
 
       <div className="flex flex-wrap items-center justify-end gap-3">
-        {saved && <span className="text-sm text-good-ink">Saved.</span>}
+        {saved && <span className="text-sm text-good-ink">{t('solar.saved')}</span>}
         {error && (
           <p role="alert" className="text-sm text-crit-ink">
             {error}
@@ -261,7 +264,7 @@ export default function SolarArrayForm({ profile, panelTypes, onSaved, readOnly 
             disabled={saving}
             className="h-10 rounded-lg bg-ink px-4 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-50"
           >
-            Save array
+            {t('solar.save')}
           </button>
         )}
       </div>
@@ -283,20 +286,22 @@ function VoltageBar({
   mpptMax: number | null;
   maxVoc: number | null;
 }) {
+  const { t } = useTranslation();
   const coldVoc = Math.round(vocV * (1 + COLD_VOC_MARGIN) * 10) / 10;
+  const volts = (value: number) => plainUnit(value, 'V');
   const top = Math.max(600, Math.ceil((Math.max(coldVoc, maxVoc ?? 0) * 1.1) / 100) * 100);
   const x = (v: number) => `${Math.min(100, (v / top) * 100)}%`;
   const limitsText = [
-    mpptMin !== null && mpptMax !== null ? `MPPT window ${mpptMin}–${mpptMax} V` : null,
-    maxVoc !== null ? `max Voc ${maxVoc} V` : null,
+    mpptMin !== null && mpptMax !== null ? t('solar.mpptWindowValue', { min: plain(mpptMin), max: volts(mpptMax) }) : null,
+    maxVoc !== null ? t('solar.maxVocValue', { value: volts(maxVoc) }) : null,
   ].filter(Boolean);
-  const label = `Voltage against the inverter’s PV input: Vmp ${vmpV} V, Voc ${vocV} V, cold-morning Voc ${coldVoc} V${
+  const label = `${t('solar.barLabel', { vmp: volts(vmpV), voc: volts(vocV), cold: volts(coldVoc) })}${
     limitsText.length ? `; ${limitsText.join(', ')}` : ''
   }`;
   const markers = [
     { name: 'Vmp', v: vmpV, colour: 'var(--text)' },
     { name: 'Voc', v: vocV, colour: 'var(--pv)' },
-    { name: 'Cold-morning Voc', v: coldVoc, colour: 'var(--grid)' },
+    { name: t('solar.coldVoc'), v: coldVoc, colour: 'var(--grid)' },
   ];
   return (
     <div className="mt-3">
@@ -315,32 +320,32 @@ function VoltageBar({
         ))}
       </div>
       <div className="mt-1 flex justify-between font-mono text-[11px] text-muted">
-        <span>0 V</span>
-        <span>{top / 3} V</span>
-        <span>{(2 * top) / 3} V</span>
-        <span>{top} V</span>
+        <span>{volts(0)}</span>
+        <span>{volts(top / 3)}</span>
+        <span>{volts((2 * top) / 3)}</span>
+        <span>{volts(top)}</span>
       </div>
       <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[13px]" aria-hidden="true">
         {mpptMin !== null && mpptMax !== null && (
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px] border border-good bg-good-bg" />
-            MPPT window <b>{mpptMin}–{mpptMax} V</b>
+            {t('solar.mpptWindow')} <b>{plain(mpptMin)}–{volts(mpptMax)}</b>
           </span>
         )}
         {markers.map((m) => (
           <span key={m.name} className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: m.colour }} />
-            {m.name} <b className="tabular-nums">{m.v.toFixed(0)} V</b>
+            {m.name} <b className="tabular-nums">{plainUnit(Math.round(m.v), 'V')}</b>
           </span>
         ))}
         {maxVoc !== null && (
           <span className="flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px] bg-crit" />
-            Max Voc <b>{maxVoc} V</b>
+            {t('solar.maxVoc')} <b>{volts(maxVoc)}</b>
           </span>
         )}
       </p>
-      <p className="mt-1 text-xs text-muted">Cold-morning Voc is the open-circuit voltage plus the {COLD_VOC_MARGIN * 100}% kept in reserve for cold weather.</p>
+      <p className="mt-1 text-xs text-muted">{t('solar.coldHint', { margin: COLD_VOC_MARGIN * 100 })}</p>
     </div>
   );
 }
