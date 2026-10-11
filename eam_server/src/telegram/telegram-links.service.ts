@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { languageOr, type Language } from '../i18n/languages';
 import { createHash, randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
 
@@ -69,11 +70,19 @@ export class TelegramLinksService {
   }
 
   /** The user a chat is linked to, or null. */
-  async userForChat(chatId: string): Promise<number | null> {
+  /** The account a chat is linked to, with the language chosen on it (null: none chosen). */
+  async accountForChat(
+    chatId: string,
+  ): Promise<{ userId: number; language: Language | null } | null> {
     const link = await this.prisma.telegramLink.findUnique({
       where: { chatId },
-      select: { userId: true },
+      select: { userId: true, user: { select: { language: true } } },
     });
-    return link?.userId ?? null;
+    if (!link) return null;
+    const chosen = link.user.language;
+    return {
+      userId: link.userId,
+      language: chosen === null ? null : languageOr(chosen),
+    };
   }
 }

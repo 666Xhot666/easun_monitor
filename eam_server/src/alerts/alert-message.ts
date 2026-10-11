@@ -6,6 +6,7 @@
 import { LOCALES, type Language } from '../i18n/languages';
 import { duration, translate } from '../i18n/translate';
 import { registerMapFor } from '../inverter/registers/register-translations';
+import { bmsAlarmName } from '../telegram/cards';
 import { clockTime } from '../telegram/messages';
 import type { AlertKind } from './alert-kind';
 import { KYIV } from '../outage-reader/dnem/windows';
@@ -78,6 +79,7 @@ function word(
     return registerMapFor(language).flagName('FaultCode', Number(value));
   if (name === 'warning')
     return registerMapFor(language).flagName('WarningCode', Number(value));
+  if (name === 'alarm') return bmsAlarmName(String(value), language);
   if (name.endsWith('Ms')) return duration(Number(value), language);
   if (name.endsWith('At')) return clockTime(new Date(String(value)), timeZone);
   if (name === 'reason')

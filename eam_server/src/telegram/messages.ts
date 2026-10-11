@@ -1,13 +1,30 @@
+import { LOCALES, type Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
 import type { EnergyTotals } from '../telemetry/telemetry.store';
 
-const kWh = (value: number) => `${value.toFixed(value < 10 ? 2 : 1)} kWh`;
-
 /** One inverter's day in plain text, for the evening summary. */
-export function formatEnergy(name: string, totals: EnergyTotals): string {
-  return (
-    `${name} today: PV ${kWh(totals.pvKWh)} · Grid ${kWh(totals.gridKWh)} · Load ${kWh(totals.outputKWh)} · ` +
-    `Battery +${totals.batteryChargeKWh.toFixed(2)} / -${totals.batteryDischargeKWh.toFixed(2)} kWh`
-  );
+export function formatEnergy(
+  name: string,
+  totals: EnergyTotals,
+  language: Language,
+): string {
+  const fixed = (value: number, decimals: number) =>
+    new Intl.NumberFormat(LOCALES[language], {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+      useGrouping: false,
+    }).format(value);
+  const unit = translate(language, 'units.kWh');
+  const kWh = (value: number) => `${fixed(value, value < 10 ? 2 : 1)} ${unit}`;
+  return translate(language, 'telegram.energyLine', {
+    name,
+    pv: kWh(totals.pvKWh),
+    grid: kWh(totals.gridKWh),
+    load: kWh(totals.outputKWh),
+    charged: fixed(totals.batteryChargeKWh, 2),
+    used: fixed(totals.batteryDischargeKWh, 2),
+    kWh: unit,
+  });
 }
 
 /** The wall-clock time in `timeZone`, read as if it were UTC (ms). */
@@ -60,13 +77,4 @@ export function clockTime(at: Date, timeZone: string): string {
     hour: '2-digit',
     minute: '2-digit',
   }).format(at);
-}
-
-/** A length of time in whole minutes (at least 1), with hours from an hour on. */
-export function duration(ms: number): string {
-  const minutes = Math.max(1, Math.round(ms / 60_000));
-  const hours = Math.floor(minutes / 60);
-  const rest = minutes % 60;
-  if (hours === 0) return `${rest} min`;
-  return rest === 0 ? `${hours} h` : `${hours} h ${rest} min`;
 }

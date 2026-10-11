@@ -1,6 +1,5 @@
-import { RegisterMap } from '../inverter/registers/register-map';
-import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import type { BmsReading } from '../bms/reading';
+import { registerMapFor } from '../inverter/registers/register-translations';
 import {
   batteryCard,
   energyCard,
@@ -10,7 +9,6 @@ import {
   weekCard,
 } from './cards';
 
-const map = new RegisterMap(SMG_II_REGISTERS);
 const NOW = new Date('2026-10-06T19:00:00Z');
 
 const bms = (overrides: Partial<BmsReading> = {}): BmsReading =>
@@ -46,7 +44,6 @@ describe('statusCard', () => {
   it('shows mode, power flow, battery and the reading age', () => {
     const card = statusCard(
       'Garage <1>',
-      map,
       {
         timestamp: new Date('2026-10-06T18:58:00Z'),
         payload: {
@@ -61,6 +58,7 @@ describe('statusCard', () => {
         },
       },
       NOW,
+      'en',
     );
 
     expect(card).toBe(
@@ -78,7 +76,6 @@ describe('statusCard', () => {
   it('marks missing values and an idle or charging battery', () => {
     const idle = statusCard(
       'Home',
-      map,
       {
         timestamp: NOW,
         payload: {
@@ -89,6 +86,7 @@ describe('statusCard', () => {
         },
       },
       NOW,
+      'en',
     );
     expect(idle).toBe(
       [
@@ -102,7 +100,6 @@ describe('statusCard', () => {
     );
     const charging = statusCard(
       'Home',
-      map,
       {
         timestamp: NOW,
         payload: {
@@ -112,12 +109,13 @@ describe('statusCard', () => {
         },
       },
       NOW,
+      'en',
     );
     expect(charging).toContain('🔋 Battery <b>60 %</b> · charging 270 W');
   });
 
   it('says when there is no reading yet', () => {
-    expect(statusCard('Home', map, null, NOW)).toBe(
+    expect(statusCard('Home', null, NOW, 'en')).toBe(
       '<b>🏠 Home</b>\nNo readings yet',
     );
   });
@@ -126,14 +124,18 @@ describe('statusCard', () => {
 describe('energyCard', () => {
   it("lists the day's energy per kind", () => {
     expect(
-      energyCard('Home', {
-        pvKWh: 3.456,
-        gridKWh: 0.8,
-        outputKWh: 12.34,
-        batteryChargeKWh: 1.44,
-        batteryDischargeKWh: 0.99,
-        coveredSeconds: 36000,
-      }),
+      energyCard(
+        'Home',
+        {
+          pvKWh: 3.456,
+          gridKWh: 0.8,
+          outputKWh: 12.34,
+          batteryChargeKWh: 1.44,
+          batteryDischargeKWh: 0.99,
+          coveredSeconds: 36000,
+        },
+        'en',
+      ),
     ).toBe(
       [
         '<b>⚡ Home · today</b>',
@@ -153,6 +155,7 @@ describe('batteryCard', () => {
       { BatterySoc: 88, BatteryVoltage: 26.5, BatteryCurrentSigned: -11.7 },
       [{ name: 'Pack', reading: bms({ alarms: ['Cell overvoltage'] }) }],
       NOW,
+      'en',
     );
 
     expect(card).toBe(
@@ -188,6 +191,7 @@ describe('batteryCard', () => {
         },
       ],
       NOW,
+      'en',
     );
     expect(card).toBe(
       [
@@ -199,7 +203,7 @@ describe('batteryCard', () => {
       ].join('\n'),
     );
 
-    expect(batteryCard('Home', { BatterySoc: 50 }, [], NOW)).toBe(
+    expect(batteryCard('Home', { BatterySoc: 50 }, [], NOW, 'en')).toBe(
       ['<b>🔋 Home</b>', 'Inverter: <b>50 %</b>', '', 'No BMS reporting.'].join(
         '\n',
       ),
@@ -209,15 +213,20 @@ describe('batteryCard', () => {
 
 describe('faultsCard', () => {
   it('lists active faults and warnings by name', () => {
+    const map = registerMapFor('en');
     const fault = map.activeFlags('FaultCode', 2)[0];
     const warning = map.activeFlags('WarningCode', 8)[0];
 
     expect(
-      faultsCard('Home', map, {
-        OperationMode: 6,
-        FaultCode: 2,
-        WarningCode: 8,
-      }),
+      faultsCard(
+        'Home',
+        {
+          OperationMode: 6,
+          FaultCode: 2,
+          WarningCode: 8,
+        },
+        'en',
+      ),
     ).toBe(
       [
         '<b>🚨 Home</b> · Fault',
@@ -229,13 +238,17 @@ describe('faultsCard', () => {
 
   it('says all clear, or that there is no reading', () => {
     expect(
-      faultsCard('Home', map, {
-        OperationMode: 3,
-        FaultCode: 0,
-        WarningCode: 0,
-      }),
+      faultsCard(
+        'Home',
+        {
+          OperationMode: 3,
+          FaultCode: 0,
+          WarningCode: 0,
+        },
+        'en',
+      ),
     ).toBe('<b>🚨 Home</b> · Off-grid\n✅ No faults or warnings');
-    expect(faultsCard('Home', map, null)).toBe(
+    expect(faultsCard('Home', null, 'en')).toBe(
       '<b>🚨 Home</b>\nNo readings yet',
     );
   });
@@ -253,20 +266,72 @@ describe('weekCard', () => {
 
   it('is a fixed-width table of the days, newest first, with totals', () => {
     expect(
-      weekCard('Home', [
-        { label: 'Tue 06', totals: totals(3.46, 0.8, 12.34) },
-        { label: 'Mon 05', totals: totals(10.2, 15.05, 25) },
-      ]),
+      weekCard(
+        'Home',
+        [
+          { label: 'Tue 06', totals: totals(3.46, 0.8, 12.34) },
+          { label: 'Mon 05', totals: totals(10.2, 15.05, 25) },
+        ],
+        'en',
+      ),
     ).toBe(
       [
         '<b>📅 Home · kWh by day</b>',
         '<pre>',
-        'Day        PV  Grid  Load',
-        'Tue 06    3.5   0.8  12.3',
-        'Mon 05   10.2  15.1  25.0',
-        'Total    13.7  15.9  37.3',
+        'Day         PV    Grid    Load',
+        'Tue 06     3.5     0.8    12.3',
+        'Mon 05    10.2    15.1    25.0',
+        'Total     13.7    15.9    37.3',
         '</pre>',
       ].join('\n'),
+    );
+  });
+});
+
+describe('cards in Ukrainian', () => {
+  it('words the status, numbers and units in Ukrainian', () => {
+    expect(
+      statusCard(
+        'Дім',
+        {
+          timestamp: new Date(NOW.getTime() - 3 * 60_000),
+          payload: {
+            OperationMode: 3,
+            PVPower: 1580,
+            OutputActivePower: 420,
+            AverageMainsPower: 0,
+            MainsVoltage: 0,
+            BatterySoc: 76,
+            BatteryVoltage: 26.4,
+            BatteryCurrentSigned: 40,
+          },
+        },
+        NOW,
+        'uk',
+      ),
+    ).toBe(
+      [
+        '<b>🏠 Дім</b> · Автономний',
+        '☀️ PV <b>1,58 кВт</b>',
+        '🏡 Навантаження <b>420 Вт</b>',
+        '🔌 Мережа <b>0 Вт</b> · мережі немає',
+        '🔋 Акумулятор <b>76 %</b> · заряджається 1,06 кВт',
+        '<i>Показник 3 хв тому</i>',
+      ].join('\n'),
+    );
+  });
+
+  it('names BMS alarms in Ukrainian', () => {
+    const card = batteryCard(
+      'Дім',
+      null,
+      [{ name: 'Pack', reading: bms({ alarms: ['Charge overtemperature'] }) }],
+      NOW,
+      'uk',
+    );
+    expect(card).toContain('⚠️ Перегрів під час заряду');
+    expect(card).toContain(
+      'Комірки 3,305–3,318 В · Δ 13 мВ (мін. #4, макс. #7)',
     );
   });
 });

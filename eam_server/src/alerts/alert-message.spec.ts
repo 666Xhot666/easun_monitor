@@ -36,6 +36,14 @@ describe('alertText', () => {
   });
 });
 
+describe('BMS alarms', () => {
+  it('names the alarm in the language', () => {
+    const alarm = { key: 'bmsAlarm', params: { alarm: 'Charge overcurrent' } };
+    expect(alertText(alarm, 'en', ZONE)).toBe('BMS alarm: Charge overcurrent');
+    expect(alertText(alarm, 'uk', ZONE)).toBe('Тривога BMS: Надструм заряду');
+  });
+});
+
 describe('alertKindOf', () => {
   it('takes the kind from the key', () => {
     expect(alertKindOf('faultsCleared')).toBe('fault');

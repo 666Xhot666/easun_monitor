@@ -1,4 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { languageOr } from '../i18n/languages';
+import { translate } from '../i18n/translate';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -73,6 +75,11 @@ export class TelegramSummary {
     this.sentOn = date;
     const links = await this.prisma.telegramLink.findMany({
       orderBy: { userId: 'asc' },
+      select: {
+        chatId: true,
+        userId: true,
+        user: { select: { language: true } },
+      },
     });
     const settings = await this.notifications.forUsers(
       links.map((l) => l.userId),
@@ -87,11 +94,12 @@ export class TelegramSummary {
         )
       )
         continue;
-      const lines = await this.bot.energyLines(link.userId, now);
+      const language = languageOr(link.user.language);
+      const lines = await this.bot.energyLines(link.userId, now, language);
       if (lines.length > 0)
         await this.bot.send(
           link.chatId,
-          ['Evening summary', ...lines].join('\n'),
+          [translate(language, 'telegram.summary'), ...lines].join('\n'),
         );
     }
   }

@@ -1,7 +1,17 @@
 {
   "units": {
     "hours": "{{count}} год",
-    "minutes": "{{count}} хв"
+    "minutes": "{{count}} хв",
+    "W": "Вт",
+    "kW": "кВт",
+    "kWh": "кВт·год",
+    "V": "В",
+    "A": "А",
+    "mV": "мВ",
+    "secondsAgo": "{{count}} с тому",
+    "minutesAgo": "{{count}} хв тому",
+    "hoursAgo": "{{count}} год тому",
+    "justNow": "щойно"
   },
   "alerts": {
     "fault": "Несправність: {{fault}}",
@@ -61,5 +71,112 @@
       "unreachable": "сайт був недосяжний",
       "silent": "зчитувач не звітував"
     }
+  },
+  "telegram": {
+    "howToLink": "Щоб під’єднати цей чат, відкрийте в застосунку «Домогосподарство», отримайте код для Telegram і надішліть його сюди як /start <код>.",
+    "linked": "Під’єднано до {{email}}. Сповіщення й вечірній підсумок надходитимуть сюди. {{help}}",
+    "badCode": "Код недійсний; коди діють 10 хвилин. {{howToLink}}",
+    "unlinked": "Цей чат від’єднано. {{howToLink}}",
+    "help": "Команди: {{commands}}.",
+    "noInverters": "У ваших домогосподарствах ще немає інверторів.",
+    "views": {
+      "status": {
+        "button": "🏠 Стан",
+        "description": "Режим, потоки енергії й акумулятор зараз"
+      },
+      "battery": {
+        "button": "🔋 Акумулятор",
+        "description": "Акумулятор і BMS докладно: комірки, температури, тривоги"
+      },
+      "faults": {
+        "button": "🚨 Несправності",
+        "description": "Активні несправності й попередження"
+      },
+      "energy": {
+        "button": "⚡ Сьогодні",
+        "description": "Енергія за сьогодні"
+      },
+      "week": {
+        "button": "📅 Тиждень",
+        "description": "Енергія по днях за останні 7 днів"
+      }
+    },
+    "chartCommand": "Графік потужності за останні 24 години",
+    "stopCommand": "Від’єднати цей чат",
+    "chartButton": "📈 Графік",
+    "refreshButton": "🔄 Оновити",
+    "chart": {
+      "title": "{{name}} · останні 24 год",
+      "pv": "PV",
+      "load": "Навантаження",
+      "grid": "Мережа",
+      "battery": "Акумулятор (+заряд)",
+      "empty": "Показників немає"
+    },
+    "summary": "Вечірній підсумок",
+    "energyLine": "{{name}} сьогодні: PV {{pv}} · мережа {{grid}} · навантаження {{load}} · акумулятор +{{charged}} / -{{used}} {{kWh}}",
+    "card": {
+      "noReadings": "Показників ще немає",
+      "pv": "PV",
+      "load": "Навантаження",
+      "grid": "Мережа",
+      "battery": "Акумулятор",
+      "noGrid": "мережі немає",
+      "idle": "простоює",
+      "charging": "заряджається",
+      "discharging": "розряджається",
+      "readingAge": "Показник {{age}}",
+      "today": "сьогодні",
+      "charged": "заряджено",
+      "used": "використано",
+      "inverter": "Інвертор",
+      "noReading": "показників немає",
+      "noBms": "Жоден BMS не звітує.",
+      "cells": "Комірки",
+      "low": "мін.",
+      "high": "макс.",
+      "temp": "Темп.",
+      "cycles": "Цикли",
+      "balancing": "балансування",
+      "noFaults": "Несправностей і попереджень немає",
+      "faults": "Несправності",
+      "warnings": "Попередження",
+      "none": "немає",
+      "kWhByDay": "кВт·год по днях",
+      "day": "День",
+      "total": "Разом",
+      "colGrid": "Мережа",
+      "colLoad": "Навант."
+    }
+  },
+  "bmsAlarms": {
+    "Wire resistance": "Опір дротів",
+    "MOSFET overtemperature": "Перегрів MOSFET",
+    "Cell count is not equal to settings": "Кількість комірок не збігається з налаштуваннями",
+    "Battery is fully charged": "Акумулятор повністю заряджено",
+    "Battery pack overvoltage": "Перенапруга батареї",
+    "Charge overcurrent": "Надструм заряду",
+    "Charge short circuit": "Коротке замикання під час заряду",
+    "Charge overtemperature": "Перегрів під час заряду",
+    "Charge undertemperature": "Замала температура для заряду",
+    "Coprocessor communication error": "Помилка зв’язку з співпроцесором",
+    "Cell undervoltage": "Низька напруга комірки",
+    "Battery pack undervoltage": "Низька напруга батареї",
+    "Discharge overcurrent": "Надструм розряду",
+    "Discharge short circuit": "Коротке замикання під час розряду",
+    "Discharge overtemperature": "Перегрів під час розряду",
+    "Charging MOSFET abnormal": "Несправність MOSFET заряду",
+    "Discharging MOSFET abnormal": "Несправність MOSFET розряду",
+    "GPS disconnected": "GPS від’єднано",
+    "Modify password in time": "Час змінити пароль",
+    "Discharge on failed": "Не вдалося ввімкнути розряд",
+    "Battery overtemperature": "Перегрів акумулятора",
+    "Temperature sensor anomaly": "Збій датчика температури",
+    "PL module anomaly": "Збій модуля PL",
+    "SCP release failed": "Не вдалося зняти захист від КЗ",
+    "Discharge OCP II": "Захист від надструму розряду II",
+    "Discharge OCP III": "Захист від надструму розряду III",
+    "Discharge undertemperature alarm": "Замала температура для розряду",
+    "GPS remote lock": "Дистанційне блокування через GPS"
   }
 }

@@ -18,6 +18,8 @@ export class FakeTelegram implements TelegramClient {
   photos: { chatId: string; png: Buffer; caption?: string }[] = [];
   answered: string[] = [];
   commands: BotCommand[] = [];
+  /** The menus for apps in a language, by its code. */
+  commandsIn: Record<string, BotCommand[]> = {};
 
   getUpdates() {
     return Promise.resolve([]);
@@ -43,8 +45,9 @@ export class FakeTelegram implements TelegramClient {
     this.photos.push({ chatId, png, caption });
     return Promise.resolve();
   }
-  setCommands(commands: BotCommand[]) {
-    this.commands = commands;
+  setCommands(commands: BotCommand[], languageCode?: string) {
+    if (languageCode) this.commandsIn[languageCode] = commands;
+    else this.commands = commands;
     return Promise.resolve();
   }
 }
