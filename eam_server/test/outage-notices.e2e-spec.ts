@@ -7,6 +7,7 @@ import {
   type LocalDate,
 } from '../src/outage-reader/dnem/windows';
 import { NotificationSettingsService } from '../src/notifications/notification-settings.service';
+import { OutageAvailability } from '../src/outage/outage-availability.service';
 import { OutageForecastService } from '../src/outage/outage-forecast.service';
 import { OutageReminders } from '../src/outage/outage-reminders.service';
 import { PrismaService } from '../src/prisma/prisma.service';
@@ -236,6 +237,71 @@ describe('Outage schedule notices (e2e)', () => {
         .set('Authorization', `Bearer ${admin}`)
         .send({ outageLeadMinutes: 15, possibleOutages: false })
         .expect(200);
+    });
+  });
+
+  describe('Outage schedule unavailable', () => {
+    const HOUR = 60 * 60_000;
+    let sourceId: number;
+    let setAt: number;
+    const after = (hours: number) => new Date(setAt + hours * HOUR);
+    const watch = () => new OutageAvailability(prisma, app.get(TelegramAlerts));
+
+    beforeEach(async () => {
+      const source = await prisma.outageSource.findUniqueOrThrow({
+        where: { inverterProfileId: profile.id },
+      });
+      sourceId = source.id;
+      setAt = source.createdAt.getTime();
+    });
+
+    it('says so after 12 hours without a successful check, and when it is back', async () => {
+      const service = watch();
+      await service.check(after(1)); // the baseline
+      await prisma.outageCheck.create({
+        data: {
+          sourceId,
+          checkedAt: after(11),
+          outcome: 'CHALLENGE',
+          usedBrowser: true,
+          error: 'firewall',
+        },
+      });
+      await service.check(after(11.9));
+      expect(telegram.sent).toEqual([]);
+
+      await service.check(after(12));
+      await service.check(after(13));
+      expect(telegram.sent.map((m) => m.text)).toEqual([
+        `${profile.name}: Outage schedule unavailable: no successful check for 12 h; the site blocked the reader`,
+      ]);
+
+      await prisma.outageCheck.create({
+        data: { sourceId, checkedAt: after(14), outcome: 'OK' },
+      });
+      await service.check(after(14.1));
+      expect(telegram.sent.map((m) => m.text)[1]).toBe(
+        `${profile.name}: Outage schedule back after 14 h`,
+      );
+      expect(
+        (await prisma.alertEvent.findMany({ orderBy: { id: 'asc' } })).map(
+          (e) => e.kind,
+        ),
+      ).toEqual(['schedule-unavailable', 'schedule-unavailable']);
+    });
+
+    it('names a reader that never reported', async () => {
+      const service = watch();
+      await service.check(after(1));
+      await service.check(after(12.5));
+      expect(telegram.sent.map((m) => m.text)).toEqual([
+        `${profile.name}: Outage schedule unavailable: no successful check for 12 h 30 min; the reader has not reported`,
+      ]);
+    });
+
+    it('does not resend after a restart', async () => {
+      await watch().check(after(13));
+      expect(telegram.sent).toEqual([]);
     });
   });
 });
