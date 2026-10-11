@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { FormEvent } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from '../lib/apiClient';
@@ -8,6 +9,7 @@ import { BrandMark } from '../ui/BrandMark';
 
 /** Join a household with an invite code. */
 export default function JoinPage() {
+  const { t } = useTranslation();
   const { code } = useParams();
   const inviteCode = code ?? '';
   const navigate = useNavigate();
@@ -21,7 +23,7 @@ export default function JoinPage() {
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page p-4">
-        <p className="text-ink">Loading…</p>
+        <p className="text-ink">{t('common.loading')}</p>
       </div>
     );
   }
@@ -39,7 +41,7 @@ export default function JoinPage() {
       await refreshUser();
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err, "Couldn't join the household."));
+      setError(extractErrorMessage(err, t('join.joinFailed')));
       setIsSubmitting(false);
     }
   };
@@ -58,7 +60,7 @@ export default function JoinPage() {
       await register(email, password, inviteCode);
       navigate('/dashboard', { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err, "Couldn't create the account."));
+      setError(extractErrorMessage(err, t('join.createFailed')));
       setIsSubmitting(false);
     }
   };
@@ -67,9 +69,9 @@ export default function JoinPage() {
     <div className="flex min-h-screen items-center justify-center bg-page p-4">
       <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-8 shadow-sm">
         <BrandMark />
-        <h1 className="text-xl font-semibold text-ink">Join a household</h1>
+        <h1 className="text-xl font-semibold text-ink">{t('join.title')}</h1>
         <p className="mt-2 text-muted">
-          <span>Invite code</span>{' '}
+          <span>{t('join.inviteCode')}</span>{' '}
           <code className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-sm text-ink">
             {inviteCode}
           </code>
@@ -91,14 +93,14 @@ export default function JoinPage() {
             disabled={isSubmitting}
             className="mt-6 w-full rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Join household
+            {t('join.join')}
           </button>
         ) : (
           <>
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
               <div>
                 <label htmlFor="join-email" className="block text-sm font-medium text-ink">
-                  Email
+                  {t('common.email')}
                 </label>
                 <input
                   id="join-email"
@@ -112,7 +114,7 @@ export default function JoinPage() {
 
               <div>
                 <label htmlFor="join-password" className="block text-sm font-medium text-ink">
-                  Password
+                  {t('common.password')}
                 </label>
                 <input
                   id="join-password"
@@ -130,7 +132,7 @@ export default function JoinPage() {
                 disabled={isSubmitting}
                 className="w-full rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                Create account and join
+                {t('join.createAndJoin')}
               </button>
             </form>
 
@@ -139,7 +141,7 @@ export default function JoinPage() {
               state={{ from: { pathname: `/join/${inviteCode}` } }}
               className="mt-6 block text-center text-sm font-medium text-accent hover:underline"
             >
-              Sign in with an existing account
+              {t('join.signInExisting')}
             </Link>
           </>
         )}

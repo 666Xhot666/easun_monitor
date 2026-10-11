@@ -1,4 +1,7 @@
 import { useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
+import { num, unit } from '../i18n/format';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
@@ -7,16 +10,11 @@ import type { BatteryType, InverterProfile } from '../auth/types';
 import { UserRoundCheck } from 'lucide-react';
 import { BrandMark } from '../ui/BrandMark';
 
-const STEP_LABELS = ['Network & Connection', 'Inverter & Power Rating', 'Battery Bank Specs'];
+const STEPS = [1, 2, 3];
 
 const POWER_PRESETS_W = [3600, 5000, 6200];
 
-const BATTERY_TYPE_OPTIONS: { value: BatteryType; label: string }[] = [
-  { value: 'LIFEPO4', label: 'LiFePO4' },
-  { value: 'LEAD_ACID', label: 'Lead-Acid (flooded)' },
-  { value: 'GEL', label: 'GEL' },
-  { value: 'USER_DEFINED', label: 'Other / user-defined' },
-];
+const BATTERY_TYPES: BatteryType[] = ['LIFEPO4', 'LEAD_ACID', 'GEL', 'USER_DEFINED'];
 
 const VOLTAGE_PRESETS = [12, 24, 48];
 
@@ -49,10 +47,11 @@ function Field({ label, htmlFor, children, hint }: { label: string; htmlFor: str
 }
 
 function StepIndicator({ currentStep }: { currentStep: number }) {
+  const { t } = useTranslation();
   return (
     <ol className="mt-6 mb-8 flex items-center justify-between">
-      {STEP_LABELS.map((label, index) => {
-        const step = index + 1;
+      {STEPS.map((step) => {
+        const label = t(`wizard.steps.${step}`);
         const isActive = step === currentStep;
         const isDone = step < currentStep;
         return (
@@ -81,7 +80,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
                 {label}
               </span>
             </div>
-            {step < STEP_LABELS.length && (
+            {step < STEPS.length && (
               <div
                 className={
                   'mx-2 h-0.5 flex-1 ' + (isDone ? 'bg-ink' : 'bg-surface-2')
@@ -96,6 +95,7 @@ function StepIndicator({ currentStep }: { currentStep: number }) {
 }
 
 export default function SetupWizard() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { refreshUser, user, logout } = useAuth();
   const hasExistingProfiles = (user?.inverterProfiles.length ?? 0) > 0;
@@ -105,7 +105,7 @@ export default function SetupWizard() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // --- Step 1 ---
-  const [name, setName] = useState('My Inverter');
+  const [name, setName] = useState(() => i18n.t('wizard.defaultName'));
   const [ipAddress, setIpAddress] = useState('');
   const [port, setPort] = useState('8899');
   const [testState, setTestState] = useState<TestState>({ status: 'idle' });
@@ -150,7 +150,7 @@ export default function SetupWizard() {
     } catch (err) {
       setTestState({
         status: 'error',
-        message: extractErrorMessage(err, "Couldn't reach the logger at that address."),
+        message: extractErrorMessage(err, t('wizard.unreachable')),
       });
     }
   }
@@ -179,7 +179,7 @@ export default function SetupWizard() {
       // has more than one and is adding another.
       navigate(`/dashboard/${created.id}`, { replace: true });
     } catch (err) {
-      setSubmitError(extractErrorMessage(err, 'Could not save your inverter setup — please try again.'));
+      setSubmitError(extractErrorMessage(err, t('wizard.saveFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -194,17 +194,16 @@ export default function SetupWizard() {
           <div className="w-full max-w-md rounded-xl border border-line bg-surface p-8 shadow-sm">
             <BrandMark />
             <UserRoundCheck className="h-7 w-7 text-muted" />
-            <h1 className="mt-3 text-xl font-semibold">Waiting for your admin to add an inverter</h1>
+            <h1 className="mt-3 text-xl font-semibold">{t('wizard.waitingTitle')}</h1>
             <p className="mt-2 text-sm leading-relaxed text-muted">
-              You joined {household?.name ?? 'a household'} as a reader. When a household admin pairs an inverter, it appears here
-              automatically.
+              {t('wizard.waitingBody', { household: household?.name ?? t('wizard.aHousehold') })}
             </p>
             <button
               type="button"
               onClick={logout}
               className="mt-6 h-10 rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2"
             >
-              Sign out
+              {t('wizard.signOut')}
             </button>
           </div>
         </div>
@@ -213,9 +212,9 @@ export default function SetupWizard() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-page px-4 py-10">
         <div className="w-full max-w-lg rounded-xl border border-line bg-surface p-8 text-sm text-ink shadow-sm">
-          <p>Only a household admin can add inverters. Ask an admin of your household to add one.</p>
+          <p>{t('wizard.adminOnly')}</p>
           <Link to="/dashboard" className="mt-4 inline-block font-medium text-accent hover:underline">
-            Back to the dashboard
+            {t('wizard.backToDashboard')}
           </Link>
         </div>
       </div>
@@ -228,11 +227,10 @@ export default function SetupWizard() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-ink">
-              {hasExistingProfiles ? 'Pair another inverter' : 'Pair your inverter'}
+              {t(hasExistingProfiles ? 'wizard.pairAnother' : 'wizard.pairYour')}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              Signed in as {user?.email}. This tells EAM how to read and interpret this
-              system's telemetry.
+              {t('wizard.signedInAs', { email: user?.email })}
             </p>
           </div>
           {hasExistingProfiles && (
@@ -240,7 +238,7 @@ export default function SetupWizard() {
               to="/dashboard"
               className="shrink-0 text-sm font-medium text-accent hover:underline"
             >
-              Back to dashboard
+              {t('wizard.backShort')}
             </Link>
           )}
         </div>
@@ -249,21 +247,21 @@ export default function SetupWizard() {
 
         {step === 1 && (
           <div className="space-y-4">
-            <Field label="Profile name" htmlFor="name">
+            <Field label={t('wizard.profileName')} htmlFor="name">
               <input
                 id="name"
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className={inputClasses()}
-                placeholder="e.g. Cabin Inverter"
+                placeholder={t('wizard.profilePlaceholder')}
               />
             </Field>
 
             <Field
-              label="Logger IP address"
+              label={t('wizard.ip')}
               htmlFor="ipAddress"
-              hint="The Wi-Fi logger's address on your network (e.g. 192.168.1.50). Find it in your router's device list or in the SmartESS app."
+              hint={t('wizard.ipHint')}
             >
               <input
                 id="ipAddress"
@@ -278,7 +276,7 @@ export default function SetupWizard() {
               />
             </Field>
 
-            <Field label="Port" htmlFor="port" hint="Leave as 8899 unless you know it's been changed.">
+            <Field label={t('wizard.port')} htmlFor="port" hint={t('wizard.portHint')}>
               <input
                 id="port"
                 type="number"
@@ -297,13 +295,12 @@ export default function SetupWizard() {
                 disabled={!isIpValid || testState.status === 'testing'}
                 className="rounded-lg border border-line-strong px-3 py-2 text-sm font-medium text-ink transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {testState.status === 'testing' ? 'Verifying…' : 'Verify Logger'}
+                {t(testState.status === 'testing' ? 'wizard.verifying' : 'wizard.verify')}
               </button>
 
               {testState.status === 'success' && (
                 <p className="mt-2 text-sm text-emerald-600">
-                  Connected — read {testState.result.sampledParameter} in{' '}
-                  {testState.result.latencyMs}ms.
+                  {t('wizard.connected', { parameter: testState.result.sampledParameter, ms: testState.result.latencyMs })}
                 </p>
               )}
               {testState.status === 'error' && (
@@ -315,7 +312,7 @@ export default function SetupWizard() {
 
         {step === 2 && (
           <div className="space-y-4">
-            <Field label="Rated inverter power" htmlFor="ratedPower" hint="Used to compute true load utilization %.">
+            <Field label={t('wizard.ratedPower')} htmlFor="ratedPower" hint={t('wizard.ratedPowerHint')}>
               <select
                 id="ratedPower"
                 value={ratedPowerPreset}
@@ -324,15 +321,15 @@ export default function SetupWizard() {
               >
                 {POWER_PRESETS_W.map((watts) => (
                   <option key={watts} value={watts}>
-                    {(watts / 1000).toFixed(1)} kW ({watts} W)
+                    {num(watts / 1000, 1)} {unit('kW')} ({watts} {unit('W')})
                   </option>
                 ))}
-                <option value="custom">Custom…</option>
+                <option value="custom">{t('wizard.custom')}</option>
               </select>
             </Field>
 
             {ratedPowerPreset === 'custom' && (
-              <Field label="Custom rated power (W)" htmlFor="customRatedPower">
+              <Field label={t('wizard.customPower')} htmlFor="customRatedPower">
                 <input
                   id="customRatedPower"
                   type="number"
@@ -340,7 +337,7 @@ export default function SetupWizard() {
                   value={customRatedPower}
                   onChange={(e) => setCustomRatedPower(e.target.value)}
                   className={inputClasses()}
-                  placeholder="e.g. 4500"
+                  placeholder={t('wizard.customPlaceholder')}
                 />
               </Field>
             )}
@@ -349,7 +346,7 @@ export default function SetupWizard() {
 
         {step === 3 && (
           <div className="space-y-4">
-            <Field label="Nominal battery bank voltage" htmlFor="batteryVoltage">
+            <Field label={t('wizard.batteryVoltage')} htmlFor="batteryVoltage">
               <select
                 id="batteryVoltage"
                 value={batteryNominalVoltage}
@@ -358,28 +355,28 @@ export default function SetupWizard() {
               >
                 {VOLTAGE_PRESETS.map((v) => (
                   <option key={v} value={v}>
-                    {v}V
+                    {v} {unit('V')}
                   </option>
                 ))}
               </select>
             </Field>
 
-            <Field label="Battery chemistry" htmlFor="batteryType">
+            <Field label={t('wizard.chemistry')} htmlFor="batteryType">
               <select
                 id="batteryType"
                 value={batteryType}
                 onChange={(e) => setBatteryType(e.target.value as BatteryType)}
                 className={inputClasses()}
               >
-                {BATTERY_TYPE_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
+                {BATTERY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {t(`wizard.chemistries.${type}`)}
                   </option>
                 ))}
               </select>
             </Field>
 
-            <Field label="Battery capacity (Ah)" htmlFor="batteryCapacityAh" hint="Used to estimate stored energy in kWh.">
+            <Field label={t('wizard.capacity')} htmlFor="batteryCapacityAh" hint={t('wizard.capacityHint')}>
               <input
                 id="batteryCapacityAh"
                 type="number"
@@ -395,12 +392,12 @@ export default function SetupWizard() {
               onClick={() => setShowAdvanced((v) => !v)}
               className="text-sm font-medium text-accent hover:underline"
             >
-              {showAdvanced ? 'Hide' : 'Show'} voltage threshold overrides (optional)
+              {t(showAdvanced ? 'wizard.hideOverrides' : 'wizard.showOverrides')}
             </button>
 
             {showAdvanced && (
               <div className="space-y-4 rounded-lg border border-line p-4">
-                <Field label="Low battery cutoff voltage" htmlFor="lowCutoff" hint="Leave blank to use the chemistry default.">
+                <Field label={t('wizard.lowCutoff')} htmlFor="lowCutoff" hint={t('wizard.lowCutoffHint')}>
                   <input
                     id="lowCutoff"
                     type="number"
@@ -410,7 +407,7 @@ export default function SetupWizard() {
                     className={inputClasses()}
                   />
                 </Field>
-                <Field label="Bulk charge voltage" htmlFor="bulkCharge">
+                <Field label={t('wizard.bulk')} htmlFor="bulkCharge">
                   <input
                     id="bulkCharge"
                     type="number"
@@ -420,7 +417,7 @@ export default function SetupWizard() {
                     className={inputClasses()}
                   />
                 </Field>
-                <Field label="Float charge voltage" htmlFor="floatCharge">
+                <Field label={t('wizard.float')} htmlFor="floatCharge">
                   <input
                     id="floatCharge"
                     type="number"
@@ -448,7 +445,7 @@ export default function SetupWizard() {
             disabled={step === 1}
             className="rounded-lg px-3 py-2 text-sm font-medium text-muted transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:opacity-0"
           >
-            Back
+            {t('wizard.back')}
           </button>
 
           {step < 3 ? (
@@ -458,7 +455,7 @@ export default function SetupWizard() {
               disabled={step === 1 ? !canLeaveStep1 : !canLeaveStep2}
               className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Next
+              {t('wizard.next')}
             </button>
           ) : (
             <button
@@ -469,7 +466,7 @@ export default function SetupWizard() {
               disabled={!canSubmit || isSubmitting}
               className="rounded-lg bg-ink px-4 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? 'Saving…' : 'Finish setup'}
+              {t(isSubmitting ? 'wizard.saving' : 'wizard.finish')}
             </button>
           )}
         </div>

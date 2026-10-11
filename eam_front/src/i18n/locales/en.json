@@ -1017,5 +1017,68 @@
       "askConfirm": "Make a new token",
       "askBody": "The agent stops reporting until it uses the new one."
     }
+  },
+  "wizard": {
+    "steps": {
+      "1": "Network & Connection",
+      "2": "Inverter & Power Rating",
+      "3": "Battery Bank Specs"
+    },
+    "chemistries": {
+      "LIFEPO4": "LiFePO4",
+      "LEAD_ACID": "Lead-Acid (flooded)",
+      "GEL": "GEL",
+      "USER_DEFINED": "Other / user-defined"
+    },
+    "defaultName": "My Inverter",
+    "unreachable": "Couldn't reach the logger at that address.",
+    "saveFailed": "Could not save your inverter setup — please try again.",
+    "waitingTitle": "Waiting for your admin to add an inverter",
+    "waitingBody": "You joined {{household}} as a reader. When a household admin pairs an inverter, it appears here automatically.",
+    "aHousehold": "a household",
+    "signOut": "Sign out",
+    "adminOnly": "Only a household admin can add inverters. Ask an admin of your household to add one.",
+    "backToDashboard": "Back to the dashboard",
+    "backShort": "Back to dashboard",
+    "pairAnother": "Pair another inverter",
+    "pairYour": "Pair your inverter",
+    "signedInAs": "Signed in as {{email}}. This tells EAM how to read and interpret this system's telemetry.",
+    "profileName": "Profile name",
+    "profilePlaceholder": "e.g. Cabin Inverter",
+    "ip": "Logger IP address",
+    "ipHint": "The Wi-Fi logger's address on your network (e.g. 192.168.1.50). Find it in your router's device list or in the SmartESS app.",
+    "port": "Port",
+    "portHint": "Leave as 8899 unless you know it's been changed.",
+    "verifying": "Verifying…",
+    "verify": "Verify Logger",
+    "connected": "Connected — read {{parameter}} in {{ms}}ms.",
+    "ratedPower": "Rated inverter power",
+    "ratedPowerHint": "Used to compute true load utilization %.",
+    "custom": "Custom…",
+    "customPower": "Custom rated power (W)",
+    "customPlaceholder": "e.g. 4500",
+    "batteryVoltage": "Nominal battery bank voltage",
+    "chemistry": "Battery chemistry",
+    "capacity": "Battery capacity (Ah)",
+    "capacityHint": "Used to estimate stored energy in kWh.",
+    "showOverrides": "Show voltage threshold overrides (optional)",
+    "hideOverrides": "Hide voltage threshold overrides (optional)",
+    "lowCutoff": "Low battery cutoff voltage",
+    "lowCutoffHint": "Leave blank to use the chemistry default.",
+    "bulk": "Bulk charge voltage",
+    "float": "Float charge voltage",
+    "back": "Back",
+    "next": "Next",
+    "saving": "Saving…",
+    "finish": "Finish setup"
+  },
+  "join": {
+    "joinFailed": "Couldn't join the household.",
+    "createFailed": "Couldn't create the account.",
+    "title": "Join a household",
+    "inviteCode": "Invite code",
+    "join": "Join household",
+    "createAndJoin": "Create account and join",
+    "signInExisting": "Sign in with an existing account"
   }
 }
