@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { currentLanguage } from '../i18n';
 import axios from '../lib/apiClient';
 import AlertTimeline, { type AlertEvent } from '../alerts/AlertTimeline';
 import { markAlertsSeen } from '../alerts/seen';
@@ -24,6 +25,7 @@ const FILTERS: { value: Filter; label: string }[] = [
 /** What is wrong right now, and every recorded fault, warning, grid change and outage. */
 export default function AlertsPage() {
   const { t } = useTranslation();
+  const language = currentLanguage();
   const { profile, reading } = useLiveData();
   const [events, setEvents] = useState<AlertEvent[] | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -35,7 +37,9 @@ export default function AlertsPage() {
     let cancelled = false;
     void (async () => {
       try {
-        const { data } = await axios.get<AlertEvent[]>(`/api/inverter/${profile.id}/alerts`, { params: { limit: PAGE } });
+        const { data } = await axios.get<AlertEvent[]>(`/api/inverter/${profile.id}/alerts`, {
+          params: { limit: PAGE, lang: language },
+        });
         if (cancelled) return;
         setEvents(data);
         setHasMore(data.length === PAGE);
@@ -47,7 +51,7 @@ export default function AlertsPage() {
     return () => {
       cancelled = true;
     };
-  }, [profile.id]);
+  }, [profile.id, language]);
 
   async function loadMore() {
     const oldest = events?.[events.length - 1];
@@ -55,7 +59,7 @@ export default function AlertsPage() {
     setLoadingMore(true);
     try {
       const { data } = await axios.get<AlertEvent[]>(`/api/inverter/${profile.id}/alerts`, {
-        params: { limit: PAGE, before: oldest.id },
+        params: { limit: PAGE, before: oldest.id, lang: language },
       });
       setEvents((current) => [...(current ?? []), ...data]);
       setHasMore(data.length === PAGE);

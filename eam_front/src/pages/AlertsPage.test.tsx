@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
+import i18n from '../i18n';
 import type { InverterProfile } from '../auth/types';
 import { LiveDataProvider } from '../shell/LiveData';
 import { fakeServer } from '../test/fakeServer';
@@ -49,6 +50,17 @@ describe('AlertsPage', () => {
       'Grid lost',
       'BMS alarm: Cell overvoltage',
     ]);
+  });
+
+  it('asks for the alerts and the active faults in the current language', async () => {
+    await i18n.changeLanguage('uk');
+    const server = renderPage(() => page1);
+    restore = server.restore;
+    await screen.findByText('Grid restored');
+
+    const langs = (url: string) => server.sent.filter((c) => c.url === url).map((c) => c.params?.lang);
+    expect(langs('/api/inverter/7/alerts')).toEqual(['uk']);
+    expect(langs('/api/inverter/7/latest')[0]).toBe('uk');
   });
 
   it('narrows the list by kind', async () => {
