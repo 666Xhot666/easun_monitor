@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { ageText } from '../shell/age';
@@ -22,15 +24,15 @@ const groupName = (group: string) => group.replace(/^GPV/, '');
 /** What the reader found for the address, in a sentence. */
 function houseText(source: OutageSource): string {
   if (source.houseState === 'PENDING') {
-    return source.lastSeenAt ? "Waiting for the reader's next check." : "The reader hasn't connected yet.";
+    return i18n.t(source.lastSeenAt ? 'outageSetup.waitingNext' : 'outageSetup.notConnected');
   }
   if (source.houseState === 'NOT_FOUND') {
-    return 'The house is not on the site for this street. Check how the site writes its number.';
+    return i18n.t('outageSetup.notFound');
   }
   const groups = source.groups.map(groupName);
-  if (groups.length === 0) return 'The site lists no outage group for this house.';
-  if (groups.length === 1) return `Group ${groups[0]}`;
-  return `Groups ${groups.join(', ')}: the house is on several groups; the outages of all of them are shown.`;
+  if (groups.length === 0) return i18n.t('outageSetup.noGroup');
+  if (groups.length === 1) return i18n.t('outageSetup.group', { group: groups[0] });
+  return i18n.t('outageSetup.groups', { groups: groups.join(', ') });
 }
 
 /**
@@ -39,6 +41,7 @@ function houseText(source: OutageSource): string {
  * The reader token is shown only once.
  */
 export default function OutageSetup({ profileId, now = Date.now, readOnly = false }: Props) {
+  const { t } = useTranslation();
   const { source, setSource, reload } = useOutageSource(profileId);
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -63,26 +66,26 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
       const { data } = await axios.put<{ source: OutageSource; token?: string }>(path, address);
       setSource(data.source);
       if (data.token) setToken(data.token);
-    }, "Couldn't save the address.");
+    }, t('outageSetup.saveFailed'));
 
   const replaceToken = () =>
     act(async () => {
       const { data } = await axios.post<{ token: string }>(`${path}/token`);
       setToken(data.token);
-    }, "Couldn't make a new token.");
+    }, t('outageSetup.tokenFailed'));
 
   const remove = () =>
     act(async () => {
       await axios.delete(path);
       setToken(null);
       await reload();
-    }, "Couldn't remove the address.");
+    }, t('outageSetup.removeFailed'));
 
   const settings = token ? `OUTAGE_SERVER_URL=${window.location.origin}\nOUTAGE_READER_TOKEN=${token}` : '';
 
   return (
-    <section aria-label="Outage schedule" className="space-y-4">
-      <h2 className="sr-only">Outage schedule</h2>
+    <section aria-label={t('outageSetup.title')} className="space-y-4">
+      <h2 className="sr-only">{t('outageSetup.title')}</h2>
       {error && (
         <p role="alert" className="rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
@@ -92,7 +95,7 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
         <div className="h-24 animate-pulse rounded-xl border border-line bg-surface-2" />
       ) : source === null ? (
         <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">
-          No address yet. With one set, the outage schedule reader checks the DTEK Dnipro site for it.
+          {t('outageSetup.noAddress')}
         </p>
       ) : (
         <div className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
@@ -101,21 +104,21 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
           </p>
           <p className="mt-1 text-sm">{houseText(source)}</p>
           {source.lastSeenAt && (
-            <p className="mt-1 text-[13px] text-muted">Reader last asked {ageText(now() - Date.parse(source.lastSeenAt))} ago</p>
+            <p className="mt-1 text-[13px] text-muted">{t('outageSetup.lastAsked', { age: ageText(now() - Date.parse(source.lastSeenAt)) })}</p>
           )}
           <label className="mt-3 flex items-center gap-3 text-sm">
             <Switch
-              label="Check the outage schedule"
+              label={t('outageSetup.check')}
               on={source.enabled}
               disabled={busy || readOnly}
               onChange={(enabled) => void save({ city: source.city, street: source.street, house: source.house, enabled })}
             />
-            Check the outage schedule
+            {t('outageSetup.check')}
           </label>
           {!readOnly && (
             <div className="mt-3 flex gap-2">
               <Button size="sm" disabled={busy} onClick={() => setAsking('token')}>
-                New reader token
+                {t('outageSetup.newToken')}
               </Button>
               <button
                 type="button"
@@ -123,7 +126,7 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
                 onClick={() => setAsking('remove')}
                 className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-crit-ink hover:bg-crit-bg"
               >
-                Remove address
+                {t('outageSetup.removeAddress')}
               </button>
             </div>
           )}
@@ -131,15 +134,15 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
       )}
 
       {token && (
-        <section aria-label="Reader settings" className="rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
+        <section aria-label={t('outageSetup.readerSettings')} className="rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
           <p>
-            Put these in the outage schedule reader&apos;s <code>.env</code>. The token is shown only once; if it is lost, make a new one.
+            {t('outageSetup.tokenIntro')}
           </p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 font-mono text-xs text-ink">{settings}</pre>
           <div className="mt-3 flex gap-2">
             <CopyButton text={settings} />
             <Button size="sm" onClick={() => setToken(null)}>
-              Done
+              {t('common.done')}
             </Button>
           </div>
         </section>
@@ -151,11 +154,11 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
 
       <Dialog
         open={asking !== null}
-        title={asking === 'token' ? 'Make a new reader token?' : 'Remove the address?'}
+        title={asking === 'token' ? t('outageSetup.tokenAsk') : t('outageSetup.removeAsk')}
         onClose={() => setAsking(null)}
         actions={
           <>
-            <Button onClick={() => setAsking(null)}>Cancel</Button>
+            <Button onClick={() => setAsking(null)}>{t('common.cancel')}</Button>
             <Button
               variant={asking === 'remove' ? 'danger' : 'primary'}
               onClick={() => {
@@ -165,14 +168,14 @@ export default function OutageSetup({ profileId, now = Date.now, readOnly = fals
                 if (a === 'remove') void remove();
               }}
             >
-              {asking === 'token' ? 'Make a new token' : 'Remove'}
+              {asking === 'token' ? t('outageSetup.makeToken') : t('outageSetup.remove')}
             </Button>
           </>
         }
       >
         {asking === 'token'
-          ? 'The reader stops working until it uses the new one.'
-          : 'The reader stops checking. The stored schedule and outages of this address are deleted too.'}
+          ? t('outageSetup.tokenWarning')
+          : t('outageSetup.removeWarning')}
       </Dialog>
     </section>
   );
@@ -187,6 +190,7 @@ function AddressForm({
   busy: boolean;
   onSave: (address: { city: string; street: string; house: string }) => void;
 }) {
+  const { t } = useTranslation();
   const [city, setCity] = useState(initial?.city ?? '');
   const [street, setStreet] = useState(initial?.street ?? '');
   const [house, setHouse] = useState(initial?.house ?? '');
@@ -201,23 +205,23 @@ function AddressForm({
 
   return (
     <form onSubmit={submit} className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h3 className="text-[15px] font-semibold">{initial ? 'Change the address' : 'Set the address'}</h3>
+      <h3 className="text-[15px] font-semibold">{t(initial ? 'outageSetup.change' : 'outageSetup.set')}</h3>
       {cities?.length === 0 && (
         <p className="mt-1 text-[13px] text-muted">
-          The lists of cities and streets appear after the reader&apos;s first check; until then, type them as the DTEK site writes them.
+          {t('outageSetup.listsHint')}
         </p>
       )}
       <div className="mt-3 grid gap-4 md:grid-cols-3">
         <label className="block text-sm font-medium">
-          City
+          {t('outageSetup.city')}
           <input value={city} list="outage-cities" required onChange={(e) => setCity(e.target.value)} className={input} />
         </label>
         <label className="block text-sm font-medium">
-          Street
+          {t('outageSetup.street')}
           <input value={street} list="outage-streets" required onChange={(e) => setStreet(e.target.value)} className={input} />
         </label>
         <label className="block text-sm font-medium">
-          House
+          {t('outageSetup.house')}
           <input value={house} required maxLength={40} onChange={(e) => setHouse(e.target.value)} className={input} />
         </label>
       </div>
@@ -236,7 +240,7 @@ function AddressForm({
         ))}
       </datalist>
       <Button type="submit" variant="primary" className="mt-4" disabled={busy}>
-        Save address
+        {t('outageSetup.save')}
       </Button>
     </form>
   );
