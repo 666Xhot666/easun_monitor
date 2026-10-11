@@ -1,0 +1,128 @@
+{
+  "common": {
+    "loading": "Loading…",
+    "cancel": "Cancel",
+    "save": "Save",
+    "done": "Done",
+    "email": "Email",
+    "password": "Password",
+    "ago": "{{age}} ago",
+    "now": "Now"
+  },
+  "age": {
+    "seconds": "{{count}} s",
+    "minutes": "{{count}} min",
+    "hours": "{{count}} h",
+    "days": "{{count}} d"
+  },
+  "language": {
+    "label": "Language"
+  },
+  "nav": {
+    "main": "Main",
+    "mainPhone": "Main (phone)",
+    "overview": "Overview",
+    "battery": "Battery",
+    "history": "History",
+    "alerts": "Alerts",
+    "server": "Server",
+    "settings": "Settings",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "household": "Household",
+    "admin": "Admin",
+    "reader": "Reader"
+  },
+  "shell": {
+    "invertersIn": "Inverters in {{household}}",
+    "inverters": "Inverters",
+    "current": "Current",
+    "addInverter": "Add inverter",
+    "status": {
+      "loading": "Connecting…",
+      "waiting": "Waiting",
+      "live": "Live",
+      "fault": "Fault",
+      "stale": "Stale",
+      "offline": "Offline",
+      "waitingFirst": "Waiting for the first reading",
+      "noReadingYet": "No reading yet",
+      "updatedAgo": "Updated {{age}} ago",
+      "noNewReadingsFor": "No new readings for {{age}}",
+      "lastReadingAt": "Last reading {{time}}"
+    },
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications, {{count}} unread",
+    "accountMenu": "Account menu",
+    "accountSettings": "Account settings",
+    "signOut": "Sign out",
+    "signOutEverywhereMenu": "Sign out everywhere…",
+    "signOutEverywhere": "Sign out everywhere",
+    "signOutEverywhereTitle": "Sign out everywhere?",
+    "signOutEverywhereBody": "Every browser and phone signed in to {{email}} will need the password again.",
+    "fault": {
+      "title": "Fault: {{fault}}",
+      "titleUnknown": "Fault: the inverter is in fault mode",
+      "inFaultMode": "The inverter is in fault mode.",
+      "exitOnceFixed": "Exit fault mode once the cause is fixed.",
+      "exit": "Exit fault mode",
+      "exitTitle": "Exit fault mode?",
+      "exitBody": "The inverter clears the fault and tries to resume normal operation. If the cause is still there, it goes back into fault mode.",
+      "exitFailed": "Couldn’t clear the fault."
+    },
+    "stale": {
+      "title": "No new readings for {{age}}",
+      "body": "The logger is connected but the inverter stopped answering. Values below are from {{time}}."
+    },
+    "offline": {
+      "serverTitle": "Can’t reach the EAM server",
+      "loggerTitle": "Can’t reach the inverter logger",
+      "retrying": "Retrying every few seconds.",
+      "lastRead": "Values below are from the last successful read at {{time}}."
+    }
+  },
+  "auth": {
+    "signInTitle": "Sign in to EAM",
+    "signInSubtitle": "Monitor your inverter and battery bank.",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "signInFailed": "Could not sign in — please try again.",
+    "noAccount": "Don't have an account?",
+    "createOne": "Create one",
+    "registerTitle": "Create your EAM account",
+    "registerSubtitle": "You'll pair your inverter right after this.",
+    "atLeast": "At least {{count}} characters.",
+    "confirmPassword": "Confirm password",
+    "passwordTooShort": "Password must be at least {{count}} characters.",
+    "passwordsDiffer": "Passwords do not match.",
+    "registerFailed": "Could not create your account — please try again.",
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account…",
+    "haveAccount": "Already have an account?"
+  },
+  "account": {
+    "profile": "Profile",
+    "password": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "changePassword": "Change password",
+    "passwordChanged": "Password changed. Your other browsers are signed out.",
+    "passwordFailed": "Couldn’t change the password.",
+    "appearance": "Appearance",
+    "theme": "Theme",
+    "themes": {
+      "light": "Light",
+      "dark": "Dark",
+      "system": "System"
+    },
+    "languageHint": "For the app and your Telegram messages.",
+    "sessions": "Sessions",
+    "signedIn": "Signed in {{date}}",
+    "thisDevice": "This device",
+    "signOutNamed": "Sign out {{name}}",
+    "signOutNamedTitle": "Sign out {{name}}?",
+    "signOutNamedBody": "That browser will need the password to sign in again.",
+    "unknownBrowser": "Unknown browser",
+    "browserOn": "{{browser}} on {{system}}"
+  }
+}

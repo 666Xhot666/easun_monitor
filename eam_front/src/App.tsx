@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import i18n from './i18n'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AuthProvider } from './auth/AuthContext'
 import { ThemeProvider } from './theme/useTheme'
@@ -25,7 +26,7 @@ const DevSerialSniff = import.meta.env.DEV ? lazy(() => import('./pages/DevSeria
 function PageLoading() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page">
-      <p className="text-sm text-muted">Loading…</p>
+      <p className="text-sm text-muted">{i18n.t('common.loading')}</p>
     </div>
   )
 }

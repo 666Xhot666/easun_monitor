@@ -1,0 +1,134 @@
+{
+  "common": {
+    "loading": "Завантаження…",
+    "cancel": "Скасувати",
+    "save": "Зберегти",
+    "done": "Готово",
+    "email": "Ел. пошта",
+    "password": "Пароль",
+    "ago": "{{age}} тому",
+    "now": "Зараз"
+  },
+  "age": {
+    "seconds": "{{count}} с",
+    "minutes": "{{count}} хв",
+    "hours": "{{count}} год",
+    "days": "{{count}} д"
+  },
+  "language": {
+    "label": "Мова"
+  },
+  "nav": {
+    "main": "Головне меню",
+    "mainPhone": "Головне меню (телефон)",
+    "overview": "Огляд",
+    "battery": "Акумулятор",
+    "history": "Історія",
+    "alerts": "Сповіщення",
+    "server": "Сервер",
+    "settings": "Налаштування",
+    "expandSidebar": "Розгорнути бічну панель",
+    "collapseSidebar": "Згорнути бічну панель",
+    "household": "Домогосподарство",
+    "admin": "Адміністратор",
+    "reader": "Перегляд"
+  },
+  "shell": {
+    "invertersIn": "Інвертори в «{{household}}»",
+    "inverters": "Інвертори",
+    "current": "Поточний",
+    "addInverter": "Додати інвертор",
+    "status": {
+      "loading": "Підключення…",
+      "waiting": "Очікування",
+      "live": "Наживо",
+      "fault": "Аварія",
+      "stale": "Застарілі дані",
+      "offline": "Немає зв’язку",
+      "waitingFirst": "Очікування першого показника",
+      "noReadingYet": "Показників ще немає",
+      "updatedAgo": "Оновлено {{age}} тому",
+      "noNewReadingsFor": "Нових показників немає вже {{age}}",
+      "lastReadingAt": "Останній показник о {{time}}"
+    },
+    "notifications": "Сповіщення",
+    "notificationsUnread": "Сповіщення, непрочитаних: {{count}}",
+    "accountMenu": "Меню облікового запису",
+    "accountSettings": "Налаштування облікового запису",
+    "signOut": "Вийти",
+    "signOutEverywhereMenu": "Вийти на всіх пристроях…",
+    "signOutEverywhere": "Вийти на всіх пристроях",
+    "signOutEverywhereTitle": "Вийти на всіх пристроях?",
+    "signOutEverywhereBody": "На кожному браузері й телефоні, де виконано вхід як {{email}}, знову знадобиться пароль.",
+    "fault": {
+      "title": "Аварія: {{fault}}",
+      "titleUnknown": "Аварія: інвертор в аварійному режимі",
+      "inFaultMode": "Інвертор в аварійному режимі.",
+      "exitOnceFixed": "Вийдіть з аварійного режиму, коли причину усунено.",
+      "exit": "Вийти з аварійного режиму",
+      "exitTitle": "Вийти з аварійного режиму?",
+      "exitBody": "Інвертор скине аварію й спробує повернутися до звичайної роботи. Якщо причина не зникла, він знову перейде в аварійний режим.",
+      "exitFailed": "Не вдалося скинути аварію."
+    },
+    "stale": {
+      "title": "Нових показників немає вже {{age}}",
+      "body": "Логер на зв’язку, але інвертор перестав відповідати. Значення нижче — станом на {{time}}."
+    },
+    "offline": {
+      "serverTitle": "Немає зв’язку із сервером EAM",
+      "loggerTitle": "Немає зв’язку з логером інвертора",
+      "retrying": "Нова спроба кожні кілька секунд.",
+      "lastRead": "Значення нижче — з останнього вдалого зчитування о {{time}}."
+    }
+  },
+  "auth": {
+    "signInTitle": "Вхід до EAM",
+    "signInSubtitle": "Стежте за інвертором і батареєю акумуляторів.",
+    "signIn": "Увійти",
+    "signingIn": "Вхід…",
+    "signInFailed": "Не вдалося увійти — спробуйте ще раз.",
+    "noAccount": "Немає облікового запису?",
+    "createOne": "Створити",
+    "registerTitle": "Створіть обліковий запис EAM",
+    "registerSubtitle": "Одразу після цього ви підключите інвертор.",
+    "atLeast_one": "Щонайменше {{count}} символ.",
+    "atLeast_few": "Щонайменше {{count}} символи.",
+    "atLeast_many": "Щонайменше {{count}} символів.",
+    "atLeast_other": "Щонайменше {{count}} символу.",
+    "confirmPassword": "Повторіть пароль",
+    "passwordTooShort_one": "Пароль має містити щонайменше {{count}} символ.",
+    "passwordTooShort_few": "Пароль має містити щонайменше {{count}} символи.",
+    "passwordTooShort_many": "Пароль має містити щонайменше {{count}} символів.",
+    "passwordTooShort_other": "Пароль має містити щонайменше {{count}} символу.",
+    "passwordsDiffer": "Паролі не збігаються.",
+    "registerFailed": "Не вдалося створити обліковий запис — спробуйте ще раз.",
+    "createAccount": "Створити обліковий запис",
+    "creatingAccount": "Створення облікового запису…",
+    "haveAccount": "Уже маєте обліковий запис?"
+  },
+  "account": {
+    "profile": "Профіль",
+    "password": "Пароль",
+    "currentPassword": "Поточний пароль",
+    "newPassword": "Новий пароль",
+    "changePassword": "Змінити пароль",
+    "passwordChanged": "Пароль змінено. На інших браузерах виконано вихід.",
+    "passwordFailed": "Не вдалося змінити пароль.",
+    "appearance": "Вигляд",
+    "theme": "Тема",
+    "themes": {
+      "light": "Світла",
+      "dark": "Темна",
+      "system": "Як у системі"
+    },
+    "languageHint": "Для застосунку й ваших повідомлень у Telegram.",
+    "sessions": "Сеанси",
+    "signedIn": "Вхід {{date}}",
+    "thisDevice": "Цей пристрій",
+    "signOutNamed": "Вийти: {{name}}",
+    "signOutNamedTitle": "Вийти: {{name}}?",
+    "signOutNamedBody": "У тому браузері знову знадобиться пароль для входу.",
+    "unknownBrowser": "Невідомий браузер",
+    "browserOn": "{{browser}} на {{system}}"
+  }
+}

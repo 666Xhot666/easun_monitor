@@ -16,6 +16,8 @@ import {
   WifiOff,
   type LucideIcon,
 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
@@ -28,21 +30,24 @@ import { LiveDataProvider, useLiveData } from './LiveData';
 import { ageText, useNow } from './age';
 import type { SystemState } from './systemState';
 
+/** `label`: the translation key of its name. */
 type Destination = { to: string; label: string; Icon: LucideIcon };
 
 const DESTINATIONS: Destination[] = [
-  { to: '', label: 'Overview', Icon: LayoutGrid },
-  { to: 'battery', label: 'Battery', Icon: BatteryMedium },
-  { to: 'history', label: 'History', Icon: ChartLine },
-  { to: 'alerts', label: 'Alerts', Icon: Bell },
-  { to: 'settings', label: 'Settings', Icon: Settings },
+  { to: '', label: 'nav.overview', Icon: LayoutGrid },
+  { to: 'battery', label: 'nav.battery', Icon: BatteryMedium },
+  { to: 'history', label: 'nav.history', Icon: ChartLine },
+  { to: 'alerts', label: 'nav.alerts', Icon: Bell },
+  { to: 'settings', label: 'nav.settings', Icon: Settings },
 ];
-const SERVER: Destination = { to: 'server', label: 'Server', Icon: Server };
+const SERVER: Destination = { to: 'server', label: 'nav.server', Icon: Server };
 
-/** The pages in the navigation; the Server page for its owner and those the owner lets look. */
+/** The pages in the navigation, named in the current language; the Server page for its owner and those the owner lets look. */
 function useDestinations(): Destination[] {
   const { user } = useAuth();
-  return user?.server ? [...DESTINATIONS.slice(0, -1), SERVER, DESTINATIONS[DESTINATIONS.length - 1]] : DESTINATIONS;
+  const { t } = useTranslation();
+  const list = user?.server ? [...DESTINATIONS.slice(0, -1), SERVER, DESTINATIONS[DESTINATIONS.length - 1]] : DESTINATIONS;
+  return list.map((d) => ({ ...d, label: t(d.label) }));
 }
 
 const ratedKw = (profile: InverterProfile) => `${(profile.ratedPowerWatts / 1000).toFixed(1)} kW`;
@@ -110,6 +115,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
   const { user } = useAuth();
   const { profile } = useLiveData();
   const destinations = useDestinations();
+  const { t } = useTranslation();
   const household = user?.households.find((h) => h.id === profile.householdId);
   return (
     <aside
@@ -124,13 +130,13 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
         <button
           type="button"
           onClick={onToggle}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={collapsed ? t('nav.expandSidebar') : t('nav.collapseSidebar')}
           className="ml-auto grid h-8 w-8 place-items-center rounded-md text-muted hover:bg-surface-2 hover:text-ink"
         >
           {collapsed ? <ChevronsRight className="h-4 w-4" /> : <ChevronsLeft className="h-4 w-4" />}
         </button>
       </div>
-      <nav aria-label="Main" className="flex flex-col gap-1">
+      <nav aria-label={t('nav.main')} className="flex flex-col gap-1">
         {destinations.map(({ to, label, Icon }) => (
           <NavLink
             key={label}
@@ -149,9 +155,9 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
       </nav>
       {household && !collapsed && (
         <div className="mt-auto border-t border-line px-2.5 pt-4">
-          <p className="text-xs text-muted">Household</p>
+          <p className="text-xs text-muted">{t('nav.household')}</p>
           <p className="mt-0.5 text-sm">
-            {household.name} · {household.role === 'ADMIN' ? 'Admin' : 'Reader'}
+            {household.name} · {household.role === 'ADMIN' ? t('nav.admin') : t('nav.reader')}
           </p>
         </div>
       )}
@@ -162,9 +168,10 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
 function BottomTabs() {
   const base = useBase();
   const destinations = useDestinations();
+  const { t } = useTranslation();
   return (
     <nav
-      aria-label="Main (phone)"
+      aria-label={t('nav.mainPhone')}
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
       {destinations.map(({ to, label, Icon }) => (
@@ -227,6 +234,7 @@ function InverterSwitcher() {
   // Keep the page when switching: /dashboard/1/battery -> /dashboard/2/battery.
   const rest = pathname.replace(/^\/dashboard\/\d+/, '');
   const household = user?.households.find((h) => h.id === profile.householdId);
+  const { t } = useTranslation();
 
   return (
     <div ref={ref} className="relative">
@@ -244,7 +252,7 @@ function InverterSwitcher() {
       </button>
       {open && (
         <div role="menu" className="absolute left-0 top-12 z-40 w-72 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
-          <p className="px-2.5 pt-1.5 pb-1 text-xs text-muted">Inverters{household ? ` in ${household.name}` : ''}</p>
+          <p className="px-2.5 pt-1.5 pb-1 text-xs text-muted">{household ? t('shell.invertersIn', { household: household.name }) : t('shell.inverters')}</p>
           {profiles.map((p) => (
             <Link
               key={p.id}
@@ -260,7 +268,7 @@ function InverterSwitcher() {
                 <span className="font-medium">{p.name}</span>
                 <span className="text-xs text-muted">SMG-II {ratedKw(p)}</span>
               </span>
-              {p.id === profile.id && <span className="text-xs text-muted">Current</span>}
+              {p.id === profile.id && <span className="text-xs text-muted">{t('shell.current')}</span>}
             </Link>
           ))}
           {user?.adminHouseholdId != null && (
@@ -272,7 +280,7 @@ function InverterSwitcher() {
                 className="flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2"
               >
                 <Plus className="h-4 w-4" />
-                Add inverter
+                {t('shell.addInverter')}
               </Link>
             </>
           )}
@@ -286,16 +294,17 @@ function StatusPill() {
   const { systemState, reading } = useLiveData();
   const now = useNow();
   const age = reading ? now - Date.parse(reading.timestamp) : 0;
+  const { t } = useTranslation();
   const pill: Record<SystemState, { label: string; className: string; sub?: string }> = {
-    loading: { label: 'Connecting…', className: 'bg-surface-2 text-muted', sub: 'Waiting for the first reading' },
-    waiting: { label: 'Waiting', className: 'bg-surface-2 text-muted', sub: 'No reading yet' },
-    live: { label: 'Live', className: 'bg-good-bg text-good-ink', sub: `Updated ${ageText(age)} ago` },
-    fault: { label: 'Fault', className: 'bg-crit-bg text-crit-ink', sub: `Updated ${ageText(age)} ago` },
-    stale: { label: 'Stale', className: 'bg-warn-bg text-warn-ink', sub: `No new readings for ${ageText(age)}` },
+    loading: { label: t('shell.status.loading'), className: 'bg-surface-2 text-muted', sub: t('shell.status.waitingFirst') },
+    waiting: { label: t('shell.status.waiting'), className: 'bg-surface-2 text-muted', sub: t('shell.status.noReadingYet') },
+    live: { label: t('shell.status.live'), className: 'bg-good-bg text-good-ink', sub: t('shell.status.updatedAgo', { age: ageText(age) }) },
+    fault: { label: t('shell.status.fault'), className: 'bg-crit-bg text-crit-ink', sub: t('shell.status.updatedAgo', { age: ageText(age) }) },
+    stale: { label: t('shell.status.stale'), className: 'bg-warn-bg text-warn-ink', sub: t('shell.status.noNewReadingsFor', { age: ageText(age) }) },
     offline: {
-      label: 'Offline',
+      label: t('shell.status.offline'),
       className: 'bg-warn-bg text-warn-ink',
-      sub: reading ? `Last reading ${new Date(reading.timestamp).toLocaleTimeString()}` : undefined,
+      sub: reading ? t('shell.status.lastReadingAt', { time: new Date(reading.timestamp).toLocaleTimeString(currentLocale()) }) : undefined,
     },
   };
   const { label, className, sub } = pill[systemState];
@@ -314,10 +323,11 @@ function BellLink() {
   const base = useBase();
   const { profile, systemState } = useLiveData();
   const unread = useUnreadAlerts(profile.id);
+  const { t } = useTranslation();
   return (
     <Link
       to={`${base}/alerts`}
-      aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
+      aria-label={unread ? t('shell.notificationsUnread', { count: unread }) : t('shell.notifications')}
       className="relative ml-auto grid h-10 w-10 flex-none place-items-center rounded-lg text-ink hover:bg-surface-2"
     >
       <Bell className="h-5 w-5" />
@@ -343,12 +353,13 @@ function AccountMenu() {
   const ref = useDismiss(open, () => setOpen(false));
   const email = user?.email ?? '';
   const item = 'flex w-full items-center rounded-lg px-2.5 py-2 text-left text-sm hover:bg-surface-2';
+  const { t } = useTranslation();
 
   return (
     <div ref={ref} className="relative">
       <button
         type="button"
-        aria-label="Account menu"
+        aria-label={t('shell.accountMenu')}
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
@@ -363,11 +374,11 @@ function AccountMenu() {
         <div role="menu" className="absolute right-0 top-12 z-40 w-60 rounded-xl border border-line bg-surface p-1.5 shadow-xl">
           <p className="truncate px-2.5 pt-1.5 pb-2 text-xs text-muted">{email}</p>
           <Link role="menuitem" to={`${base}/settings/account`} onClick={() => setOpen(false)} className={item}>
-            Account settings
+            {t('shell.accountSettings')}
           </Link>
           <div className="my-1 border-t border-line" />
           <button role="menuitem" type="button" onClick={logout} className={item}>
-            Sign out
+            {t('shell.signOut')}
           </button>
           <button
             role="menuitem"
@@ -378,24 +389,24 @@ function AccountMenu() {
             }}
             className={item + ' text-crit-ink'}
           >
-            Sign out everywhere…
+            {t('shell.signOutEverywhereMenu')}
           </button>
         </div>
       )}
       <Dialog
         open={confirming}
-        title="Sign out everywhere?"
+        title={t('shell.signOutEverywhereTitle')}
         onClose={() => setConfirming(false)}
         actions={
           <>
-            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button onClick={() => setConfirming(false)}>{t('common.cancel')}</Button>
             <Button variant="danger" onClick={() => void logoutEverywhere()}>
-              Sign out everywhere
+              {t('shell.signOutEverywhere')}
             </Button>
           </>
         }
       >
-        Every browser and phone signed in to {email} will need the password again.
+        {t('shell.signOutEverywhereBody', { email })}
       </Dialog>
     </div>
   );
@@ -438,7 +449,8 @@ function StatusBanner() {
   const [exiting, setExiting] = useState(false);
   const [error, setError] = useState('');
   const now = useNow();
-  const readAt = reading ? new Date(reading.timestamp).toLocaleTimeString() : null;
+  const { t } = useTranslation();
+  const readAt = reading ? new Date(reading.timestamp).toLocaleTimeString(currentLocale()) : null;
 
   async function exitFaultMode() {
     setExiting(true);
@@ -447,7 +459,7 @@ function StatusBanner() {
       await axios.post(`/api/inverter/${profile.id}/exit-fault-mode`);
       setConfirming(false);
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t clear the fault.'));
+      setError(extractErrorMessage(e, t('shell.fault.exitFailed')));
     } finally {
       setExiting(false);
     }
@@ -460,33 +472,33 @@ function StatusBanner() {
         <Banner
           tone="crit"
           icon={<CircleAlert className="h-5 w-5" />}
-          title={fault ? `Fault: ${fault}` : 'Fault: the inverter is in fault mode'}
+          title={fault ? t('shell.fault.title', { fault }) : t('shell.fault.titleUnknown')}
           action={
             isAdmin && (
               <Button variant="danger" onClick={() => setConfirming(true)}>
-                Exit fault mode
+                {t('shell.fault.exit')}
               </Button>
             )
           }
         >
-          {fault ? 'The inverter is in fault mode. ' : ''}Exit fault mode once the cause is fixed.
+          {fault ? `${t('shell.fault.inFaultMode')} ` : ''}
+          {t('shell.fault.exitOnceFixed')}
           {error && ` ${error}`}
         </Banner>
         <Dialog
           open={confirming}
-          title="Exit fault mode?"
+          title={t('shell.fault.exitTitle')}
           onClose={() => setConfirming(false)}
           actions={
             <>
-              <Button onClick={() => setConfirming(false)}>Cancel</Button>
+              <Button onClick={() => setConfirming(false)}>{t('common.cancel')}</Button>
               <Button variant="danger" disabled={exiting} onClick={() => void exitFaultMode()}>
-                Exit fault mode
+                {t('shell.fault.exit')}
               </Button>
             </>
           }
         >
-          The inverter clears the fault and tries to resume normal operation. If the cause is still there, it
-          goes back into fault mode.
+          {t('shell.fault.exitBody')}
         </Dialog>
       </>
     );
@@ -494,8 +506,8 @@ function StatusBanner() {
   if (systemState === 'stale') {
     const age = reading ? ageText(now - Date.parse(reading.timestamp)) : '';
     return (
-      <Banner tone="warn" icon={<Clock className="h-5 w-5" />} title={`No new readings for ${age}`}>
-        The logger is connected but the inverter stopped answering. Values below are from {readAt}.
+      <Banner tone="warn" icon={<Clock className="h-5 w-5" />} title={t('shell.stale.title', { age })}>
+        {t('shell.stale.body', { time: readAt })}
       </Banner>
     );
   }
@@ -506,10 +518,10 @@ function StatusBanner() {
       <Banner
         tone="warn"
         icon={<WifiOff className="h-5 w-5" />}
-        title={serverDown ? 'Can’t reach the EAM server' : 'Can’t reach the inverter logger'}
+        title={serverDown ? t('shell.offline.serverTitle') : t('shell.offline.loggerTitle')}
       >
-        {serverDown ? 'Retrying every few seconds.' : reason}
-        {readAt && ` Values below are from the last successful read at ${readAt}.`}
+        {serverDown ? t('shell.offline.retrying') : reason}
+        {readAt && ` ${t('shell.offline.lastRead', { time: readAt })}`}
       </Banner>
     );
   }

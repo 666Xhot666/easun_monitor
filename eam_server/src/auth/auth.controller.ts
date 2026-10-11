@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  Put,
   Req,
   Res,
   UnauthorizedException,
@@ -25,6 +26,7 @@ import {
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { SetLanguageDto } from './dto/set-language.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './interfaces/jwt-payload.interface';
 
@@ -173,6 +175,17 @@ export class AuthController {
       dto.newPassword,
       this.readRefreshCookie(req),
     );
+  }
+
+  /** The language for the app and Telegram: English or Ukrainian. */
+  @Put('language')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard('jwt'))
+  async setLanguage(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body() dto: SetLanguageDto,
+  ): Promise<void> {
+    await this.authService.setLanguage(user.userId, dto.language);
   }
 
   @Get('me')

@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import type { Language } from '../i18n/languages';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServerAccessService } from '../server-monitor/server-access.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
@@ -279,6 +280,14 @@ export class AuthService {
    * The user, their households with their role in each, and the inverters
    * of all those households, each tagged with that role.
    */
+  /** The language the user chose for the app and Telegram. */
+  async setLanguage(userId: number, language: Language): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { language },
+    });
+  }
+
   async getMe(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -286,6 +295,7 @@ export class AuthService {
         id: true,
         email: true,
         createdAt: true,
+        language: true,
         memberships: {
           orderBy: { createdAt: 'asc' },
           select: {

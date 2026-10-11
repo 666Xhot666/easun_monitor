@@ -38,6 +38,9 @@ model User {
   telegramLink         TelegramLink?
   telegramCodes        TelegramLinkCode[]
   notificationSettings NotificationSettings?
+  /// The app and Telegram language the user chose ("en" or "uk"); null: the
+  /// browser's.
+  language             String?
   /// May look at the server page; chosen by the server's owner.
   serverViewer         Boolean               @default(false)
   serverOwner          ServerOwner?

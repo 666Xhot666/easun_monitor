@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitch from '../i18n/LanguageSwitch';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { extractErrorMessage } from '../lib/errors';
@@ -6,6 +8,7 @@ import { BrandMark } from '../ui/BrandMark';
 
 export default function LoginPage() {
   const { login } = useAuth();
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,7 +32,7 @@ export default function LoginPage() {
         '/dashboard';
       navigate(redirectTo, { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not sign in — please try again.'));
+      setError(extractErrorMessage(err, t('auth.signInFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -38,12 +41,15 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-4">
       <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-8 shadow-sm">
-        <BrandMark />
+        <div className="flex items-start justify-between gap-3">
+          <BrandMark />
+          <LanguageSwitch />
+        </div>
         <h1 className="text-xl font-semibold text-ink">
-          Sign in to EAM
+          {t('auth.signInTitle')}
         </h1>
         <p className="mt-1 text-sm text-muted">
-          Monitor your inverter and battery bank.
+          {t('auth.signInSubtitle')}
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
@@ -52,7 +58,7 @@ export default function LoginPage() {
               htmlFor="email"
               className="block text-sm font-medium text-ink"
             >
-              Email
+              {t('common.email')}
             </label>
             <input
               id="email"
@@ -70,7 +76,7 @@ export default function LoginPage() {
               htmlFor="password"
               className="block text-sm font-medium text-ink"
             >
-              Password
+              {t('common.password')}
             </label>
             <input
               id="password"
@@ -94,14 +100,14 @@ export default function LoginPage() {
             disabled={isSubmitting}
             className="w-full rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? 'Signing in…' : 'Sign in'}
+            {isSubmitting ? t('auth.signingIn') : t('auth.signIn')}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted">
-          Don't have an account?{' '}
+          {t('auth.noAccount')}{' '}
           <Link to="/register" className="font-medium text-accent hover:underline">
-            Create one
+            {t('auth.createOne')}
           </Link>
         </p>
       </div>
