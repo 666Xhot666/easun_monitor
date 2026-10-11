@@ -137,7 +137,8 @@ export default function InverterSettings() {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+    // The rules' texts come in the request's language: asked for again when it changes.
+  }, [profileId, language]);
 
   useEffect(() => {
     let cancelled = false;
