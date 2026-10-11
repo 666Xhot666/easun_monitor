@@ -154,11 +154,21 @@ export class TelegramAlerts {
     message: string,
     bmsName?: string,
   ): Promise<void> {
-    const profile = await this.prisma.inverterProfile.findUnique({
+    if (await this.record(profileId, message, bmsName)) {
+      await this.toChats(profileId, message, { bmsName });
+    }
+  }
+
+  /** Keeps the alert for the Alerts page; false if the inverter is gone. */
+  async record(
+    profileId: number,
+    message: string,
+    bmsName?: string,
+  ): Promise<boolean> {
+    const exists = await this.prisma.inverterProfile.count({
       where: { id: profileId },
-      select: { name: true, householdId: true },
     });
-    if (!profile) return;
+    if (exists === 0) return false;
     // Kept for the Alerts page whether or not anyone has linked Telegram.
     await this.prisma.alertEvent.create({
       data: {
@@ -168,9 +178,27 @@ export class TelegramAlerts {
         source: bmsName ?? null,
       },
     });
+    return true;
+  }
+
+  /**
+   * Sends the alert to the linked chats of the household's members (or only
+   * `userIds`) who want its kind on Telegram.
+   */
+  async toChats(
+    profileId: number,
+    message: string,
+    options: { bmsName?: string; userIds?: number[] } = {},
+  ): Promise<void> {
+    const profile = await this.prisma.inverterProfile.findUnique({
+      where: { id: profileId },
+      select: { name: true, householdId: true },
+    });
+    if (!profile) return;
     const links = await this.prisma.telegramLink.findMany({
       where: {
         user: { memberships: { some: { householdId: profile.householdId } } },
+        ...(options.userIds && { userId: { in: options.userIds } }),
       },
       orderBy: { userId: 'asc' },
       select: { chatId: true, userId: true },
@@ -180,6 +208,7 @@ export class TelegramAlerts {
     );
     const kind = alertKind(message);
     const now = new Date();
+    const { bmsName } = options;
     const text = `${profile.name}${bmsName ? ` (${bmsName})` : ''}: ${message}`;
     for (const { chatId, userId } of links) {
       if (
