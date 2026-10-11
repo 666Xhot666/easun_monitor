@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { ageText } from '../shell/age';
@@ -16,14 +18,15 @@ interface Notices {
   events: Array<{ id: number; kind: string; text: string; at: string }>;
 }
 
-const FIELDS: { key: keyof Limits; label: string; min: number; max: number }[] = [
-  { key: 'heatC', label: 'Overheating at (°C)', min: 40, max: 110 },
-  { key: 'storageFreePercent', label: 'Storage low under (% free)', min: 1, max: 50 },
-  { key: 'memoryUsedPercent', label: 'Memory short at (% used)', min: 50, max: 99 },
+const FIELDS: { key: keyof Limits; min: number; max: number }[] = [
+  { key: 'heatC', min: 40, max: 110 },
+  { key: 'storageFreePercent', min: 1, max: 50 },
+  { key: 'memoryUsedPercent', min: 50, max: 99 },
 ];
 
 /** The server notices: the owner's limits, and those sent lately. */
 export default function NoticesPanel({ owner, now }: { owner: boolean; now: number }) {
+  const { t } = useTranslation();
   const [notices, setNotices] = useState<Notices | null>(null);
   const [draft, setDraft] = useState<Record<keyof Limits, string> | null>(null);
   const [error, setError] = useState('');
@@ -43,7 +46,7 @@ export default function NoticesPanel({ owner, now }: { owner: boolean; now: numb
         });
       })
       .catch((e) => {
-        if (!cancelled) setError(extractErrorMessage(e, 'Couldn’t load the notices.'));
+        if (!cancelled) setError(extractErrorMessage(e, i18n.t('server.notices.loadFailed')));
       });
     return () => {
       cancelled = true;
@@ -63,7 +66,7 @@ export default function NoticesPanel({ owner, now }: { owner: boolean; now: numb
       setNotices({ ...notices, limits: data });
       setSaved(true);
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t save the limits.'));
+      setError(extractErrorMessage(e, t('server.notices.saveFailed')));
     }
   };
 
@@ -77,14 +80,14 @@ export default function NoticesPanel({ owner, now }: { owner: boolean; now: numb
   const { limits, events } = notices;
 
   return (
-    <section aria-label="Notices" className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">Notices</h2>
+    <section aria-label={t('server.notices.title')} className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <h2 className="text-[15px] font-semibold">{t('server.notices.title')}</h2>
       {owner ? (
         <div className="mt-3 space-y-2">
           {FIELDS.map((f) => (
             <div key={f.key} className="flex items-center gap-3 text-sm">
               <label htmlFor={`limit-${f.key}`} className="w-52">
-                {f.label}
+                {t(`server.notices.${f.key}`)}
               </label>
               <input
                 id={`limit-${f.key}`}
@@ -107,25 +110,25 @@ export default function NoticesPanel({ owner, now }: { owner: boolean; now: numb
           )}
           <div className="flex items-center gap-3">
             <Button size="sm" variant="primary" onClick={() => void save()}>
-              Save limits
+              {t('server.notices.save')}
             </Button>
-            {saved && <span className="text-sm text-muted">Saved.</span>}
+            {saved && <span className="text-sm text-muted">{t('server.notices.saved')}</span>}
           </div>
         </div>
       ) : (
         <p className="mt-2 text-sm text-muted">
-          Overheating at {limits.heatC} °C · storage low under {limits.storageFreePercent} % free · memory short at {limits.memoryUsedPercent} % used
+          {t('server.notices.summary', { heat: limits.heatC, storage: limits.storageFreePercent, memory: limits.memoryUsedPercent })}
         </p>
       )}
-      <h3 className="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">Recent</h3>
+      <h3 className="mt-4 text-xs font-semibold tracking-wide text-muted uppercase">{t('server.notices.recent')}</h3>
       {events.length === 0 ? (
-        <p className="mt-1 text-sm text-muted">None yet.</p>
+        <p className="mt-1 text-sm text-muted">{t('server.notices.none')}</p>
       ) : (
         <ul className="mt-1 divide-y divide-line text-sm">
           {events.map((e) => (
             <li key={e.id} className="flex justify-between gap-3 py-1.5">
               <span>{e.text}</span>
-              <span className="flex-none text-xs text-muted">{ageText(now - Date.parse(e.at))} ago</span>
+              <span className="flex-none text-xs text-muted">{t('server.notices.ago', { age: ageText(now - Date.parse(e.at)) })}</span>
             </li>
           ))}
         </ul>

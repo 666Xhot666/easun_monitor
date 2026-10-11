@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { Button, Segmented } from '../ui';
 import { speedName } from './fanSpeed';
+import i18n from '../i18n';
 
 type Mode = 'FIRMWARE' | 'AUTO' | 'MANUAL';
 
@@ -20,16 +22,8 @@ export interface FanStatus {
   state: { mode: 'firmware' | 'manual'; percent: number | null; pwm: number | null; steps: number | null; error: string | null } | null;
 }
 
-const MODES: { value: Mode; label: string }[] = [
-  { value: 'FIRMWARE', label: 'Firmware' },
-  { value: 'AUTO', label: 'Auto' },
-  { value: 'MANUAL', label: 'Manual' },
-];
-const MODE_TEXT: Record<Mode, string> = {
-  FIRMWARE: 'The firmware runs the fan.',
-  AUTO: 'The agent sets the fan by the temperature.',
-  MANUAL: 'The agent holds the fan at one speed.',
-};
+const MODES: Mode[] = ['FIRMWARE', 'AUTO', 'MANUAL'];
+const modeText = (mode: Mode) => i18n.t(`server.fanPanel.modeText.${mode}`);
 
 /** A rule as typed: text until saved. */
 interface DraftRule {
@@ -52,6 +46,7 @@ const input = 'h-9 w-20 rounded-lg border border-line-strong bg-surface px-2 tex
 
 /** The host's fan: what it is doing, and the owner's settings for the agent. */
 export default function FanPanel({ owner }: { owner: boolean }) {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<FanStatus | null>(null);
   const [draft, setDraft] = useState<ReturnType<typeof draftOf> | null>(null);
   const [error, setError] = useState('');
@@ -67,7 +62,7 @@ export default function FanPanel({ owner }: { owner: boolean }) {
         setDraft(draftOf(data.settings));
       })
       .catch((e) => {
-        if (!cancelled) setError(extractErrorMessage(e, 'Couldn’t load the fan settings.'));
+        if (!cancelled) setError(extractErrorMessage(e, i18n.t('server.fanPanel.loadFailed')));
       });
     return () => {
       cancelled = true;
@@ -109,40 +104,36 @@ export default function FanPanel({ owner }: { owner: boolean }) {
       setDraft(draftOf(data));
       setSaved(true);
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t save the fan settings.'));
+      setError(extractErrorMessage(e, t('server.fanPanel.saveFailed')));
     }
   };
 
   const { state, settings } = status;
   const now = !state
-    ? 'Now: no report from the agent on the fan'
+    ? t('server.fanPanel.nowNone')
     : state.mode === 'firmware'
-      ? 'Now: run by the firmware'
-      : `Now: ${state.percent} %${named(state.percent ?? 0)}`;
+      ? t('server.fanPanel.nowFirmware')
+      : t('server.fanPanel.now', { percent: state.percent, name: named(state.percent ?? 0) });
 
   return (
-    <section aria-label="Fan control" className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">Fan control</h2>
+    <section aria-label={t('server.fanPanel.title')} className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <h2 className="text-[15px] font-semibold">{t('server.fanPanel.title')}</h2>
       <p className="mt-1 text-sm">{now}</p>
       {state?.error && (
         <p role="alert" className="mt-2 rounded-lg border border-warn-line bg-warn-bg px-3 py-2 text-sm text-warn-ink">
-          The agent could not set the fan: {state.error}
+          {t('server.fanPanel.error', { error: state.error })}
         </p>
       )}
 
       {!owner ? (
         <div className="mt-3 space-y-1 text-sm text-muted">
-          <p>{MODE_TEXT[settings.mode]}</p>
-          {settings.mode === 'MANUAL' && <p>Speed {settings.manualPercent} %{named(settings.manualPercent)}</p>}
+          <p>{modeText(settings.mode)}</p>
+          {settings.mode === 'MANUAL' && <p>{t('server.fanPanel.speedValue', { percent: settings.manualPercent, name: named(settings.manualPercent) })}</p>}
           {settings.mode === 'AUTO' && (
             <>
-              <p>
-                Minimum {settings.minPercent} %{named(settings.minPercent)}
-              </p>
+              <p>{t('server.fanPanel.minimumValue', { percent: settings.minPercent, name: named(settings.minPercent) })}</p>
               {settings.rules.map((r) => (
-                <p key={r.aboveC}>
-                  Above {r.aboveC} °C: {r.percent} %{named(r.percent)}
-                </p>
+                <p key={r.aboveC}>{t('server.fanPanel.ruleValue', { temp: r.aboveC, percent: r.percent, name: named(r.percent) })}</p>
               ))}
             </>
           )}
@@ -150,16 +141,21 @@ export default function FanPanel({ owner }: { owner: boolean }) {
       ) : (
         <div className="mt-3 space-y-4">
           <div>
-            <Segmented ariaLabel="Fan mode" options={MODES} value={draft.mode} onChange={(mode) => change({ mode })} />
+            <Segmented
+              ariaLabel={t('server.fanPanel.mode')}
+              options={MODES.map((value) => ({ value, label: t(`server.fanPanel.modes.${value}`) }))}
+              value={draft.mode}
+              onChange={(mode) => change({ mode })}
+            />
             <p className="mt-1.5 text-xs text-muted">
-              {MODE_TEXT[draft.mode]} When the agent stops, the firmware takes the fan back.
+              {modeText(draft.mode)} {t('server.fanPanel.fallback')}
             </p>
           </div>
 
           {draft.mode === 'MANUAL' && (
             <div className="flex items-center gap-3 text-sm">
               <label htmlFor="fan-manualPercent" className="w-40">
-                Speed (%)
+                {t('server.fanPanel.speed')}
               </label>
               <input
                 type="number"
@@ -178,7 +174,7 @@ export default function FanPanel({ owner }: { owner: boolean }) {
             <>
               <div className="flex items-center gap-3 text-sm">
                 <label htmlFor="fan-minPercent" className="w-40">
-                  Minimum speed (%)
+                  {t('server.fanPanel.minimum')}
                 </label>
                 <input
                   type="number"
@@ -191,11 +187,11 @@ export default function FanPanel({ owner }: { owner: boolean }) {
                 />
                 {speedName(Number(draft.minPercent), steps) && <span className="text-muted">→ {speedName(Number(draft.minPercent), steps)}</span>}
               </div>
-              <table aria-label="Rules" className="text-sm">
+              <table aria-label={t('server.fanPanel.rules')} className="text-sm">
                 <thead>
                   <tr className="text-xs text-muted">
-                    <th scope="col" className="pb-1 pr-3 text-left font-normal">Above (°C)</th>
-                    <th scope="col" className="pb-1 pr-3 text-left font-normal">Speed (%)</th>
+                    <th scope="col" className="pb-1 pr-3 text-left font-normal">{t('server.fanPanel.above')}</th>
+                    <th scope="col" className="pb-1 pr-3 text-left font-normal">{t('server.fanPanel.speed')}</th>
                     <th scope="col" />
                     <th scope="col" />
                   </tr>
@@ -208,7 +204,7 @@ export default function FanPanel({ owner }: { owner: boolean }) {
                           type="number"
                           min={0}
                           max={120}
-                          aria-label="Above (°C)"
+                          aria-label={t('server.fanPanel.above')}
                           value={r.aboveC}
                           onChange={(e) => setRule(r.key, { aboveC: e.target.value })}
                           onBlur={() => change({ rules: byTemperature(draft.rules) })}
@@ -220,7 +216,7 @@ export default function FanPanel({ owner }: { owner: boolean }) {
                           type="number"
                           min={0}
                           max={100}
-                          aria-label="Speed (%)"
+                          aria-label={t('server.fanPanel.speed')}
                           value={r.percent}
                           onChange={(e) => setRule(r.key, { percent: e.target.value })}
                           className={input}
@@ -230,11 +226,11 @@ export default function FanPanel({ owner }: { owner: boolean }) {
                       <td className="py-1">
                         <button
                           type="button"
-                          aria-label={`Remove the rule above ${r.aboveC} °C`}
+                          aria-label={t('server.fanPanel.removeRule', { temp: r.aboveC })}
                           onClick={() => change({ rules: draft.rules.filter((x) => x.key !== r.key) })}
                           className="h-8 rounded-lg px-2 text-[13px] text-crit-ink hover:bg-crit-bg"
                         >
-                          Remove
+                          {t('server.fanPanel.remove')}
                         </button>
                       </td>
                     </tr>
@@ -242,7 +238,7 @@ export default function FanPanel({ owner }: { owner: boolean }) {
                 </tbody>
               </table>
               <Button size="sm" onClick={() => change({ rules: [...draft.rules, { key: nextKey++, aboveC: '', percent: '' }] })}>
-                Add rule
+                {t('server.fanPanel.addRule')}
               </Button>
             </>
           )}
@@ -254,9 +250,9 @@ export default function FanPanel({ owner }: { owner: boolean }) {
           )}
           <div className="flex items-center gap-3">
             <Button variant="primary" onClick={() => void save()}>
-              Save
+              {t('server.fanPanel.save')}
             </Button>
-            {saved && <span className="text-sm text-muted">Saved.</span>}
+            {saved && <span className="text-sm text-muted">{t('server.fanPanel.saved')}</span>}
           </div>
         </div>
       )}

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { ageText } from '../shell/age';
@@ -9,6 +11,7 @@ import type { ServerStatus } from './types';
 
 /** The server agent's token, for the owner: made here, shown once. */
 export default function ServerAgentSetup({ now = Date.now }: { now?: () => number }) {
+  const { t } = useTranslation();
   const [agent, setAgent] = useState<ServerStatus['agent'] | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [asking, setAsking] = useState(false);
@@ -22,7 +25,7 @@ export default function ServerAgentSetup({ now = Date.now }: { now?: () => numbe
         if (!cancelled) setAgent(data.agent);
       })
       .catch((e) => {
-        if (!cancelled) setError(extractErrorMessage(e, 'Couldn’t load the agent’s state.'));
+        if (!cancelled) setError(extractErrorMessage(e, i18n.t('server.agent.loadFailed')));
       });
     return () => {
       cancelled = true;
@@ -36,7 +39,7 @@ export default function ServerAgentSetup({ now = Date.now }: { now?: () => numbe
       setToken(data.token);
       setAgent({ configured: true, lastSeenAt: null });
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t make a token.'));
+      setError(extractErrorMessage(e, t('server.agent.tokenFailed')));
     }
   };
 
@@ -44,8 +47,8 @@ export default function ServerAgentSetup({ now = Date.now }: { now?: () => numbe
 
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">Server agent</h2>
-      <p className="mt-1 text-[13px] text-muted">Reports the host the app runs on to the Server page, once a minute.</p>
+      <h2 className="text-[15px] font-semibold">{t('server.agent.title')}</h2>
+      <p className="mt-1 text-[13px] text-muted">{t('server.agent.hint')}</p>
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
@@ -55,37 +58,37 @@ export default function ServerAgentSetup({ now = Date.now }: { now?: () => numbe
         <>
           <p className="mt-3 text-sm">
             {!agent.configured
-              ? 'Not set up yet.'
+              ? t('server.agent.notSetUp')
               : agent.lastSeenAt
-                ? `Last report ${ageText(now() - Date.parse(agent.lastSeenAt))} ago`
-                : 'No report yet.'}
+                ? t('server.agent.lastReport', { age: ageText(now() - Date.parse(agent.lastSeenAt)) })
+                : t('server.agent.noReport')}
           </p>
           <Button size="sm" className="mt-3" onClick={() => (agent.configured ? setAsking(true) : void makeToken())}>
-            {agent.configured ? 'New agent token' : 'Make agent token'}
+            {t(agent.configured ? 'server.agent.newToken' : 'server.agent.makeToken')}
           </Button>
         </>
       )}
       {token && (
-        <section aria-label="Agent settings" className="mt-4 rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
+        <section aria-label={t('server.agent.settings')} className="mt-4 rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
           <p>
-            Put these in the server agent&apos;s <code>.env</code>. The token is shown only once; if it is lost, make a new one.
+            {t('server.agent.settingsIntro')}
           </p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 font-mono text-xs text-ink">{settings}</pre>
           <div className="mt-3 flex gap-2">
             <CopyButton text={settings} />
             <Button size="sm" onClick={() => setToken(null)}>
-              Done
+              {t('common.done')}
             </Button>
           </div>
         </section>
       )}
       <Dialog
         open={asking}
-        title="Make a new agent token?"
+        title={t('server.agent.askTitle')}
         onClose={() => setAsking(false)}
         actions={
           <>
-            <Button onClick={() => setAsking(false)}>Cancel</Button>
+            <Button onClick={() => setAsking(false)}>{t('common.cancel')}</Button>
             <Button
               variant="primary"
               onClick={() => {
@@ -93,12 +96,12 @@ export default function ServerAgentSetup({ now = Date.now }: { now?: () => numbe
                 void makeToken();
               }}
             >
-              Make a new token
+              {t('server.agent.askConfirm')}
             </Button>
           </>
         }
       >
-        The agent stops reporting until it uses the new one.
+        {t('server.agent.askBody')}
       </Dialog>
     </section>
   );
