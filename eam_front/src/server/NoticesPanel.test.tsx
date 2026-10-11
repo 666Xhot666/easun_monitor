@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
+import i18n from '../i18n';
 import { fakeServer } from '../test/fakeServer';
 import NoticesPanel from './NoticesPanel';
 
@@ -28,6 +29,14 @@ describe('NoticesPanel', () => {
     expect(screen.getByText('3 min ago')).toBeInTheDocument();
     expect(screen.getByText('Overheating at 90 °C · storage low under 10 % free · memory short at 90 % used')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Save limits' })).not.toBeInTheDocument();
+  });
+
+  it('asks for the notices in the current language', async () => {
+    await i18n.changeLanguage('uk');
+    const server = renderPanel(false);
+    restore = server.restore;
+    await screen.findByText('Server: overheating, 93 °C (Package id 0)');
+    expect(server.sent[0].params).toEqual({ lang: 'uk' });
   });
 
   it('lets the owner change the limits', async () => {
