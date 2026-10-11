@@ -448,7 +448,8 @@
       "none": "None",
       "on": "On",
       "off": "Off"
-    }
+    },
+    "list": "Readings"
   },
   "exportCsv": {
     "label": "Export",

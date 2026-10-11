@@ -177,7 +177,7 @@ export default function ReadingsBrowser({
         <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
           <div className="flex max-h-[520px] flex-col overflow-hidden rounded-lg border border-line">
             <p className="border-b border-line bg-surface-2 px-3 py-2 text-xs text-muted">{readings.length} readings</p>
-            <ul role="listbox" aria-label="Readings" className="flex-1 overflow-y-auto">
+            <ul role="listbox" aria-label={t('readings.list')} className="flex-1 overflow-y-auto">
               {readings.map((r) => {
                 const isSelected = r.id === selectedId;
                 return (
