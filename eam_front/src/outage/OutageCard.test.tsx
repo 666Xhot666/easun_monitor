@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import { fakeServer } from '../test/fakeServer';
+import { fakeServer, type Reply } from '../test/fakeServer';
 import OutageCard from './OutageCard';
 import type { ForecastWindow, OutageForecast } from './types';
 
@@ -32,8 +33,8 @@ const forecast = (over: Partial<OutageForecast> = {}): OutageForecast => ({
   ...over,
 });
 
-function renderCard(data: OutageForecast) {
-  const server = fakeServer(() => ({ status: 200, data }));
+function renderCard(data: OutageForecast, refresh: Reply = { status: 202, data: {} }) {
+  const server = fakeServer((config) => (config.method === 'post' ? refresh : { status: 200, data }));
   render(<OutageCard profileId={7} now={NOW} />);
   return server;
 }
@@ -122,5 +123,28 @@ describe('OutageCard', () => {
     await new Promise((r) => setTimeout(r, 20));
     expect(server.sent).toHaveLength(1);
     expect(screen.queryByRole('region', { name: 'Outage schedule' })).not.toBeInTheDocument();
+  });
+
+  it('asks the reader for a check now', async () => {
+    const server = renderCard(forecast());
+    restore = server.restore;
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Check now' }));
+
+    expect(server.sent.find((c) => c.method === 'post')?.url).toBe('/api/inverter/profiles/7/outage-source/refresh');
+    expect(await screen.findByText('The reader checks within a minute.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check now' })).toBeDisabled();
+  });
+
+  it('says why a check cannot be made now', async () => {
+    restore = renderCard(forecast(), { status: 429, data: { message: 'Checked 2 min ago; try again in 3 min' } }).restore;
+    await userEvent.click(await screen.findByRole('button', { name: 'Check now' }));
+    expect(await screen.findByText('Checked 2 min ago; try again in 3 min')).toBeInTheDocument();
+  });
+
+  it('offers no check while switched off', async () => {
+    restore = renderCard(forecast({ state: 'disabled', windows: [], now: { status: 'unknown', window: null }, next: null })).restore;
+    await screen.findByText('Switched off in Settings.');
+    expect(screen.queryByRole('button', { name: 'Check now' })).not.toBeInTheDocument();
   });
 });

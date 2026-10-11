@@ -4,6 +4,8 @@ export interface ReaderSource {
   street: string;
   house: string;
   enabled: boolean;
+  /** Someone asked for a check now in the app. */
+  refresh: boolean;
 }
 
 export class ServerError extends Error {

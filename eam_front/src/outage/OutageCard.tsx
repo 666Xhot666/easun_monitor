@@ -1,5 +1,8 @@
+import { useEffect, useState } from 'react';
+import axios from '../lib/apiClient';
+import { extractErrorMessage } from '../lib/errors';
 import { ageText, useNow } from '../shell/age';
-import { CardTitle, Dot } from '../ui';
+import { Button, CardTitle, Dot } from '../ui';
 import type { ForecastState, ForecastWindow, OutageForecast } from './types';
 import { useOutageForecast } from './useOutage';
 
@@ -38,10 +41,30 @@ interface Props {
  * whether power is scheduled on now, what comes, how sure and how old.
  */
 export default function OutageCard({ profileId, now: fixedNow }: Props) {
-  const forecast = useOutageForecast(profileId);
+  const { forecast, reload } = useOutageForecast(profileId);
   const tick = useNow(30_000);
   const now = fixedNow ?? tick;
+  /** A check asked for: sent, or why not. */
+  const [asked, setAsked] = useState<{ sent: true } | { error: string } | null>(null);
+
+  // The reader asks every minute; look for its check a few times.
+  useEffect(() => {
+    if (!asked || !('sent' in asked)) return;
+    const timers = [60_000, 120_000, 180_000].map((ms) => setTimeout(reload, ms));
+    const done = setTimeout(() => setAsked(null), 180_000);
+    return () => [...timers, done].forEach(clearTimeout);
+  }, [asked, reload]);
+
   if (!forecast || forecast.state === 'none') return null;
+
+  const checkNow = async () => {
+    try {
+      await axios.post(`/api/inverter/profiles/${profileId}/outage-source/refresh`);
+      setAsked({ sent: true });
+    } catch (e) {
+      setAsked({ error: extractErrorMessage(e, "Couldn't ask for a check.") });
+    }
+  };
 
   const groups = forecast.groups.map(groupName).join(', ');
   const today = dayOf.format(now);
@@ -52,7 +75,17 @@ export default function OutageCard({ profileId, now: fixedNow }: Props) {
 
   return (
     <section aria-label="Outage schedule" className="flex flex-col gap-3 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <CardTitle hint={groups && `${forecast.groups.length > 1 ? 'Groups' : 'Group'} ${groups}`}>Outage schedule</CardTitle>
+      <div className="flex items-start justify-between gap-2">
+        <CardTitle hint={groups && `${forecast.groups.length > 1 ? 'Groups' : 'Group'} ${groups}`}>Outage schedule</CardTitle>
+        {forecast.state !== 'disabled' && (
+          <Button size="sm" variant="ghost" disabled={asked !== null && 'sent' in asked} onClick={() => void checkNow()}>
+            Check now
+          </Button>
+        )}
+      </div>
+      {asked && (
+        <p className="text-xs text-muted">{'sent' in asked ? 'The reader checks within a minute.' : asked.error}</p>
+      )}
       {noData ? (
         <p className="text-sm text-muted">{noData}</p>
       ) : (

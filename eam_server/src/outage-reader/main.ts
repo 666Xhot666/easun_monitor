@@ -21,6 +21,7 @@ import { readStreet } from './dnem/read-street';
 import { DnemSiteClient } from './dnem/site-client';
 import { runCheck, type ReaderState } from './run-check';
 import { ReaderServerClient } from './server-client';
+import { waitForNextCheck } from './wait';
 
 const log = (message: string) =>
   console.log(formatLogLine(message, new Date(), 'outage-reader'));
@@ -29,7 +30,8 @@ const kyivTime = new Intl.DateTimeFormat('en-GB', {
   dateStyle: 'short',
   timeStyle: 'short',
 });
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 function readState(path: string): ReaderState {
   const fresh: ReaderState = { lastBrowserCheckAt: null, streetsHash: null };
@@ -95,7 +97,14 @@ async function main(): Promise<void> {
     if (once) return;
     const next = nextCheckAt(started, config.cadence, { blocked });
     log(`Next check at ${kyivTime.format(next)} Kyiv time`);
-    await sleep(Math.max(0, next.getTime() - Date.now()));
+    // Earlier if someone asks for a check in the app.
+    await waitForNextCheck(
+      { server, now: () => new Date(), sleep, log },
+      next,
+      {
+        blocked,
+      },
+    );
   }
 }
 

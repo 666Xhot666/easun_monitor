@@ -461,4 +461,48 @@ describe('Outage schedule checks (e2e)', () => {
   it('turns away an unknown token', async () => {
     await send(okCheck(), 'nope').expect(401);
   });
+
+  describe('refresh', () => {
+    const refresh = () =>
+      request(app.getHttpServer())
+        .post(`/api/inverter/profiles/${profileId}/outage-source/refresh`)
+        .set('Authorization', `Bearer ${admin}`);
+    const asked = async () =>
+      (
+        await request(app.getHttpServer())
+          .get('/api/outage/reader/source')
+          .set('Authorization', `Bearer ${readerToken}`)
+          .expect(200)
+      ).body.refresh;
+
+    it('asks the reader for a check now, until a check is stored', async () => {
+      expect(await asked()).toBe(false);
+      await refresh().expect(202);
+      expect(await asked()).toBe(true);
+      // Asking again while it waits changes nothing.
+      await refresh().expect(202);
+
+      await send(okCheck({ checkedAt: new Date().toISOString() })).expect(202);
+      expect(await asked()).toBe(false);
+    });
+
+    it('allows one every 5 minutes', async () => {
+      await send(
+        okCheck({ checkedAt: new Date(Date.now() - 2 * 60_000).toISOString() }),
+      ).expect(202);
+      const { body } = await refresh().expect(429);
+      expect(body.message).toMatch(/Checked 2 min ago; try again in 3 min/);
+
+      await prisma.outageCheck.updateMany({
+        data: { checkedAt: new Date(Date.now() - 6 * 60_000) },
+      });
+      await refresh().expect(202);
+    });
+
+    it('is refused while checking is switched off', async () => {
+      await prisma.outageSource.updateMany({ data: { enabled: false } });
+      await refresh().expect(409);
+      expect(await asked()).toBe(false);
+    });
+  });
 });

@@ -355,6 +355,11 @@ outage notices: schedule updated, outage soon (their own lead time,
 schedule unavailable after 12 hours without a successful check. Outage
 times are Kyiv time.
 
+"Check now" on the Overview card asks for a check at once: between
+checks the reader asks the server every minute whether one is wanted.
+At most one every 5 minutes, and none while the site has the reader
+blocked.
+
 ```bash
 cd eam_server
 npm run outage-reader -- --once    # one check, then exit

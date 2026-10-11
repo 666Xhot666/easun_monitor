@@ -212,7 +212,12 @@ describe('Outage schedule source (e2e)', () => {
         '/api/outage/reader/source',
         token,
       ).expect(200);
-      expect(body).toEqual({ site: 'dnem', ...ADDRESS, enabled: true });
+      expect(body).toEqual({
+        site: 'dnem',
+        ...ADDRESS,
+        enabled: true,
+        refresh: false,
+      });
 
       const source = await call('get', sourcePath(), admin).expect(200);
       expect(new Date(source.body.source.lastSeenAt).getTime()).toBeGreaterThan(

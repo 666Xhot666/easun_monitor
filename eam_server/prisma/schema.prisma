@@ -420,21 +420,24 @@ enum OutageHouseState {
 /// address on it, at most one per inverter. The outage schedule reader asks
 /// for it with its token and checks it.
 model OutageSource {
-  id         Int              @id @default(autoincrement())
+  id                 Int              @id @default(autoincrement())
   /// DTEK site key; "dnem" (DTEK Dnipro) is the only one so far.
-  site       String           @default("dnem")
+  site               String           @default("dnem")
   /// City, street and house in the site's own spelling.
-  city       String
-  street     String
-  house      String
-  enabled    Boolean          @default(true)
-  houseState OutageHouseState @default(PENDING)
+  city               String
+  street             String
+  house              String
+  enabled            Boolean          @default(true)
+  houseState         OutageHouseState @default(PENDING)
   /// The house's outage groups as the reader found them (e.g. GPV5.2);
   /// empty while pending, not found, or when the site lists none.
-  groups     String[]         @default([])
-  tokenHash  String           @unique
+  groups             String[]         @default([])
+  tokenHash          String           @unique
   /// When the reader last asked for this source.
-  lastSeenAt DateTime?
+  lastSeenAt         DateTime?
+  /// When someone in the app asked for a check now; done once a later check
+  /// is stored.
+  refreshRequestedAt DateTime?
 
   checks         OutageCheck[]
   weeklyPatterns OutageWeeklyPattern[]

@@ -1,5 +1,8 @@
 import {
   BadRequestException,
+  ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -27,6 +30,9 @@ const SOURCE_FIELDS = {
 } as const;
 
 const byUkrainian = new Intl.Collator('uk').compare;
+
+/** A check asked for in the app comes at most this often. */
+const REFRESH_EVERY_MS = 5 * 60_000;
 
 @Injectable()
 export class OutageSourcesService {
@@ -122,7 +128,63 @@ export class OutageSourcesService {
       data: { lastSeenAt: new Date() },
     });
     const { site, city, street, house, enabled } = source;
-    return { site, city, street, house, enabled };
+    const refresh =
+      enabled &&
+      source.refreshRequestedAt !== null &&
+      (await this.pending(source.id, source.refreshRequestedAt));
+    return { site, city, street, house, enabled, refresh };
+  }
+
+  /**
+   * Asks the reader for a check now (it asks the server every minute). At
+   * most one every 5 minutes, counted from the last check.
+   */
+  async requestRefresh(profileId: number, userId: number, now = new Date()) {
+    await this.households.requireProfile(profileId, userId, 'read');
+    const source = await this.prisma.outageSource.findUnique({
+      where: { inverterProfileId: profileId },
+    });
+    if (!source) throw new NotFoundException('No outage source here');
+    if (!source.enabled) {
+      throw new ConflictException(
+        'Checking the outage schedule is switched off',
+      );
+    }
+    if (
+      source.refreshRequestedAt &&
+      (await this.pending(source.id, source.refreshRequestedAt))
+    ) {
+      return { requestedAt: source.refreshRequestedAt };
+    }
+    const last = await this.lastCheck(source.id);
+    const age = last ? now.getTime() - last.checkedAt.getTime() : Infinity;
+    if (age < REFRESH_EVERY_MS) {
+      const ago = Math.floor(age / 60_000);
+      const wait = Math.ceil((REFRESH_EVERY_MS - age) / 60_000);
+      throw new HttpException(
+        `Checked ${ago} min ago; try again in ${wait} min`,
+        HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    await this.prisma.outageSource.update({
+      where: { id: source.id },
+      data: { refreshRequestedAt: now },
+    });
+    return { requestedAt: now };
+  }
+
+  /** Whether a check asked for at `requestedAt` is still to come. */
+  private async pending(sourceId: number, requestedAt: Date) {
+    const last = await this.lastCheck(sourceId);
+    return !last || last.checkedAt < requestedAt;
+  }
+
+  private lastCheck(sourceId: number) {
+    return this.prisma.outageCheck.findFirst({
+      where: { sourceId },
+      orderBy: { checkedAt: 'desc' },
+      select: { checkedAt: true },
+    });
   }
 
   /** Stores the site's city -> streets list, unless it is unchanged. */

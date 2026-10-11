@@ -55,6 +55,16 @@ export class OutageSourcesController {
     return this.sources.replaceToken(profileId, user.userId);
   }
 
+  /** A check now, by the reader within a minute; at most one every 5 minutes. */
+  @Post('inverter/profiles/:profileId/outage-source/refresh')
+  @HttpCode(202)
+  refresh(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.sources.requestRefresh(profileId, user.userId);
+  }
+
   @Delete('inverter/profiles/:profileId/outage-source')
   @HttpCode(204)
   async remove(

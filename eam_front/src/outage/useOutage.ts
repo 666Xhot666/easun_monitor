@@ -34,9 +34,14 @@ export function useOutageSource(profileId: number) {
   return { source, setSource, reload };
 }
 
-/** The inverter's outage forecast, fetched again every `refreshMs`; null until loaded or when it cannot be fetched. */
+/**
+ * The inverter's outage forecast, fetched again every `refreshMs`; null until
+ * loaded or when it cannot be fetched. `reload` fetches it now.
+ */
 export function useOutageForecast(profileId: number, refreshMs = 300_000) {
   const [forecast, setForecast] = useState<OutageForecast | null>(null);
+  const [version, setVersion] = useState(0);
+  const reload = useCallback(() => setVersion((v) => v + 1), []);
 
   useEffect(() => {
     if (profileId <= 0) return;
@@ -56,9 +61,9 @@ export function useOutageForecast(profileId: number, refreshMs = 300_000) {
       cancelled = true;
       clearInterval(timer);
     };
-  }, [profileId, refreshMs]);
+  }, [profileId, refreshMs, version]);
 
-  return forecast;
+  return { forecast, reload };
 }
 
 /** The DTEK site's cities, as the reader last sent them; empty before its first run. */
