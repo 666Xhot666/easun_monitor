@@ -347,6 +347,14 @@ Set the address in the app under the inverter's Settings > Outage
 schedule. The reader token is shown once when the address is first
 saved.
 
+The Overview shows today and tomorrow's outages, how sure each one is
+(confirmed schedule, repair on the house, or weekly pattern only) and
+how old the data is. Under Settings > Notifications each user picks the
+outage notices: schedule updated, outage soon (their own lead time,
+15 minutes by default; possible outages only if switched on), and
+schedule unavailable after 12 hours without a successful check. Outage
+times are Kyiv time.
+
 ```bash
 cd eam_server
 npm run outage-reader -- --once    # one check, then exit
