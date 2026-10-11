@@ -2,6 +2,7 @@ import type { Container, Service } from './host/commands';
 import type { FanControlState } from './fan/fan-controller';
 import type { Disk } from './host/disks';
 import type { Fan, Temperature } from './host/sensors';
+import type { Updates } from './host/updates';
 
 /** What the agent reports about the host once a cycle. */
 export interface HostSample {
@@ -33,6 +34,8 @@ export interface HostSample {
   services: Service[] | null;
   /** null when Docker could not be asked. */
   containers: Container[] | null;
+  /** Package updates, checked every few hours; absent or null when not checked. */
+  updates?: Updates | null;
   /** What the agent did with the fan; absent or null without a fan to control. */
   fanControl?: FanControlState | null;
 }

@@ -196,6 +196,10 @@ export default function ServerPage({ now: fixedNow }: Props) {
           </ul>
         </Panel>
 
+        <Panel title="Updates">
+          <Updates updates={sample.updates ?? null} now={now} />
+        </Panel>
+
         <Panel title="System">
           <p>Up {uptime(sample.uptimeSeconds)}</p>
           {sample.services && sample.services.length > 0 && (
@@ -222,6 +226,38 @@ export default function ServerPage({ now: fixedNow }: Props) {
       </div>
       <FanPanel owner={user?.server === 'OWNER'} />
       <ServerHistory />
+    </>
+  );
+}
+
+function Updates({ updates, now }: { updates: HostSample['updates'] | null; now: number }) {
+  if (!updates) return <p className="text-muted">Not checked by the agent.</p>;
+  const ago = (iso: string) => ageText(now - Date.parse(iso));
+  return (
+    <>
+      {updates.rebootRequired && (
+        <p className="mb-2 inline-block rounded-full bg-warn-bg px-2.5 py-0.5 text-xs font-medium text-warn-ink">Restart required</p>
+      )}
+      <p>
+        {updates.packages === 0
+          ? 'Up to date.'
+          : `${updates.packages} ${updates.packages === 1 ? 'package' : 'packages'} can be updated` +
+            (updates.security > 0 ? `, ${updates.security} of them security updates.` : '.')}
+      </p>
+      <p className="mt-1 text-xs text-muted">
+        Checked {ago(updates.checkedAt)} ago;{' '}
+        {updates.listsUpdatedAt ? `package lists from ${ago(updates.listsUpdatedAt)} ago.` : 'age of the package lists unknown.'}
+      </p>
+      {updates.names.length > 0 && (
+        <details className="mt-2">
+          <summary className="cursor-pointer text-xs text-muted">Packages</summary>
+          <ul className="mt-1 columns-2 font-mono text-xs">
+            {updates.names.map((name) => (
+              <li key={name}>{name}</li>
+            ))}
+          </ul>
+        </details>
+      )}
     </>
   );
 }

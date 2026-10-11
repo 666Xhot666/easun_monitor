@@ -145,6 +145,25 @@ describe('Server agent (e2e)', () => {
     ).expect(202);
   });
 
+  it('keeps what the agent found about package updates', async () => {
+    const token = await newToken();
+    const updates = {
+      checkedAt: new Date().toISOString(),
+      packages: 3,
+      security: 2,
+      names: ['openssl', 'libssl3t64', 'snapd'],
+      listsUpdatedAt: null,
+      rebootRequired: true,
+    };
+    await report(token, { ...sample(new Date()), updates }).expect(202);
+    const { body } = await as(owner).get('/api/server/status').expect(200);
+    expect(body.sample.updates).toEqual(updates);
+    await report(token, {
+      ...sample(new Date(Date.now() + 1000)),
+      updates: { ...updates, rebootRequired: 'yes' },
+    }).expect(400);
+  });
+
   it("takes the agent's own client's reports", async () => {
     const url = await app.getUrl();
     const client = new AgentServerClient({ url, token: await newToken() });

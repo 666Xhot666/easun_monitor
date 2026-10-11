@@ -422,6 +422,11 @@ by the owner under Settings > Server access), `SERVER_AGENT_INTERVAL_SECONDS`
 (60) and `SERVER_AGENT_SERVICES` (the systemd units to show). Containers are
 listed when the agent's user may run `docker ps`.
 
+Package updates: every `SERVER_AGENT_UPDATES_HOURS` (6) the agent reads
+`apt list --upgradable` and the system's "restart required" flag. It
+refreshes and installs nothing. The counts are as of apt's last package
+list refresh, and the page shows how old that is.
+
 Fan control: with `SERVER_AGENT_FAN` set to the fan's hwmon name (the
 device under `/sys/class/hwmon` with a `pwm1`), the agent runs that fan as
 the owner sets it on the Server page:

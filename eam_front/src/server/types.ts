@@ -10,6 +10,15 @@ export interface HostSample {
   fans: Array<{ device: string; label: string; rpm: number }>;
   services: Array<{ name: string; active: boolean }> | null;
   containers: Array<{ name: string; state: string; status: string }> | null;
+  /** Package updates, as of apt's last list refresh; absent when the agent does not check. */
+  updates?: {
+    checkedAt: string;
+    packages: number;
+    security: number;
+    names: string[];
+    listsUpdatedAt: string | null;
+    rebootRequired: boolean;
+  } | null;
 }
 
 /** GET /api/server/status. */

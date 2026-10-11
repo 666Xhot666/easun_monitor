@@ -68,4 +68,37 @@ describe('Collector', () => {
       { name: 'eth0', rxBytesPerSecond: 100, txBytesPerSecond: 0 },
     ]);
   });
+
+  it('checks for package updates every so often, and gives the last result in between', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'host-'));
+    write(dir, host(100, 0));
+    let asked = 0;
+    const collector = new Collector({
+      root: dir,
+      services: [],
+      run: (command) => {
+        if (command !== 'apt') return Promise.reject(new Error('no'));
+        asked++;
+        return Promise.resolve(
+          `Listing...\npkg${asked}/noble-security 1 amd64 [upgradable from: 0]\n`,
+        );
+      },
+      statfs: () => ({ bsize: 1, blocks: 1, bavail: 1 }),
+      updatesEveryMs: 60 * 60_000,
+    });
+    const at = (minutes: number) =>
+      new Date(Date.parse('2026-10-11T10:00:00Z') + minutes * 60_000);
+
+    expect((await collector.sample(at(0))).updates).toMatchObject({
+      names: ['pkg1'],
+      security: 1,
+    });
+    expect((await collector.sample(at(30))).updates).toMatchObject({
+      names: ['pkg1'],
+    });
+    expect((await collector.sample(at(60))).updates).toMatchObject({
+      names: ['pkg2'],
+    });
+    expect(asked).toBe(2);
+  });
 });

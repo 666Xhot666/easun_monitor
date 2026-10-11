@@ -17,6 +17,7 @@ import {
   type NetCounter,
 } from './host/proc';
 import { readSensors } from './host/sensors';
+import { readUpdates, type Updates } from './host/updates';
 import type { HostSample } from './sample';
 
 export interface CollectorOptions {
@@ -26,12 +27,17 @@ export interface CollectorOptions {
   services: string[];
   run?: Run;
   statfs?: Parameters<typeof readDisks>[1];
+  /** How often to check for package updates; 0 or absent: never. */
+  updatesEveryMs?: number;
 }
 
 /** Reads the host; CPU use and network traffic are since the previous reading. */
 export class Collector {
   private previous: { at: number; cpu: CpuTimes; net: NetCounter[] } | null =
     null;
+
+  private updates: Updates | null = null;
+  private updatesAt: number | null = null;
 
   constructor(private readonly options: CollectorOptions) {}
 
@@ -49,6 +55,14 @@ export class Collector {
       readContainers(run),
     ]);
     const { temperatures, fans } = readSensors(root);
+    const every = this.options.updatesEveryMs ?? 0;
+    if (
+      every > 0 &&
+      (this.updatesAt === null || now.getTime() - this.updatesAt >= every)
+    ) {
+      this.updatesAt = now.getTime();
+      this.updates = await readUpdates(run, root, now);
+    }
     return {
       at: now.toISOString(),
       uptimeSeconds: readUptime(root),
@@ -71,6 +85,7 @@ export class Collector {
       fans,
       services,
       containers,
+      ...(every > 0 && { updates: this.updates }),
     };
   }
 }

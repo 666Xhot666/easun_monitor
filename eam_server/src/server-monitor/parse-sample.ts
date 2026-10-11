@@ -57,6 +57,29 @@ function fanControl(v: unknown, s: Shape): HostSample['fanControl'] {
   };
 }
 
+function updates(v: unknown, s: Shape): HostSample['updates'] {
+  const o = object(v, s);
+  const checkedAt = text(o.checkedAt, at(s, 'checkedAt'));
+  if (Number.isNaN(Date.parse(checkedAt)))
+    at(s, 'checkedAt').fail('expected a time');
+  const lists =
+    o.listsUpdatedAt === null
+      ? null
+      : text(o.listsUpdatedAt, at(s, 'listsUpdatedAt'));
+  if (lists !== null && Number.isNaN(Date.parse(lists)))
+    at(s, 'listsUpdatedAt').fail('expected a time');
+  if (typeof o.rebootRequired !== 'boolean')
+    at(s, 'rebootRequired').fail('expected true or false');
+  return {
+    checkedAt,
+    packages: num(o.packages, at(s, 'packages')),
+    security: num(o.security, at(s, 'security')),
+    names: list(o.names, at(s, 'names'), text),
+    listsUpdatedAt: lists,
+    rebootRequired: o.rebootRequired as boolean,
+  };
+}
+
 /** The agent's sample, checked field by field; anything else is refused (400). */
 export function parseHostSample(body: unknown): HostSample {
   const s = new Shape('sample');
@@ -133,6 +156,9 @@ export function parseHostSample(body: unknown): HostSample {
         name: text(service.name, at(v, 'name')),
         active: service.active as boolean,
       };
+    }),
+    ...(o.updates != null && {
+      updates: updates(o.updates, at(s, 'updates')),
     }),
     // Only an agent controlling a fan reports on it.
     ...(o.fanControl != null && {

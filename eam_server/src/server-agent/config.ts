@@ -5,6 +5,8 @@ export interface ServerAgentConfig {
   };
   intervalSeconds: number;
   services: string[];
+  /** How often to check for package updates; 0: never. */
+  updatesEveryHours: number;
   /** The fan to control: its hwmon name, and its fixed speeds (off included) if any. */
   fan: { name: string; steps: number | null } | null;
 }
@@ -72,7 +74,16 @@ export function serverAgentConfig(
     }
   }
 
+  const hoursRaw = env.SERVER_AGENT_UPDATES_HOURS?.trim();
+  const updatesEveryHours = hoursRaw ? Number(hoursRaw) : 6;
+  if (!Number.isInteger(updatesEveryHours) || updatesEveryHours < 0) {
+    throw new Error(
+      'SERVER_AGENT_UPDATES_HOURS must be a whole number of hours (0: do not check)',
+    );
+  }
+
   return {
+    updatesEveryHours,
     fan: fanName ? { name: fanName, steps } : null,
     server: {
       url,

@@ -87,6 +87,43 @@ describe('ServerPage', () => {
     expect(screen.getByText('Updated 20 s ago')).toBeInTheDocument();
   });
 
+  it('shows the package updates waiting, and a restart the system asks for', async () => {
+    restore = renderPage({
+      ...fresh,
+      sample: {
+        ...sample,
+        updates: {
+          checkedAt: new Date(NOW - 2 * 3600_000).toISOString(),
+          packages: 12,
+          security: 3,
+          names: ['openssl', 'snapd'],
+          listsUpdatedAt: new Date(NOW - 5 * 3600_000).toISOString(),
+          rebootRequired: true,
+        },
+      },
+    }).restore;
+    const panel = await screen.findByRole('region', { name: 'Updates' });
+    expect(panel).toHaveTextContent('12 packages can be updated, 3 of them security updates.');
+    expect(panel).toHaveTextContent('Restart required');
+    expect(panel).toHaveTextContent('Checked 2 h ago; package lists from 5 h ago.');
+    expect(within(panel).getByText('openssl')).toBeInTheDocument();
+  });
+
+  it('says when the system is up to date, or not checked', async () => {
+    const upToDate = renderPage({
+      ...fresh,
+      sample: { ...sample, updates: { checkedAt: sample.at, packages: 0, security: 0, names: [], listsUpdatedAt: null, rebootRequired: false } },
+    });
+    expect(await screen.findByText('Up to date.')).toBeInTheDocument();
+    upToDate.restore();
+  });
+
+  it('says when updates are not checked', async () => {
+    restore = renderPage(fresh).restore;
+    const panel = await screen.findByRole('region', { name: 'Updates' });
+    expect(panel).toHaveTextContent('Not checked by the agent.');
+  });
+
   it('says plainly when the agent has gone quiet', async () => {
     restore = renderPage({ ...fresh, sample: { ...sample, at: new Date(NOW - 4 * 60_000).toISOString() }, stale: true }).restore;
     expect(await screen.findByRole('alert')).toHaveTextContent('No report from the agent for 4 min; these values are old.');

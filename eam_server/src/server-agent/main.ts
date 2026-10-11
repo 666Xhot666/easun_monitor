@@ -11,7 +11,7 @@
  *
  * Settings: SERVER_AGENT_URL, SERVER_AGENT_TOKEN,
  * SERVER_AGENT_INTERVAL_SECONDS, SERVER_AGENT_SERVICES, SERVER_AGENT_FAN,
- * SERVER_AGENT_FAN_STEPS, from the environment,
+ * SERVER_AGENT_FAN_STEPS, SERVER_AGENT_UPDATES_HOURS, from the environment,
  * then eam_server/.env, then the repository's .env. See README.
  */
 import { join } from 'node:path';
@@ -40,7 +40,10 @@ async function main(): Promise<void> {
     `Settings from ${files.join(', ') || 'the environment'}; reporting to ${config.server.url} every ${config.intervalSeconds} s`,
   );
   const server = new AgentServerClient(config.server);
-  const collector = new Collector({ services: config.services });
+  const collector = new Collector({
+    services: config.services,
+    updatesEveryMs: config.updatesEveryHours * 60 * 60_000,
+  });
   const fanDevice = config.fan ? FanDevice.find('/', config.fan.name) : null;
   if (config.fan && !fanDevice) {
     log(

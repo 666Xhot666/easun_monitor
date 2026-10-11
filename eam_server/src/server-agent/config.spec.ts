@@ -16,6 +16,7 @@ describe('serverAgentConfig', () => {
         'easun-outage-reader',
       ],
       fan: null,
+      updatesEveryHours: 6,
     });
     expect(() => serverAgentConfig({ ...base, SERVER_AGENT_URL: '' })).toThrow(
       /SERVER_AGENT_URL/,
@@ -62,5 +63,15 @@ describe('serverAgentConfig', () => {
         SERVER_AGENT_FAN_STEPS: '1',
       }),
     ).toThrow(/SERVER_AGENT_FAN_STEPS/);
+  });
+
+  it('checks for updates every 6 hours unless told otherwise', () => {
+    expect(
+      serverAgentConfig({ ...base, SERVER_AGENT_UPDATES_HOURS: '0' })
+        .updatesEveryHours,
+    ).toBe(0);
+    expect(() =>
+      serverAgentConfig({ ...base, SERVER_AGENT_UPDATES_HOURS: 'often' }),
+    ).toThrow(/SERVER_AGENT_UPDATES_HOURS/);
   });
 });
