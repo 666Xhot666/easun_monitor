@@ -7,7 +7,11 @@
     "email": "Email",
     "password": "Password",
     "ago": "{{age}} ago",
-    "now": "Now"
+    "now": "Now",
+    "copy": "Copy",
+    "copied": "Copied",
+    "remove": "Remove",
+    "you": "You"
   },
   "age": {
     "seconds": "{{count}} s",
@@ -481,6 +485,145 @@
       "schedule": "Schedule",
       "outage": "Outage soon",
       "schedule-unavailable": "Schedule check"
+    }
+  },
+  "roles": {
+    "ADMIN": "Admin",
+    "READER": "Reader"
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Configuration for this inverter and your household",
+    "nav": "Settings",
+    "tabs": {
+      "inverter": "Inverter",
+      "inverter-settings": "Inverter settings",
+      "solar": "Solar array",
+      "battery-monitor": "Battery monitor",
+      "outage-schedule": "Outage schedule",
+      "household": "Household",
+      "notifications": "Notifications",
+      "account": "Account",
+      "server-access": "Server access",
+      "configuration": "Current configuration"
+    }
+  },
+  "household": {
+    "yours": "Your households",
+    "failed": "Couldn't update the household.",
+    "members": "Members",
+    "roleOf": "Role of {{email}}",
+    "removeMember": "Remove {{email}}",
+    "noMembers": "No members.",
+    "invites": "Invites",
+    "inviteSomeone": "Invite someone",
+    "newInvite": "New invite",
+    "inviteAs": "Invite as {{role}} · expires in 7 days",
+    "shownOnce": "Share the link or the code. It is shown only once.",
+    "copyLink": "Copy link",
+    "copyCode": "Copy code",
+    "shareTitle": "Join my EAM household",
+    "share": "Share…",
+    "inviteAsLabel": "Invite as",
+    "createInvite": "Create invite",
+    "rolesHint": "Readers see the Overview, Battery, History and Alerts. Admins can also change settings and invite people.",
+    "openInvites": "Open invites",
+    "inviteN": "Invite {{id}}",
+    "inviteExpires": "{{role}} · expires {{date}}",
+    "revokeN": "Revoke invite {{id}}",
+    "revoke": "Revoke",
+    "removeTitle": "Remove {{email}} from the household?",
+    "removeBody": "They lose access to this household’s inverters straight away."
+  },
+  "telegram": {
+    "title": "Telegram",
+    "loadFailed": "Could not load the Telegram link.",
+    "unlinkFailed": "Could not unlink the chat.",
+    "codeFailed": "Could not get a code.",
+    "linked": "A Telegram chat is linked.",
+    "unlink": "Unlink",
+    "notLinked": "Not linked. Alerts, /status and /energy come to a linked chat.",
+    "sendWithin": "Send this to the bot within 10 minutes.",
+    "getCode": "Get a link code",
+    "unlinkTitle": "Unlink the Telegram chat?",
+    "unlinkBody": "Alerts, summaries and replies stop coming to that chat."
+  },
+  "notify": {
+    "loadFailed": "Couldn’t load the notification settings.",
+    "saveFailed": "Couldn’t save the change.",
+    "leadRange": "From {{min}} to {{max}} minutes.",
+    "title": "What to send, and where",
+    "intro": "In the app: the bell in the top bar. The Alerts page always keeps the full history.",
+    "inApp": "In app",
+    "telegram": "Telegram",
+    "serverPage": "Server page",
+    "inTheApp": "{{label}} in the app",
+    "onTelegram": "{{label}} on Telegram",
+    "linkFirst": "Link Telegram above to use these.",
+    "quietHours": "Quiet hours",
+    "quietHint": "23:00 to 07:00: only faults reach Telegram.",
+    "quietHintServer": "23:00 to 07:00: only faults and server overheating reach Telegram.",
+    "lead": "Minutes before an outage",
+    "leadHint": "When the \"Outage soon\" notice comes.",
+    "possible": "Also before possible outages",
+    "possibleHint": "Slots the schedule marks as possible, and the weekly pattern on days not yet confirmed.",
+    "rows": {
+      "fault": {
+        "label": "Faults",
+        "detail": "Inverter faults and fault mode, as they happen"
+      },
+      "warning": {
+        "label": "Warnings",
+        "detail": "Inverter warnings and BMS alarms"
+      },
+      "grid": {
+        "label": "Grid lost and restored",
+        "detail": "With how long the outage lasted"
+      },
+      "battery": {
+        "label": "Battery low",
+        "detail": "When the state of charge drops to the low level"
+      },
+      "connection": {
+        "label": "Logger or BMS reader offline",
+        "detail": "When there are no readings for 5 minutes"
+      },
+      "schedule": {
+        "label": "Outage schedule updated",
+        "detail": "A new or changed outage schedule for your address, old → new times"
+      },
+      "outage": {
+        "label": "Outage soon",
+        "detail": "Before a scheduled outage starts, with the battery level"
+      },
+      "schedule-unavailable": {
+        "label": "Outage schedule unavailable",
+        "detail": "When the DTEK site could not be checked for 12 hours"
+      },
+      "server-heat": {
+        "label": "Server overheating",
+        "detail": "A sensor at the limit set on the Server page; also in quiet hours"
+      },
+      "server-storage": {
+        "label": "Server storage low",
+        "detail": "A filesystem under the free space limit"
+      },
+      "server-memory": {
+        "label": "Server memory short",
+        "detail": "Memory over the limit for 5 minutes"
+      },
+      "server-agent": {
+        "label": "Server agent silent",
+        "detail": "No report from the server agent for 5 minutes"
+      },
+      "server-updates": {
+        "label": "Server updates",
+        "detail": "Security updates waiting, or a restart required"
+      },
+      "summary": {
+        "label": "Daily summary",
+        "detail": "In the evening: solar, grid, load, self-sufficiency"
+      }
     }
   }
 }
