@@ -26,4 +26,11 @@ describe('formatRegisterValue', () => {
   it('says "no data" instead of inventing a value', () => {
     expect(formatRegisterValue(def({ unit: 'V' }), undefined)).toBe('no data');
   });
+
+  it('lists the flags set in a bitfield register', () => {
+    const flow = def({ bits: { 0: 'PV connected', 4: 'Battery charging', 9: 'PV charging' } });
+    expect(formatRegisterValue(flow, 0b10_0001_0001)).toBe('PV connected; Battery charging; PV charging');
+    expect(formatRegisterValue(flow, 0b100)).toBe('Code 2');
+    expect(formatRegisterValue(flow, 0)).toBe('None');
+  });
 });

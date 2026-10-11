@@ -12,6 +12,26 @@ import type { RegisterDefinition } from './register-map.ts';
 const OFF_ON = ['Off', 'On'];
 const DISABLED_ENABLED = ['Disabled', 'Enabled'];
 
+/**
+ * Power flow word (231). The protocol gives it as 2-bit fields (PV 0/1,
+ * mains 0/1/2, battery 0/1/2, load 0/1) and single bits; the fields only
+ * take those values, so each meaning is one bit.
+ */
+const POWER_FLOW_BITS: Record<number, string> = {
+  0: 'PV connected',
+  2: 'Mains connected',
+  3: 'Feeding the grid',
+  4: 'Battery charging',
+  5: 'Battery discharging',
+  6: 'Load powered',
+  8: 'Mains charging',
+  9: 'PV charging',
+  10: 'Battery icon off',
+  11: 'PV icon off',
+  12: 'Mains icon off',
+  13: 'Load icon off',
+};
+
 /** Fault code table: fault code n corresponds to bit n. */
 const FAULT_BITS: Record<number, string> = {
   1: 'Inverter module over temperature',
@@ -370,6 +390,42 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
     description: 'The inverter\'s rated output power.',
   },
 
+  // --- identified from the vendor protocol for this register layout ---
+  {
+    name: 'PVTemperature', label: 'PV temperature', address: 228, type: 'int16', unit: '°C', group: 'telemetry',
+    description: 'Reads 0 on this inverter: it seems to have no PV temperature sensor.',
+  },
+  {
+    name: 'PowerFlow', label: 'Power flow', address: 231, type: 'uint16', group: 'telemetry', bits: POWER_FLOW_BITS,
+    description: 'Where energy flows now: PV and mains connected, battery charging or discharging, load powered, and who charges the battery. The same as the arrows on the inverter\'s display.',
+  },
+  {
+    name: 'ExternalCtPowerHigh', label: 'External CT power (upper word)', address: 235, type: 'uint16', group: 'telemetry',
+    description: 'Power seen by an external current clamp (CT), 32-bit at 235-236 in W: positive towards the grid, negative from it. The logger reads only 235, the upper word, so only very large or negative values show. 0 here: no clamp fitted.',
+  },
+
+  // --- leads, not in this table ---
+  // The logger only overhears the plug, which never reads these. Worth
+  // trying once something can ask the inverter itself (an active RS232
+  // reader). From the vendor protocol for this register layout; a register
+  // scan of a smaller unit of this family did not list 443, so check that
+  // this one answers before relying on them.
+  // - 434-436 and 437-439: the inverter's date (year, month, day) and time
+  //   (hour, minute, second), read/write.
+  // - 443: today's PV generation, 0.01 kWh. 444-445: total PV generation,
+  //   0.01 kWh, 32-bit. 459: writing 0xAA clears them.
+  // - 626, 8 words, ASCII: firmware version.
+  // - Modbus function 0x14 (file read, reference type 6): stored energy, PV
+  //   generation and load consumption, 0.01 kWh. File 1: today by hour.
+  //   File 2: this month by day. File 3: total, this year, and by month.
+  //   File 4, record 0-15: a past day by hour (0 = yesterday). File 5,
+  //   record 0-11: a past month by day. File 6, record 0-11: a past year.
+  //   Today by hour: 01 14 07 06 00 01 00 01 00 00 95 24; each hour is two
+  //   16-bit values, generation then consumption.
+  //   These would give the inverter's own kWh instead of integrating samples.
+  // - Larger models with another register layout keep daily PV energy at 702
+  //   and total at 703-704 (0.01 kWh).
+
   // --- unverified ---
   // Every other address the logger reads on the device (from serial
   // captures, 2026-10-03/04). Not yet identified: read and stored so long
@@ -394,13 +450,10 @@ export const SMG_II_REGISTERS: readonly RegisterDefinition[] = [
   { name: 'Unverified184', label: 'Unverified 184', address: 184, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
   { name: 'Unverified185', label: 'Unverified 185', address: 185, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
   { name: 'Unverified198', label: 'Unverified 198', address: 198, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
-  { name: 'Unverified200', label: 'Unverified 200', address: 200, type: 'uint16', group: 'telemetry', verified: false, description: 'Status bits; bit 8 sets when PV is producing (r = 0.83 with PV current). Not yet identified.' },
-  { name: 'Unverified218', label: 'Unverified 218', address: 218, type: 'uint16', group: 'telemetry', verified: false, description: 'Changes every poll, 4320-4400; matches no cloud field. If x0.1 it would be 432-440 V, perhaps an internal DC bus voltage. Not yet identified.' },
+  { name: 'Internal200', label: 'Internal 200', address: 200, type: 'uint16', group: 'telemetry', verified: false, description: 'The vendor protocol for this register layout marks it "internal command". Status bits that follow the operating mode; bit 8 sets when PV is producing (r = 0.83 with PV current).' },
+  { name: 'Internal218', label: 'Internal 218', address: 218, type: 'uint16', group: 'telemetry', verified: false, description: 'The vendor protocol marks it "internal command". Changes every poll (3500-4900 seen) and follows battery voltage (r = 0.84); if x0.1, 350-490 V, perhaps the internal DC bus.' },
   { name: 'Unverified221', label: 'Unverified 221', address: 221, type: 'uint16', group: 'telemetry', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
-  { name: 'Unverified228', label: 'Unverified 228', address: 228, type: 'uint16', group: 'telemetry', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
-  { name: 'Unverified230', label: 'Unverified 230', address: 230, type: 'int16', group: 'telemetry', verified: false, description: 'Signed, tracks AC charging current in 0.1 A (r = 0.97) but not equal to it. Not yet identified.' },
-  { name: 'Unverified231', label: 'Unverified 231', address: 231, type: 'uint16', group: 'telemetry', verified: false, description: 'Status bits; bits 0 and 9 change around sunrise (r = 0.80 with PV voltage). Not yet identified.' },
-  { name: 'Unverified235', label: 'Unverified 235', address: 235, type: 'uint16', group: 'telemetry', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
+  { name: 'Internal230', label: 'Internal 230', address: 230, type: 'int16', group: 'telemetry', verified: false, description: 'The vendor protocol for this layout marks it "internal"; a larger model\'s map has AC charging current in 0.1 A here, which fits: it follows the AC charging current (r = 0.98), signed.' },
   { name: 'Unverified311', label: 'Unverified 311', address: 311, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
   { name: 'Unverified314', label: 'Unverified 314', address: 314, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },
   { name: 'Unverified315', label: 'Unverified 315', address: 315, type: 'uint16', group: 'settings', verified: false, description: 'Seen on the device, not yet identified. Read and stored; never written.' },

@@ -271,16 +271,16 @@ describe('SMG-II register table', () => {
 
   it('includes every address the logger reads, unidentified ones marked unverified and never written', () => {
     const unverified = [
-      102, 104, 106, 110, ...Array.from({ length: 14 }, (_, i) => 172 + i), 198, 200, 218, 221, 228, 230, 231, 235,
+      102, 104, 106, 110, ...Array.from({ length: 14 }, (_, i) => 172 + i), 198, 200, 218, 221, 230,
       311, 314, 315, 316, 317, 328, 339, 404, 405, 407, 421, 422, 425, 427, 428, 450, 457, 461, 462, 468,
       500, 534, 600, 634, 641, 642, 644, 645, 745,
     ];
-    expect(unverified).toHaveLength(55);
+    expect(unverified).toHaveLength(52);
     for (const address of unverified) {
       const definition = smg.list().find((d) => d.address === address);
       expect({ address, verified: definition?.verified, writable: definition?.writable }).toEqual({ address, verified: false, writable: undefined });
     }
-    expect(smg.list().filter((d) => d.verified === false)).toHaveLength(55);
+    expect(smg.list().filter((d) => d.verified === false)).toHaveLength(52);
   });
 
   it("reads in exactly the block shapes the logger uses on the device", () => {
@@ -291,5 +291,25 @@ describe('SMG-II register table', () => {
       '172x14', '198x1', '300x12', '313x5', '320x20', '341x3', '404x4', '420x3', '425x1', '427x2',
       '450x1', '457x1', '460x3', '468x1', '500x1', '534x1', '600x1', '634x1', '641x5', '745x1',
     ]);
+  });
+});
+
+describe('SMG-II live registers', () => {
+  const map = new RegisterMap(SMG_II_REGISTERS);
+
+  it('decodes the power flow word', () => {
+    // Values seen on the device, by what the inverter was doing.
+    expect(map.activeFlags('PowerFlow', 853)).toEqual(['PV connected', 'Mains connected', 'Battery charging', 'Load powered', 'Mains charging', 'PV charging']);
+    expect(map.activeFlags('PowerFlow', 593)).toEqual(['PV connected', 'Battery charging', 'Load powered', 'PV charging']);
+    expect(map.activeFlags('PowerFlow', 96)).toEqual(['Battery discharging', 'Load powered']);
+    expect(map.activeFlags('PowerFlow', 0b1000)).toEqual(['Feeding the grid']);
+  });
+
+  it('names the PV temperature and the external CT power, and marks the internal ones', () => {
+    expect(map.get('PVTemperature')).toMatchObject({ address: 228, unit: '°C' });
+    expect(map.get('ExternalCtPowerHigh')).toMatchObject({ address: 235 });
+    for (const name of ['Internal200', 'Internal218', 'Internal230']) {
+      expect(map.get(name)).toMatchObject({ verified: false });
+    }
   });
 });
