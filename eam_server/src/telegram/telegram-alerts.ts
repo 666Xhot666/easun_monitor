@@ -145,7 +145,11 @@ export class TelegramAlerts {
     }
   }
 
-  private async toHousehold(
+  /**
+   * Records the alert for the Alerts page and sends it to the linked chats of
+   * the household's members who want its kind on Telegram.
+   */
+  async toHousehold(
     profileId: number,
     message: string,
     bmsName?: string,

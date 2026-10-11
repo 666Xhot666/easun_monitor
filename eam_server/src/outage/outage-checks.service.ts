@@ -1,9 +1,10 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { createHash } from 'node:crypto';
 import { hashIngestToken } from '../bms/ingest-token';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
+  KYIV,
   dayWindows,
   mergeWindows,
   wallToUtc,
@@ -16,6 +17,8 @@ import {
   type IncomingEvent,
 } from './event-matching';
 import type { PostOutageCheckDto } from './dto/post-outage-check.dto';
+import { scheduleUpdateText, type ScheduleChange } from './notices';
+import { TelegramAlerts } from '../telegram/telegram-alerts';
 
 type Tx = Prisma.TransactionClient;
 
@@ -26,7 +29,12 @@ type Tx = Prisma.TransactionClient;
  */
 @Injectable()
 export class OutageChecksService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly logger = new Logger(OutageChecksService.name);
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alerts: TelegramAlerts,
+  ) {}
 
   async sourceIdForToken(token: string): Promise<number | null> {
     const source = await this.prisma.outageSource.findUnique({
@@ -47,8 +55,10 @@ export class OutageChecksService {
     }
     const checkedAt = new Date(dto.checkedAt);
 
+    let changes: ScheduleChange[] = [];
+    let stored: { stored: boolean };
     try {
-      return await this.prisma.$transaction(async (tx) => {
+      stored = await this.prisma.$transaction(async (tx) => {
         const known = await tx.outageCheck.findUnique({
           where: { sourceId_checkedAt: { sourceId, checkedAt } },
         });
@@ -67,7 +77,9 @@ export class OutageChecksService {
             error: dto.error ?? null,
           },
         });
-        if (ok && !newer) await this.apply(tx, sourceId, checkedAt, ok);
+        if (ok && !newer) {
+          changes = await this.apply(tx, sourceId, checkedAt, ok);
+        }
         return { stored: true };
       });
     } catch (e) {
@@ -77,15 +89,43 @@ export class OutageChecksService {
       }
       throw e;
     }
+    await this.tell(sourceId, changes);
+    return stored;
   }
 
+  /** "Outage schedule updated" to the household, once the check is stored; in Kyiv time, as the site's. */
+  private async tell(sourceId: number, changes: ScheduleChange[]) {
+    const text = scheduleUpdateText(changes, new Date(), KYIV);
+    if (!text) return;
+    try {
+      const source = await this.prisma.outageSource.findUnique({
+        where: { id: sourceId },
+        select: { inverterProfileId: true },
+      });
+      if (source) await this.alerts.toHousehold(source.inverterProfileId, text);
+    } catch (e) {
+      this.logger.warn(
+        `Schedule update not sent: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+  }
+
+  /**
+   * Stores a successful check, returning what it changed for the house; the
+   * first check of an address is the baseline and reports nothing.
+   */
   private async apply(
     tx: Tx,
     sourceId: number,
     checkedAt: Date,
     check: OkCheck,
-  ) {
+  ): Promise<ScheduleChange[]> {
     const { house } = check;
+    const before = await tx.outageSource.findUniqueOrThrow({
+      where: { id: sourceId },
+      select: { houseState: true },
+    });
+    const changes: ScheduleChange[] = [];
     await tx.outageSource.update({
       where: { id: sourceId },
       data: house.found
@@ -118,6 +158,13 @@ export class OutageChecksService {
         const where = { sourceId_group_day: { sourceId, group, day } };
         const existing = await tx.outageConfirmedDay.findUnique({ where });
         if (!existing) {
+          const published = house.found && house.groups.includes(group);
+          if (
+            published &&
+            !changes.some((c) => c.type === 'published' && c.day === dayKey)
+          ) {
+            changes.push({ type: 'published', day: dayKey });
+          }
           await tx.outageConfirmedDay.create({
             data: {
               sourceId,
@@ -144,9 +191,18 @@ export class OutageChecksService {
     }
 
     if (house.found) {
-      await this.updateRepairs(tx, sourceId, checkedAt, house.outage);
-      await this.updateSchedule(tx, sourceId, checkedAt, check, house.groups);
+      changes.push(
+        ...(await this.updateRepairs(tx, sourceId, checkedAt, house.outage)),
+        ...(await this.updateSchedule(
+          tx,
+          sourceId,
+          checkedAt,
+          check,
+          house.groups,
+        )),
+      );
     }
+    return before.houseState === 'FOUND' ? changes : [];
   }
 
   /** The repair the site lists for the house, if any, as an event. */
@@ -166,7 +222,7 @@ export class OutageChecksService {
           },
         ]
       : [];
-    await this.updateEvents(
+    return this.updateEvents(
       tx,
       sourceId,
       checkedAt,
@@ -212,7 +268,7 @@ export class OutageChecksService {
       covered.some(
         (d) => e.start.getTime() < d.end && d.start < e.end.getTime(),
       );
-    await this.updateEvents(
+    return this.updateEvents(
       tx,
       sourceId,
       checkedAt,
@@ -234,7 +290,7 @@ export class OutageChecksService {
     kind: 'REPAIR' | 'SCHEDULE',
     shown: IncomingEvent[],
     inScope: (e: { start: Date; end: Date }) => boolean,
-  ) {
+  ): Promise<ScheduleChange[]> {
     const known = (
       await tx.outageEvent.findMany({
         where: { sourceId, kind, withdrawnAt: null, end: { gt: checkedAt } },
@@ -272,5 +328,30 @@ export class OutageChecksService {
       where: { id: { in: plan.withdraw } },
       data: { withdrawnAt: checkedAt },
     });
+
+    const byId = new Map(known.map((e) => [e.id, e]));
+    return [
+      ...plan.create.map((e) => ({ type: 'new' as const, kind, ...e })),
+      ...plan.revise.map(({ id, ...e }) => {
+        const was = byId.get(id)!;
+        return {
+          type: 'revised' as const,
+          kind,
+          ...e,
+          before: { start: was.start, end: was.end },
+        };
+      }),
+      ...plan.withdraw.map((id) => {
+        const { start, end, status, description } = byId.get(id)!;
+        return {
+          type: 'withdrawn' as const,
+          kind,
+          start,
+          end,
+          status,
+          description,
+        };
+      }),
+    ];
   }
 }
