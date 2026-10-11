@@ -3,6 +3,7 @@ import { useAuth } from '../auth/useAuth';
 import BmsSetup from '../bms/BmsSetup';
 import OutageSetup from '../outage/OutageSetup';
 import ServerAccess from '../server/ServerAccess';
+import ServerAgentSetup from '../server/ServerAgentSetup';
 import { useLiveData } from '../shell/LiveData';
 import TelegramLink from '../telegram/TelegramLink';
 import { PageHeader } from '../ui';
@@ -76,7 +77,12 @@ export default function SettingsPage() {
         </div>
       )}
       {tab === 'account' && <AccountSettings />}
-      {tab === 'server-access' && <ServerAccess />}
+      {tab === 'server-access' && (
+        <div className="space-y-4">
+          <ServerAgentSetup />
+          <ServerAccess />
+        </div>
+      )}
     </>
   );
 }

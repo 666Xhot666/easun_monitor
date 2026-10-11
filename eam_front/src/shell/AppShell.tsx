@@ -11,6 +11,7 @@ import {
   CircleAlert,
   LayoutGrid,
   Plus,
+  Server,
   Settings,
   WifiOff,
   type LucideIcon,
@@ -27,13 +28,22 @@ import { LiveDataProvider, useLiveData } from './LiveData';
 import { ageText, useNow } from './age';
 import type { SystemState } from './systemState';
 
-const DESTINATIONS: { to: string; label: string; Icon: LucideIcon }[] = [
+type Destination = { to: string; label: string; Icon: LucideIcon };
+
+const DESTINATIONS: Destination[] = [
   { to: '', label: 'Overview', Icon: LayoutGrid },
   { to: 'battery', label: 'Battery', Icon: BatteryMedium },
   { to: 'history', label: 'History', Icon: ChartLine },
   { to: 'alerts', label: 'Alerts', Icon: Bell },
   { to: 'settings', label: 'Settings', Icon: Settings },
 ];
+const SERVER: Destination = { to: 'server', label: 'Server', Icon: Server };
+
+/** The pages in the navigation; the Server page for its owner and those the owner lets look. */
+function useDestinations(): Destination[] {
+  const { user } = useAuth();
+  return user?.server ? [...DESTINATIONS.slice(0, -1), SERVER, DESTINATIONS[DESTINATIONS.length - 1]] : DESTINATIONS;
+}
 
 const ratedKw = (profile: InverterProfile) => `${(profile.ratedPowerWatts / 1000).toFixed(1)} kW`;
 
@@ -99,6 +109,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
   const base = useBase();
   const { user } = useAuth();
   const { profile } = useLiveData();
+  const destinations = useDestinations();
   const household = user?.households.find((h) => h.id === profile.householdId);
   return (
     <aside
@@ -120,7 +131,7 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
         </button>
       </div>
       <nav aria-label="Main" className="flex flex-col gap-1">
-        {DESTINATIONS.map(({ to, label, Icon }) => (
+        {destinations.map(({ to, label, Icon }) => (
           <NavLink
             key={label}
             to={to ? `${base}/${to}` : base}
@@ -150,12 +161,13 @@ function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => 
 
 function BottomTabs() {
   const base = useBase();
+  const destinations = useDestinations();
   return (
     <nav
       aria-label="Main (phone)"
       className="fixed inset-x-0 bottom-0 z-30 flex border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      {DESTINATIONS.map(({ to, label, Icon }) => (
+      {destinations.map(({ to, label, Icon }) => (
         <NavLink
           key={label}
           to={to ? `${base}/${to}` : base}

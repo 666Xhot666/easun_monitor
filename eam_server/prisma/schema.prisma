@@ -56,6 +56,25 @@ model ServerOwner {
   @@map("server_owner")
 }
 
+/// The server agent: one, reporting the host it runs on. One row only
+/// (id 1, checked in the database).
+model ServerAgent {
+  id         Int       @id @default(1)
+  tokenHash  String    @unique
+  lastSeenAt DateTime?
+
+  @@map("server_agent")
+}
+
+/// One reading of the host by the agent (see server-agent/sample.ts).
+model ServerSample {
+  id   Int      @id @default(autoincrement())
+  at   DateTime @unique
+  data Json
+
+  @@map("server_samples")
+}
+
 /// What a member may do in a household: ADMIN everything, READER only read.
 enum HouseholdRole {
   ADMIN

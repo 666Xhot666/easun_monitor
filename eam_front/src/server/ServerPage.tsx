@@ -1,0 +1,223 @@
+import { useEffect, useState, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from '../auth/useAuth';
+import axios from '../lib/apiClient';
+import { ageText, useNow } from '../shell/age';
+import { PageHeader } from '../ui';
+import { bytes, rate, uptime } from './format';
+import type { HostSample, ServerStatus } from './types';
+
+const REFRESH_MS = 30_000;
+const gb = (n: number) => `${(n / 1e9).toFixed(1)} GB`;
+const celsius = (n: number) => `${Math.round(n * 10) / 10} °C`;
+/** A sensor's own label, or its device's name when the label is only a number. */
+const sensorName = (t: HostSample['temperatures'][number]) => (/^temp\d+$/.test(t.label) ? t.device : t.label);
+
+function Panel({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section aria-label={title} className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+      <h2 className="text-[15px] font-semibold">{title}</h2>
+      <div className="mt-3 text-sm">{children}</div>
+    </section>
+  );
+}
+
+/** A filled bar for a share of 0–100 %. */
+function Bar({ percent, label }: { percent: number; label: string }) {
+  const tone = percent >= 90 ? 'bg-crit' : percent >= 75 ? 'bg-warn' : 'bg-good';
+  return (
+    <div role="meter" aria-label={label} aria-valuenow={Math.round(percent)} aria-valuemin={0} aria-valuemax={100} className="mt-1.5 h-2 rounded-full bg-surface-2">
+      <div className={`h-2 rounded-full ${tone}`} style={{ width: `${Math.min(100, Math.max(0, percent))}%` }} />
+    </div>
+  );
+}
+
+interface Props {
+  /** Clock, fixed in tests. */
+  now?: number;
+}
+
+/** The host the app runs on, as the server agent last reported it. Owner and viewers. */
+export default function ServerPage({ now: fixedNow }: Props) {
+  const { user } = useAuth();
+  const [status, setStatus] = useState<ServerStatus | null>(null);
+  const [failed, setFailed] = useState(false);
+  const tick = useNow(10_000);
+  const now = fixedNow ?? tick;
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = () =>
+      axios
+        .get<ServerStatus>('/api/server/status')
+        .then(({ data }) => {
+          if (!cancelled) {
+            setStatus(data);
+            setFailed(false);
+          }
+        })
+        .catch(() => {
+          if (!cancelled) setFailed(true);
+        });
+    void load();
+    const timer = setInterval(() => void load(), REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const sample = status?.sample ?? null;
+  const age = sample ? now - Date.parse(sample.at) : 0;
+  const header = (
+    <PageHeader title="Server" subtitle={sample ? `Updated ${ageText(age)} ago` : 'The host the app runs on'} />
+  );
+
+  if (failed && !status) {
+    return (
+      <>
+        {header}
+        <p role="alert" className="text-sm text-crit-ink">
+          Couldn’t load the server’s state.
+        </p>
+      </>
+    );
+  }
+  if (!status) return <>{header}<div className="h-48 animate-pulse rounded-xl border border-line bg-surface-2" /></>;
+  if (!sample) {
+    return (
+      <>
+        {header}
+        <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">
+          {user?.server === 'OWNER' ? (
+            <>
+              No report from the server agent yet. Set it up in{' '}
+              <Link to="../settings/server-access" relative="path" className="underline">
+                Settings › Server access
+              </Link>
+              .
+            </>
+          ) : (
+            'The server agent is not set up yet.'
+          )}
+        </p>
+      </>
+    );
+  }
+
+  const { cpu, memory } = sample;
+  const memoryUsed = memory.totalBytes - memory.availableBytes;
+  const swapUsed = memory.swapTotalBytes - memory.swapFreeBytes;
+  const hottest = sample.temperatures.reduce<number | null>((max, t) => (max === null || t.celsius > max ? t.celsius : max), null);
+
+  return (
+    <>
+      {header}
+      {status.stale && (
+        <p role="alert" className="mb-4 rounded-lg border border-warn-line bg-warn-bg px-3 py-2 text-sm text-warn-ink">
+          No report from the agent for {ageText(age)}; these values are old.
+        </p>
+      )}
+      <div className={'grid gap-4 md:grid-cols-2 lg:grid-cols-3 ' + (status.stale ? 'opacity-80' : '')}>
+        <Panel title="CPU">
+          <p className="text-[26px] font-semibold tabular-nums">{cpu.usagePercent === null ? '—' : `${cpu.usagePercent} %`}</p>
+          {cpu.usagePercent !== null && <Bar percent={cpu.usagePercent} label="CPU use" />}
+          <p className="mt-2 text-muted">Load {cpu.load.map((l) => l.toFixed(2)).join(' · ')}</p>
+          {cpu.coresPercent.length > 0 && (
+            <p className="mt-1 text-xs text-muted">Cores {cpu.coresPercent.map((c) => `${Math.round(c)} %`).join(' · ')}</p>
+          )}
+        </Panel>
+
+        <Panel title="Temperatures">
+          <p className="text-[26px] font-semibold tabular-nums">{hottest === null ? '—' : celsius(hottest)}</p>
+          <ul className="mt-2 divide-y divide-line">
+            {sample.temperatures.map((t) => (
+              <li key={`${t.device}-${t.label}`} className="flex justify-between py-1">
+                <span className="text-muted">{sensorName(t)}</span>
+                <span className="tabular-nums">{celsius(t.celsius)}</span>
+              </li>
+            ))}
+          </ul>
+          {sample.temperatures.length === 0 && <p className="text-muted">No temperature sensors found.</p>}
+        </Panel>
+
+        <Panel title="Fan">
+          {sample.fans.length === 0 ? (
+            <p className="text-muted">No fan found.</p>
+          ) : (
+            sample.fans.map((f) => (
+              <p key={`${f.device}-${f.label}`} className="text-[26px] font-semibold tabular-nums">
+                {f.rpm.toLocaleString('en-US')} rpm
+              </p>
+            ))
+          )}
+        </Panel>
+
+        <Panel title="Memory">
+          <p>
+            {gb(memoryUsed)} of {gb(memory.totalBytes)} used
+          </p>
+          {memory.totalBytes > 0 && <Bar percent={(memoryUsed / memory.totalBytes) * 100} label="Memory use" />}
+          {memory.swapTotalBytes > 0 && (
+            <p className="mt-2 text-muted">
+              Swap {gb(swapUsed)} of {gb(memory.swapTotalBytes)}
+            </p>
+          )}
+        </Panel>
+
+        <Panel title="Storage">
+          <ul className="space-y-3">
+            {sample.disks.map((d) => (
+              <li key={d.mount}>
+                <p className="flex justify-between gap-2">
+                  <span className="font-mono">{d.mount}</span>
+                  <span>
+                    {bytes(d.freeBytes)} free of {bytes(d.totalBytes)}
+                  </span>
+                </p>
+                {d.totalBytes > 0 && <Bar percent={((d.totalBytes - d.freeBytes) / d.totalBytes) * 100} label={`${d.mount} used`} />}
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel title="Network">
+          <ul className="space-y-1">
+            {sample.network.map((n) => (
+              <li key={n.name} className="flex justify-between gap-2">
+                <span className="font-mono">{n.name}</span>
+                <span className="tabular-nums">
+                  <span>↓ {rate(n.rxBytesPerSecond)}</span> <span>↑ {rate(n.txBytesPerSecond)}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+
+        <Panel title="System">
+          <p>Up {uptime(sample.uptimeSeconds)}</p>
+          {sample.services && sample.services.length > 0 && (
+            <ul className="mt-2 divide-y divide-line">
+              {sample.services.map((s) => (
+                <li key={s.name} className="flex justify-between py-1">
+                  <span className="font-mono text-xs">{s.name}</span>
+                  <span className={s.active ? 'text-good-ink' : 'text-crit-ink'}>{s.active ? 'running' : 'stopped'}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {sample.containers && sample.containers.length > 0 && (
+            <ul className="mt-2 divide-y divide-line">
+              {sample.containers.map((c) => (
+                <li key={c.name} className="flex justify-between gap-2 py-1">
+                  <span className="font-mono text-xs">{c.name}</span>
+                  <span className={c.state === 'running' ? 'text-muted' : 'text-crit-ink'}>{c.status}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Panel>
+      </div>
+    </>
+  );
+}

@@ -400,6 +400,32 @@ On Linux, install it as a systemd service with
 `scripts/install-linux-service.sh outage-reader`. Log:
 `journalctl -u easun-outage-reader -f`.
 
+## Server page and agent
+
+The server's owner is the installation's first account (on an existing
+database, the earliest one). The owner sees a Server page with the host's
+CPU, temperatures, fan, memory, storage, network, services and containers,
+and chooses under Settings > Server access who else may look at it.
+
+The figures come from the server agent, a native process beside the server
+(the server itself runs in Docker and cannot see the host). It reads `/proc`,
+`/sys/class/hwmon`, `systemctl` and `docker ps`, and reports once a minute.
+
+```bash
+cd eam_server
+npm run server-agent -- --once    # one report, then exit
+npm run server-agent              # report every minute, forever
+```
+
+Settings (see `.env.example`): `SERVER_AGENT_URL`, `SERVER_AGENT_TOKEN` (made
+by the owner under Settings > Server access), `SERVER_AGENT_INTERVAL_SECONDS`
+(60) and `SERVER_AGENT_SERVICES` (the systemd units to show). Containers are
+listed when the agent's user may run `docker ps`.
+
+On Linux, install it as a systemd service with
+`scripts/install-linux-service.sh server-agent`. Log:
+`journalctl -u easun-server-agent -f`.
+
 ## Tests
 
 ```bash

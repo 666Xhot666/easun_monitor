@@ -19,14 +19,14 @@ const profile = (id: number, name: string, role: HouseholdRole): InverterProfile
 
 const modeRegister = [{ name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Power on', 'Standby', 'Mains', 'Off-grid', 'Bypass', 'Charging', 'Fault'] }];
 
-type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean };
+type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean; server?: 'OWNER' | 'VIEWER' | null };
 
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
 function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dashboard/1') {
-  const { mode = 3, ageMs = 1000, device = 'online', gridInApp = true } = scenario;
+  const { mode = 3, ageMs = 1000, device = 'online', gridInApp = true, server: serverRole = null } = scenario;
   const server = fakeServer((config) => {
     if (config.url === '/api/inverter/registers') return { status: 200, data: modeRegister };
     if (config.url === '/api/inverter/1/latest') {
@@ -52,6 +52,7 @@ function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dash
       id: 1, email: 'jack@example.com', createdAt: '', adminHouseholdId: role === 'ADMIN' ? 5 : null,
       households: [{ id: 5, name: 'Home', role }],
       inverterProfiles: [profile(1, 'House', role), profile(2, 'Workshop', role)],
+      server: serverRole,
     },
     logout: vi.fn(),
     logoutEverywhere: vi.fn(),
@@ -130,6 +131,19 @@ describe('AppShell', () => {
     expect(within(nav).getByRole('link', { name: 'Overview' })).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('navigation', { name: 'Main (phone)' })).toBeInTheDocument();
     expect(screen.getByText('Home · Admin')).toBeInTheDocument();
+  });
+
+  it('adds the Server page for its owner and those the owner lets look', async () => {
+    restore = renderShell('READER', { server: 'VIEWER' }).server.restore;
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(within(nav).getByRole('link', { name: 'Server' })).toHaveAttribute('href', '/dashboard/1/server');
+    expect(within(screen.getByRole('navigation', { name: 'Main (phone)' })).getByRole('link', { name: 'Server' })).toBeInTheDocument();
+  });
+
+  it('has no Server page for anyone else', async () => {
+    restore = renderShell('ADMIN').server.restore;
+    const nav = await screen.findByRole('navigation', { name: 'Main' });
+    expect(within(nav).queryByRole('link', { name: 'Server' })).not.toBeInTheDocument();
   });
 
   it('switches inverters, keeping the page, and offers adding one to an admin', async () => {

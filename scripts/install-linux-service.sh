@@ -1,16 +1,17 @@
 #!/bin/sh
-# Installs the serial logger, the BMS reader or the outage schedule reader as
-# a systemd service on Linux:
+# Installs the serial logger, the BMS reader, the outage schedule reader or the
+# server agent as a systemd service on Linux:
 # it starts at boot and is restarted whenever it exits.
 #
 #   SERIAL_RX_PORT=/dev/serial/by-id/A SERIAL_TX_PORT=/dev/serial/by-id/B \
 #     scripts/install-linux-service.sh serial-logger
 #   scripts/install-linux-service.sh bms-reader
 #   scripts/install-linux-service.sh outage-reader
+#   scripts/install-linux-service.sh server-agent
 #
 # Run as the user the service runs as (not root); it uses sudo. Build first:
-# `cd eam_server && npx nest build`. The BMS reader and the outage reader read
-# their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
+# `cd eam_server && npx nest build`. The BMS reader, the outage reader and the
+# server agent read their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
 # Uninstall:
 #   sudo systemctl disable --now easun-<name>
 #   sudo rm /etc/systemd/system/easun-<name>.service
@@ -18,10 +19,13 @@
 set -eu
 
 NAME="${1:-}"
-if [ "$NAME" != "serial-logger" ] && [ "$NAME" != "bms-reader" ] && [ "$NAME" != "outage-reader" ]; then
-    echo "Usage: $0 <serial-logger|bms-reader|outage-reader>" >&2
+case "$NAME" in
+    serial-logger|bms-reader|outage-reader|server-agent) ;;
+    *)
+    echo "Usage: $0 <serial-logger|bms-reader|outage-reader|server-agent>" >&2
     exit 1
-fi
+    ;;
+esac
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "Run as the user the service should run as, not root" >&2
@@ -60,7 +64,7 @@ Environment=SERIAL_TX_BAUD=$TX_BAUD"
         EXTRA="AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN"
         ;;
-    outage-reader)
+    outage-reader|server-agent)
         EXTRA=""
         ;;
 esac
