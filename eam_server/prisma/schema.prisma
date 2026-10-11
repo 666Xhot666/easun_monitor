@@ -38,8 +38,92 @@ model User {
   telegramLink         TelegramLink?
   telegramCodes        TelegramLinkCode[]
   notificationSettings NotificationSettings?
+  /// May look at the server page; chosen by the server's owner.
+  serverViewer         Boolean               @default(false)
+  serverOwner          ServerOwner?
 
   @@map("users")
+}
+
+/// The server's owner: one user for the whole installation, apart from
+/// households. Runs the server page and chooses who else may look at it.
+/// One row only (id 1, checked in the database).
+model ServerOwner {
+  id     Int  @id @default(1)
+  userId Int  @unique
+  user   User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@map("server_owner")
+}
+
+/// The server agent: one, reporting the host it runs on. One row only
+/// (id 1, checked in the database).
+model ServerAgent {
+  id         Int       @id @default(1)
+  tokenHash  String    @unique
+  lastSeenAt DateTime?
+
+  @@map("server_agent")
+}
+
+/// One reading of the host by the agent (see server-agent/sample.ts).
+model ServerSample {
+  id   Int      @id @default(autoincrement())
+  at   DateTime @unique
+  data Json
+
+  @@map("server_samples")
+}
+
+/// Who runs the host's fan: the firmware, the agent by the rules, or the
+/// agent at a fixed speed.
+enum ServerFanMode {
+  FIRMWARE
+  AUTO
+  MANUAL
+}
+
+/// The owner's fan settings, handed to the agent with each report. One row
+/// only (id 1, checked in the database); none means the defaults.
+model ServerFanSettings {
+  id            Int           @id @default(1)
+  mode          ServerFanMode @default(FIRMWARE)
+  /// AUTO: never slower than this (0-100 %).
+  minPercent    Int           @default(0)
+  /// MANUAL: the speed (0-100 %).
+  manualPercent Int           @default(100)
+  /// AUTO: [{ aboveC, percent }], in order of temperature.
+  rules         Json
+  updatedAt     DateTime      @updatedAt
+
+  @@map("server_fan_settings")
+}
+
+/// The owner's limits for the server notices. One row only (id 1, checked
+/// in the database); none means the defaults.
+model ServerAlertSettings {
+  id                 Int      @id @default(1)
+  /// Overheating at or above this, on any sensor.
+  heatC              Int      @default(90)
+  /// Storage low below this share free, on any filesystem.
+  storageFreePercent Int      @default(10)
+  /// Memory short at or above this share used.
+  memoryUsedPercent  Int      @default(90)
+  updatedAt          DateTime @updatedAt
+
+  @@map("server_alert_settings")
+}
+
+/// A server notice as sent, for the Server page.
+model ServerAlertEvent {
+  id   Int      @id @default(autoincrement())
+  /// server-heat | server-storage | server-memory | server-agent | server-updates
+  kind String
+  text String
+  at   DateTime @default(now())
+
+  @@index([at])
+  @@map("server_alert_events")
 }
 
 /// What a member may do in a household: ADMIN everything, READER only read.

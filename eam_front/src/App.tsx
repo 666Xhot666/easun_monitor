@@ -19,6 +19,7 @@ const JoinPage = lazy(() => import('./pages/JoinPage'))
 const Dashboard = lazy(() => import('./Dashboard'))
 const AlertsPage = lazy(() => import('./pages/AlertsPage'))
 const SettingsPage = lazy(() => import('./pages/SettingsPage'))
+const ServerPage = lazy(() => import('./server/ServerPage'))
 const DevSerialSniff = import.meta.env.DEV ? lazy(() => import('./pages/DevSerialSniff')) : null
 
 function PageLoading() {
@@ -56,6 +57,7 @@ function App() {
                   <Route path="history" element={<HistoryPage />} />
                   <Route path="alerts" element={<AlertsPage />} />
                   <Route path="settings/:tab?" element={<SettingsPage />} />
+                  <Route path="server" element={<ServerPage />} />
                   {/* Old addresses, kept so bookmarks still land. */}
                   <Route path="logs" element={<Navigate to="../history" relative="path" replace />} />
                   <Route path="solar" element={<Navigate to="../settings/solar" relative="path" replace />} />

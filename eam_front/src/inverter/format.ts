@@ -15,6 +15,13 @@ export function formatRegisterValue(
   if (definition.options) {
     return definition.options[value] ?? `Unknown (${value})`;
   }
+  if (definition.bits) {
+    const flags: string[] = [];
+    for (let bit = 0; bit < 32; bit++) {
+      if (Math.floor(value / 2 ** bit) % 2 === 1) flags.push(definition.bits[bit] ?? `Code ${bit}`);
+    }
+    return flags.length ? flags.join('; ') : 'None';
+  }
   const decimals = decimalsFor(definition);
   const number = value.toLocaleString('en-US', {
     minimumFractionDigits: decimals,

@@ -400,6 +400,71 @@ On Linux, install it as a systemd service with
 `scripts/install-linux-service.sh outage-reader`. Log:
 `journalctl -u easun-outage-reader -f`.
 
+## Server page and agent
+
+The server's owner is the installation's first account (on an existing
+database, the earliest one). The owner sees a Server page with the host's
+CPU, temperatures, fan, memory, storage, network, services and containers,
+and chooses under Settings > Server access who else may look at it.
+
+The figures come from the server agent, a native process beside the server
+(the server itself runs in Docker and cannot see the host). It reads `/proc`,
+`/sys/class/hwmon`, `systemctl` and `docker ps`, and reports once a minute.
+
+```bash
+cd eam_server
+npm run server-agent -- --once    # one report, then exit
+npm run server-agent              # report every minute, forever
+```
+
+Settings (see `.env.example`): `SERVER_AGENT_URL`, `SERVER_AGENT_TOKEN` (made
+by the owner under Settings > Server access), `SERVER_AGENT_INTERVAL_SECONDS`
+(60) and `SERVER_AGENT_SERVICES` (the systemd units to show). Containers are
+listed when the agent's user may run `docker ps`.
+
+Package updates: every `SERVER_AGENT_UPDATES_HOURS` (6) the agent reads
+`apt list --upgradable` and the system's "restart required" flag. It
+refreshes and installs nothing. The counts are as of apt's last package
+list refresh, and the page shows how old that is.
+
+Server notices go to the owner and the accounts allowed to look, on
+Telegram and in the Server page's list, each kind with its own switch under
+Settings > Notifications. The owner sets the limits on the Server page:
+
+- **Overheating:** a sensor at the limit (90 °C) in two readings in a row,
+  and back 5 °C below it. Overheating also gets through quiet hours.
+- **Storage low:** a filesystem under the free space limit (10 %), and back
+  2 points above it.
+- **Memory short:** memory used at the limit (90 %) for 5 readings, and back
+  5 points below it.
+- **Agent silent:** no report for 5 minutes, and back.
+- **Updates:** more security updates waiting than before, or a restart
+  required.
+
+After a server restart the first reading is the baseline, as with the other
+alerts.
+
+Fan control: with `SERVER_AGENT_FAN` set to the fan's hwmon name (the
+device under `/sys/class/hwmon` with a `pwm1`), the agent runs that fan as
+the owner sets it on the Server page:
+
+- **Firmware:** the machine decides; the agent does not touch the fan.
+- **Auto:** a minimum speed, and rules "above T °C, at least S %",
+  following the hottest sensor. A rule is left only 3 °C below its
+  threshold. With no temperature to read, full speed.
+- **Manual:** one fixed speed.
+
+A fan with a few fixed speeds (`SERVER_AGENT_FAN_STEPS`, off included)
+gets the nearest one; the page says which. The fan starts under the firmware
+until the owner chooses Auto or Manual.
+
+On Linux, install it as a systemd service with
+`scripts/install-linux-service.sh server-agent`. Log:
+`journalctl -u easun-server-agent -f`. With `SERVER_AGENT_FAN` set, the
+unit lets the agent's user write that fan's `pwm1` files while it runs. When
+the agent stops for any reason, the unit hands the fan back to the firmware
+(`scripts/fan-access.sh`, installed root-owned).
+
 ## Tests
 
 ```bash

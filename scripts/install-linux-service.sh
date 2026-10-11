@@ -1,16 +1,23 @@
 #!/bin/sh
-# Installs the serial logger, the BMS reader or the outage schedule reader as
-# a systemd service on Linux:
+# Installs the serial logger, the BMS reader, the outage schedule reader or the
+# server agent as a systemd service on Linux:
 # it starts at boot and is restarted whenever it exits.
 #
 #   SERIAL_RX_PORT=/dev/serial/by-id/A SERIAL_TX_PORT=/dev/serial/by-id/B \
 #     scripts/install-linux-service.sh serial-logger
 #   scripts/install-linux-service.sh bms-reader
 #   scripts/install-linux-service.sh outage-reader
+#   scripts/install-linux-service.sh server-agent
+#
+# The server agent controls the fan named by SERVER_AGENT_FAN (its hwmon
+# name; from the environment or its .env): the unit lets the agent's user
+# write that fan's pwm1 files, and hands the fan back to the firmware
+# whenever the agent stops (scripts/fan-access.sh, installed root-owned as
+# /usr/local/libexec/easun-fan-access).
 #
 # Run as the user the service runs as (not root); it uses sudo. Build first:
-# `cd eam_server && npx nest build`. The BMS reader and the outage reader read
-# their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
+# `cd eam_server && npx nest build`. The BMS reader, the outage reader and the
+# server agent read their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
 # Uninstall:
 #   sudo systemctl disable --now easun-<name>
 #   sudo rm /etc/systemd/system/easun-<name>.service
@@ -18,10 +25,13 @@
 set -eu
 
 NAME="${1:-}"
-if [ "$NAME" != "serial-logger" ] && [ "$NAME" != "bms-reader" ] && [ "$NAME" != "outage-reader" ]; then
-    echo "Usage: $0 <serial-logger|bms-reader|outage-reader>" >&2
+case "$NAME" in
+    serial-logger|bms-reader|outage-reader|server-agent) ;;
+    *)
+    echo "Usage: $0 <serial-logger|bms-reader|outage-reader|server-agent>" >&2
     exit 1
-fi
+    ;;
+esac
 
 if [ "$(id -u)" -eq 0 ]; then
     echo "Run as the user the service should run as, not root" >&2
@@ -62,6 +72,19 @@ CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN"
         ;;
     outage-reader)
         EXTRA=""
+        ;;
+    server-agent)
+        EXTRA=""
+        FAN="${SERVER_AGENT_FAN:-$(sed -n 's/^SERVER_AGENT_FAN=//p' "$SERVER_DIR/.env" "$SERVER_DIR/../.env" 2>/dev/null | head -n 1)}"
+        if [ -n "$FAN" ]; then
+            # A root-owned copy: systemd runs it as root, so it must not be
+            # a file the agent's user can change.
+            ACCESS=/usr/local/libexec/easun-fan-access
+            sudo install -D -o root -g root -m 0755 "$SERVER_DIR/../scripts/fan-access.sh" "$ACCESS"
+            EXTRA="ExecStartPre=+$ACCESS grant $FAN $RUN_USER
+ExecStopPost=+$ACCESS release $FAN"
+            echo "The agent will run the fan $FAN"
+        fi
         ;;
 esac
 

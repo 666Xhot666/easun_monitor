@@ -22,8 +22,9 @@ function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
-function renderSettings(role: HouseholdRole, path: string) {
-  const server = fakeServer((config) => {
+function renderSettings(role: HouseholdRole, path: string, server: 'OWNER' | 'VIEWER' | null = null) {
+  const api = fakeServer((config) => {
+    if (config.url === '/api/server/users') return { status: 200, data: [] };
     if (config.url === '/api/inverter/profiles/1' && config.method === 'delete') return { status: 200 };
     if (config.url === '/api/inverter/profiles/1/bms') return { status: 200, data: [] };
     if (config.url === '/api/telegram/link') return { status: 200, data: { linked: false } };
@@ -35,6 +36,7 @@ function renderSettings(role: HouseholdRole, path: string) {
       id: 1, email: 'jack@example.com', createdAt: '', adminHouseholdId: role === 'ADMIN' ? 5 : null,
       households: [{ id: 5, name: 'Home', role }],
       inverterProfiles: profiles,
+      server,
     },
     logoutEverywhere: vi.fn(),
     refreshUser: vi.fn(),
@@ -59,7 +61,7 @@ function renderSettings(role: HouseholdRole, path: string) {
       </AuthContext.Provider>
     </ThemeProvider>,
   );
-  return { server, auth };
+  return { server: api, auth };
 }
 
 describe('SettingsPage', () => {
@@ -83,6 +85,15 @@ describe('SettingsPage', () => {
     const tabs = within(screen.getByRole('navigation', { name: 'Settings' })).getAllByRole('link');
     expect(tabs.map((t) => t.textContent)).toEqual(['Current configuration', 'Outage schedule', 'Household', 'Notifications', 'Account']);
     expect(screen.getByTestId('where')).toHaveTextContent('/dashboard/1/settings/configuration');
+  });
+
+  it('gives the server owner the server access tab, in any household role', async () => {
+    restore = renderSettings('READER', '/dashboard/1/settings/server-access', 'OWNER').server.restore;
+
+    const tabs = within(screen.getByRole('navigation', { name: 'Settings' })).getAllByRole('link');
+    expect(tabs.map((t) => t.textContent)).toContain('Server access');
+    expect(screen.getByTestId('where')).toHaveTextContent('/dashboard/1/settings/server-access');
+    expect(await screen.findByRole('heading', { name: 'Who may look at the server page' })).toBeInTheDocument();
   });
 
   it('removes an inverter only after confirming', async () => {

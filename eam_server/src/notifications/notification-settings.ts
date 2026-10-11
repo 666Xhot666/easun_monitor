@@ -1,7 +1,8 @@
 import type { AlertKind } from '../alerts/alert-kind';
+import type { ServerNoticeKind } from '../server-monitor/server-alerts';
 
 /** What can be sent: each kind of alert, and the evening summary. */
-export type NotificationKind = AlertKind | 'summary';
+export type NotificationKind = AlertKind | ServerNoticeKind | 'summary';
 export const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   'fault',
   'warning',
@@ -11,6 +12,11 @@ export const NOTIFICATION_KINDS: readonly NotificationKind[] = [
   'schedule',
   'outage',
   'schedule-unavailable',
+  'server-heat',
+  'server-storage',
+  'server-memory',
+  'server-agent',
+  'server-updates',
   'summary',
 ];
 
@@ -23,7 +29,7 @@ export interface Channels {
 /** One user's notification choices. */
 export interface NotificationSettings {
   channels: Record<NotificationKind, Channels>;
-  /** From 23:00 to 07:00 only faults reach Telegram. */
+  /** From 23:00 to 07:00 only faults and overheating reach Telegram. */
   quietHours: boolean;
   /** How long before an outage starts the "Outage in" notice comes. */
   outageLeadMinutes: number;
@@ -42,6 +48,11 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
     schedule: { inApp: true, telegram: true },
     outage: { inApp: true, telegram: true },
     'schedule-unavailable': { inApp: true, telegram: true },
+    'server-heat': { inApp: true, telegram: true },
+    'server-storage': { inApp: true, telegram: true },
+    'server-memory': { inApp: true, telegram: true },
+    'server-agent': { inApp: true, telegram: true },
+    'server-updates': { inApp: true, telegram: true },
     summary: { inApp: false, telegram: true },
   },
   quietHours: false,
@@ -50,6 +61,9 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
 };
 
 export const OUTAGE_LEAD_MINUTES = { min: 1, max: 120 };
+
+/** What gets through quiet hours. */
+const URGENT = new Set<NotificationKind>(['fault', 'server-heat']);
 
 const QUIET_FROM_HOUR = 23;
 const QUIET_UNTIL_HOUR = 7;
@@ -126,7 +140,7 @@ export function sendsToTelegram(
   timeZone: string,
 ): boolean {
   if (!settings.channels[kind].telegram) return false;
-  if (!settings.quietHours || kind === 'fault') return true;
+  if (!settings.quietHours || URGENT.has(kind)) return true;
   const hour = hourIn(at, timeZone);
   return !(hour >= QUIET_FROM_HOUR || hour < QUIET_UNTIL_HOUR);
 }

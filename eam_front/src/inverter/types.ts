@@ -38,6 +38,8 @@ export interface RegisterDefinition {
   default?: number;
   /** Factory default by nominal battery voltage (12/24/48 V). */
   defaultByBatteryVoltage?: Readonly<Record<number, number>>;
+  /** For bitfield registers: bit index -> meaning. */
+  bits?: Readonly<Record<number, string>>;
 }
 
 /** A setting only the inverter's own panel can change, as served by
