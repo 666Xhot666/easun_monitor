@@ -15,6 +15,7 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { OutageForecastService } from './outage-forecast.service';
 import { OutageSourcesService } from './outage-sources.service';
 import { PutOutageSourceDto } from './dto/put-outage-source.dto';
 
@@ -22,7 +23,10 @@ import { PutOutageSourceDto } from './dto/put-outage-source.dto';
 @Controller('api')
 @UseGuards(AuthGuard('jwt'))
 export class OutageSourcesController {
-  constructor(private readonly sources: OutageSourcesService) {}
+  constructor(
+    private readonly sources: OutageSourcesService,
+    private readonly forecasts: OutageForecastService,
+  ) {}
 
   @Get('inverter/profiles/:profileId/outage-source')
   get(
@@ -58,6 +62,15 @@ export class OutageSourcesController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.sources.remove(profileId, user.userId);
+  }
+
+  /** Today and tomorrow's outage windows, with how sure and how old they are. */
+  @Get('inverter/profiles/:profileId/outage-forecast')
+  forecast(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    return this.forecasts.forecastFor(profileId, user.userId);
   }
 
   @Get('outage/cities')
