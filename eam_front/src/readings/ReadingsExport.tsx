@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
 import axios from '../lib/apiClient';
@@ -8,10 +10,10 @@ import { daysRange, toDay, type Day } from './days';
 const MAX_DAYS = 31;
 
 function rangeProblem(first: Day, last: Day): string | null {
-  if (!first || !last) return 'Choose both days.';
+  if (!first || !last) return i18n.t('exportCsv.chooseBoth');
   const days = differenceInCalendarDays(parseISO(last), parseISO(first)) + 1;
-  if (days < 1) return 'Start on or before the end day.';
-  if (days > MAX_DAYS) return `Export at most ${MAX_DAYS} days at a time.`;
+  if (days < 1) return i18n.t('exportCsv.startFirst');
+  if (days > MAX_DAYS) return i18n.t('exportCsv.tooLong', { max: MAX_DAYS });
   return null;
 }
 
@@ -34,6 +36,7 @@ interface Props {
 
 /** Downloads the readings of a range of whole days as CSV, times in the browser's time zone. */
 export default function ReadingsExport({ profileId, today = toDay(new Date()), bmsId = null }: Props) {
+  const { t } = useTranslation();
   const [first, setFirst] = useState<Day>(today);
   const [last, setLast] = useState<Day>(today);
   const [source, setSource] = useState<'inverter' | 'bms'>('inverter');
@@ -62,31 +65,31 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
   }
 
   const inputClass = 'h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink';
-  const error = problem ?? (failed ? "Couldn't export the readings." : null);
+  const error = problem ?? (failed ? t('exportCsv.failed') : null);
 
   return (
-    <section aria-label="Export" className="text-ink">
-      <p className="mb-3 text-sm text-muted">Whole days as CSV, times in this browser’s time zone, at most {MAX_DAYS} days at a time.</p>
+    <section aria-label={t('exportCsv.label')} className="text-ink">
+      <p className="mb-3 text-sm text-muted">{t('exportCsv.intro', { max: MAX_DAYS })}</p>
       <div className="flex flex-wrap items-end gap-3">
         {bmsId !== null && (
           <label className="flex flex-col gap-1 text-xs text-muted">
-            Data
+            {t('exportCsv.data')}
             <select
               value={source}
               onChange={(e) => setSource(e.target.value as 'inverter' | 'bms')}
               className={inputClass}
             >
-              <option value="inverter">Inverter</option>
-              <option value="bms">Battery (BMS)</option>
+              <option value="inverter">{t('readings.inverter')}</option>
+              <option value="bms">{t('readings.bms')}</option>
             </select>
           </label>
         )}
         <label className="flex flex-col gap-1 text-xs text-muted">
-          From
+          {t('exportCsv.from')}
           <input type="date" value={first} max={today} onChange={(e) => setFirst(e.target.value)} className={inputClass} />
         </label>
         <label className="flex flex-col gap-1 text-xs text-muted">
-          To
+          {t('exportCsv.to')}
           <input type="date" value={last} max={today} onChange={(e) => setLast(e.target.value)} className={inputClass} />
         </label>
         <button
@@ -96,7 +99,7 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
           className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-ink px-4 text-sm font-semibold text-page transition hover:opacity-90 disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
-          Export CSV
+          {t('exportCsv.button')}
         </button>
       </div>
       {error && (

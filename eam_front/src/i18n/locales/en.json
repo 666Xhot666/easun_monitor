@@ -351,5 +351,136 @@
       "currentA": "Current",
       "cellDeltaV": "Cell spread"
     }
+  },
+  "days": {
+    "today": "Today",
+    "yesterday": "Yesterday"
+  },
+  "history": {
+    "title": "History",
+    "subtitle": "Inverter and battery data over time",
+    "view": "View",
+    "tabs": {
+      "power": "Power",
+      "energy": "Daily energy",
+      "readings": "Readings"
+    },
+    "export": "Export",
+    "exportTitle": "Export readings",
+    "close": "Close",
+    "range": "Range",
+    "seriesGroup": "Series",
+    "series": {
+      "pv": "Solar",
+      "load": "Load",
+      "grid": "Grid",
+      "battery": "Battery ±",
+      "soc": "Battery SoC",
+      "bv": "Battery voltage",
+      "pvv": "PV voltage",
+      "mains": "Mains voltage"
+    },
+    "batteryNote": "Battery: + charging, − discharging. Grid and solar are always ≥ 0.",
+    "latest": "Latest",
+    "failed": "Couldn’t load the history.",
+    "empty": "No history in this range yet.",
+    "now": "Now",
+    "power": "Power"
+  },
+  "daily": {
+    "spans": {
+      "7": "7 days",
+      "30": "30 days"
+    },
+    "previous": "Previous period",
+    "next": "Next period",
+    "period": "Period",
+    "sourcesPerDay": "Where the load’s energy came from, per day",
+    "solar": "Solar",
+    "grid": "Grid",
+    "load": "Load",
+    "selfSufficiency": "Self-sufficiency",
+    "solarDirect": "Solar direct",
+    "fromBattery": "From battery",
+    "fromGrid": "From grid",
+    "solarProduced": "Solar produced",
+    "noData": "No data for this day",
+    "barLabel": "{{day}}: {{load}} load"
+  },
+  "readings": {
+    "previousDay": "Previous day",
+    "nextDay": "Next day",
+    "day": "Day",
+    "of": "Readings of",
+    "inverter": "Inverter",
+    "bms": "Battery (BMS)",
+    "fields": "Fields · {{shown}} of {{total}}",
+    "loading": "Loading…",
+    "failed": "Couldn't load the readings.",
+    "empty": "No readings on this day.",
+    "loadMore": "Load more",
+    "readingAt": "Reading at {{time}}",
+    "batteryReading": "Battery reading",
+    "inverterReading": "Inverter reading",
+    "bmsRows": {
+      "soc": "State of charge",
+      "packVoltage": "Pack voltage",
+      "current": "Current",
+      "power": "Power",
+      "remaining": "Remaining",
+      "remainingValue": "{{remaining}} of {{nominal}}",
+      "cycles": "Cycles",
+      "cellSpread": "Cell spread",
+      "cell": "Cell {{n}}",
+      "balancing": "Balancing",
+      "chargeMosfet": "Charge MOSFET",
+      "dischargeMosfet": "Discharge MOSFET",
+      "alarms": "Alarms",
+      "none": "None",
+      "on": "On",
+      "off": "Off"
+    }
+  },
+  "exportCsv": {
+    "label": "Export",
+    "intro": "Whole days as CSV, times in this browser’s time zone, at most {{max}} days at a time.",
+    "data": "Data",
+    "from": "From",
+    "to": "To",
+    "button": "Export CSV",
+    "chooseBoth": "Choose both days.",
+    "startFirst": "Start on or before the end day.",
+    "tooLong": "Export at most {{max}} days at a time.",
+    "failed": "Couldn't export the readings."
+  },
+  "alerts": {
+    "title": "Alerts",
+    "subtitle": "Faults, warnings, grid changes and outages",
+    "activeNow": "Active now",
+    "fault": "Fault",
+    "warning": "Warning",
+    "show": "Show",
+    "filters": {
+      "all": "All",
+      "fault": "Faults",
+      "warning": "Warnings",
+      "grid": "Grid",
+      "battery": "Battery",
+      "connection": "Connection",
+      "outages": "Outages"
+    },
+    "failed": "Couldn’t load the alerts.",
+    "empty": "No alerts recorded yet.",
+    "loadOlder": "Load older alerts",
+    "kinds": {
+      "fault": "Fault",
+      "warning": "Warning",
+      "battery": "Battery",
+      "grid": "Grid",
+      "connection": "Connection",
+      "schedule": "Schedule",
+      "outage": "Outage soon",
+      "schedule-unavailable": "Schedule check"
+    }
   }
 }
