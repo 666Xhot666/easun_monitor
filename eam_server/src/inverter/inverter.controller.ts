@@ -26,6 +26,11 @@ import { LoggerFrameError } from './protocol/logger-frame';
 import { SettingsRuleError, SettingsService } from './settings.service';
 import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { SMG_II_PANEL_SETTINGS } from './registers/smg-ii.panel-settings';
+import {
+  translatePanelSettings,
+  translateRegisters,
+} from './registers/register-translations';
+import { languageOr } from '../i18n/languages';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
@@ -82,14 +87,14 @@ export class InverterController {
    * readings and settings from this instead of its own copy.
    */
   @Get('registers')
-  listRegisters() {
-    return this.registers.list();
+  listRegisters(@Query('lang') lang?: string) {
+    return translateRegisters(this.registers.list(), languageOr(lang));
   }
 
   /** Settings that exist only on the inverter's panel (no register). */
   @Get('panel-settings')
-  listPanelSettings() {
-    return SMG_II_PANEL_SETTINGS;
+  listPanelSettings(@Query('lang') lang?: string) {
+    return translatePanelSettings(SMG_II_PANEL_SETTINGS, languageOr(lang));
   }
 
   // -----------------------------------------------------------------
