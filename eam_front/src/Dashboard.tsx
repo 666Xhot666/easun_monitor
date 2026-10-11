@@ -1,4 +1,6 @@
 import { PlugZap } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { clock } from './i18n/format';
 import EnergyScene from './energy/EnergyScene';
 import EnergyTotals from './energy/EnergyTotals';
 import Last24Hours from './energy/Last24Hours';
@@ -38,13 +40,14 @@ export default function Dashboard() {
       : undefined;
   const now = useNow();
   const base = `/dashboard/${profile.id}`;
-  const header = <PageHeader title="Overview" subtitle="What the system is doing now and how today is going" />;
+  const { t } = useTranslation();
+  const header = <PageHeader title={t('overview.title')} subtitle={t('overview.subtitle')} />;
 
   if (systemState === 'loading' || !registers) {
     return (
       <>
         {header}
-        <div className="grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label="Loading">
+        <div className="grid gap-4 lg:grid-cols-3" aria-busy="true" aria-label={t('common.loading')}>
           <div className="h-[340px] animate-pulse rounded-xl border border-line bg-surface-2 lg:col-span-2" />
           <div className="h-[340px] animate-pulse rounded-xl border border-line bg-surface-2" />
         </div>
@@ -57,9 +60,8 @@ export default function Dashboard() {
     return (
       <>
         {header}
-        <EmptyState icon={<PlugZap className="h-7 w-7" />} title="Waiting for the first reading">
-          EAM asks {profile.name}’s logger at {profile.ipAddress} every {pollMs / 1000} s. Values appear here as soon as it
-          answers.
+        <EmptyState icon={<PlugZap className="h-7 w-7" />} title={t('overview.waitingTitle')}>
+          {t('overview.waitingBody', { name: profile.name, address: profile.ipAddress, seconds: pollMs / 1000 })}
           {problem && <span className="mt-2 block text-warn-ink">{problem}</span>}
         </EmptyState>
       </>
@@ -71,14 +73,14 @@ export default function Dashboard() {
   const modeRegister = registers.find((d) => d.name === 'OperationMode');
   const mode = modeRegister?.options?.[reading.payload.OperationMode] ?? '--';
   const age = ageText(now - Date.parse(reading.timestamp));
-  const readAt = new Date(reading.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const readAt = clock(reading.timestamp);
   const sentence =
     systemState === 'stale'
-      ? `Last known: ${values.sentence}`
+      ? t('overview.lastKnown', { sentence: values.sentence })
       : systemState === 'offline'
-        ? `Last known at ${readAt}: ${values.sentence}`
+        ? t('overview.lastKnownAt', { time: readAt, sentence: values.sentence })
         : systemState === 'fault'
-          ? `Fault mode · ${values.sentence}`
+          ? t('overview.faultMode', { sentence: values.sentence })
           : values.sentence;
   const dimmed = systemState === 'stale' || systemState === 'offline';
 
@@ -92,7 +94,7 @@ export default function Dashboard() {
       <div className={'grid gap-4 lg:grid-cols-3 ' + (dimmed ? 'opacity-80' : '')}>
         <section className="flex flex-col gap-2.5 rounded-xl border border-line bg-surface p-4 sm:p-[18px] lg:col-span-2">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold">
-            Energy flow
+            {t('overview.energyFlow')}
             <span className={'text-xs font-medium ' + (systemState === 'fault' ? 'text-crit-ink' : 'text-muted')}>
               {profile.name} · {mode}
             </span>
@@ -105,7 +107,7 @@ export default function Dashboard() {
             battery={values.battery}
             mode={mode}
             systemState={systemState}
-            staleNote={systemState === 'offline' ? `Offline · last reading ${readAt}` : `Last reading ${age} ago`}
+            staleNote={systemState === 'offline' ? t('overview.offlineNote', { time: readAt }) : t('overview.lastReadingAgo', { age })}
           />
         </section>
         <EnergyTotals profileId={profile.id} />

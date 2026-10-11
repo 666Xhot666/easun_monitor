@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { DEFAULT_POLL_MS } from './useReading';
 
@@ -45,9 +46,10 @@ export function describeDeviceStatus(status: DeviceStatus, now: number = Date.no
       ? Math.max(0, Math.ceil((Date.parse(status.retryAt) - now) / 1000))
       : null;
     const reason = status.lastError ? ` (${status.lastError})` : '';
-    return `Inverter logger unreachable${reason}.${seconds === null ? '' : ` Retrying in ${seconds} s.`}`;
+    const retry = seconds === null ? '' : ` ${i18n.t('device.retryingIn', { seconds })}`;
+    return `${i18n.t('device.unreachable', { reason })}${retry}`;
   }
   return status.lastError
-    ? `Inverter logger unreachable (${status.lastError}). Retrying now.`
-    : 'Waiting for the first contact with the inverter logger.';
+    ? i18n.t('device.unreachableNow', { error: status.lastError })
+    : i18n.t('device.waitingFirst');
 }

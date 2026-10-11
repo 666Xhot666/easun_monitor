@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
+import { num, unit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
 import { loadSources, selfSufficiency, type EnergyTotals as Totals } from './energyMix';
@@ -33,8 +36,8 @@ function energyTile(label: string, colour: string, today: number | undefined, ye
   const delta =
     yesterday === undefined
       ? undefined
-      : `${today >= yesterday ? '↑' : '↓'} ${Math.abs(today - yesterday).toFixed(d)} vs ${yesterday.toFixed(d)}`;
-  return { label, colour, value: today.toFixed(d), unit: 'kWh', delta };
+      : i18n.t('today.delta', { arrow: today >= yesterday ? '↑' : '↓', change: num(Math.abs(today - yesterday), d), yesterday: num(yesterday, d) });
+  return { label, colour, value: num(today, d), unit: unit('kWh'), delta };
 }
 
 function useDayTotals(profileId: number, day: Day, refreshMs: number | null): Totals | null {
@@ -60,14 +63,14 @@ function useDayTotals(profileId: number, day: Day, refreshMs: number | null): To
 }
 
 /** "Data for 62% of today so far", or null when the day is (nearly) fully covered. */
-function coverageNote(totals: Totals | null, day: Day, nowMs: number, name: string, soFar: boolean): string | null {
+function coverageNote(totals: Totals | null, day: Day, nowMs: number, which: 'today' | 'yesterday'): string | null {
   if (!totals) return null;
   const { from, to } = dayRange(day);
   const elapsedSeconds = (Math.min(nowMs, Date.parse(to)) - Date.parse(from)) / 1000;
   if (elapsedSeconds <= 0) return null;
   const share = totals.coveredSeconds / elapsedSeconds;
   if (share >= FULL_COVERAGE) return null;
-  return `Data for ${Math.round(share * 100)}% of ${name}${soFar ? ' so far' : ''}`;
+  return i18n.t(which === 'today' ? 'today.coverageToday' : 'today.coverageYesterday', { share: Math.round(share * 100) });
 }
 
 interface Props {
@@ -79,44 +82,45 @@ interface Props {
 
 /** Today's solar, grid and load energy against yesterday, the self-sufficiency and where the load's energy came from. */
 export default function EnergyTotals({ profileId, today = toDay(new Date()), now = Date.now }: Props) {
+  const { t } = useTranslation();
   const yesterday = shiftDay(today, -1);
   const todayTotals = useDayTotals(profileId, today, REFRESH_MS);
   const yesterdayTotals = useDayTotals(profileId, yesterday, null);
   const notes = [
-    coverageNote(todayTotals, today, now(), 'today', true),
-    coverageNote(yesterdayTotals, yesterday, now(), 'yesterday', false),
+    coverageNote(todayTotals, today, now(), 'today'),
+    coverageNote(yesterdayTotals, yesterday, now(), 'yesterday'),
   ].filter((note): note is string => note !== null);
 
   const ss = todayTotals ? selfSufficiency(todayTotals) : undefined;
   const ssYesterday = yesterdayTotals ? selfSufficiency(yesterdayTotals) : undefined;
   const tiles: TileValue[] = [
-    energyTile('Solar', 'var(--pv)', todayTotals?.pvKWh, yesterdayTotals?.pvKWh),
-    energyTile('Grid', 'var(--grid)', todayTotals?.gridKWh, yesterdayTotals?.gridKWh),
-    energyTile('Load', 'var(--load)', todayTotals?.outputKWh, yesterdayTotals?.outputKWh),
+    energyTile(t('today.solar'), 'var(--pv)', todayTotals?.pvKWh, yesterdayTotals?.pvKWh),
+    energyTile(t('today.grid'), 'var(--grid)', todayTotals?.gridKWh, yesterdayTotals?.gridKWh),
+    energyTile(t('today.load'), 'var(--load)', todayTotals?.outputKWh, yesterdayTotals?.outputKWh),
     {
-      label: 'Self-sufficiency',
+      label: t('today.selfSufficiency'),
       colour: 'var(--good)',
       value: ss === undefined ? '--' : String(ss),
       unit: ss === undefined ? '' : '%',
       delta:
         ss === undefined || ssYesterday === undefined
           ? undefined
-          : `${ss >= ssYesterday ? '↑' : '↓'} ${Math.abs(ss - ssYesterday)} pts vs ${ssYesterday}%`,
+          : t('today.deltaPoints', { arrow: ss >= ssYesterday ? '↑' : '↓', change: Math.abs(ss - ssYesterday), yesterday: ssYesterday }),
     },
   ];
   const mix = todayTotals ? loadMix(todayTotals) : null;
   const parts = mix
     ? [
-        { name: 'Solar', share: mix.solar, colour: 'var(--pv)' },
-        { name: 'Battery', share: mix.battery, colour: 'var(--batt)' },
-        { name: 'Grid', share: mix.grid, colour: 'var(--grid)' },
+        { name: t('today.solar'), share: mix.solar, colour: 'var(--pv)' },
+        { name: t('today.battery'), share: mix.battery, colour: 'var(--batt)' },
+        { name: t('today.grid'), share: mix.grid, colour: 'var(--grid)' },
       ]
     : [];
 
   return (
     <section className="flex h-full flex-col gap-3.5 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
       <h2 className="flex items-baseline gap-2 text-[15px] font-semibold">
-        Today <span className="text-xs font-normal text-muted">so far, vs yesterday</span>
+        {t('today.title')} <span className="text-xs font-normal text-muted">{t('today.subtitle')}</span>
       </h2>
       <div className="grid grid-cols-2 gap-2.5">
         {tiles.map((t) => (
@@ -135,10 +139,10 @@ export default function EnergyTotals({ profileId, today = toDay(new Date()), now
       </div>
       {mix && (
         <div className="mt-auto flex flex-col gap-2">
-          <p className="text-xs text-muted">Where today’s load came from</p>
+          <p className="text-xs text-muted">{t('today.loadSources')}</p>
           <div
             role="img"
-            aria-label={`Where today’s load came from: ${parts.map((p) => `${p.name.toLowerCase()} ${p.share}%`).join(', ')}`}
+            aria-label={t('today.loadSourcesAria', { parts: parts.map((p) => `${p.name.toLowerCase()} ${p.share}%`).join(', ') })}
             className="flex h-2 gap-0.5 overflow-hidden rounded"
           >
             {parts.map((p) => p.share > 0 && <span key={p.name} style={{ width: `${p.share}%`, background: p.colour }} />)}

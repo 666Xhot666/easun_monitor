@@ -1,3 +1,8 @@
+import i18n from '../i18n';
+import { num, unit } from '../i18n/format';
+
+const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
+
 /** Below this many watts a flow counts as idle, so noise doesn't flip the sentence. */
 const DEADBAND_W = 10;
 /** Battery current below this many amps counts as idle: no time to full or empty. */
@@ -19,17 +24,22 @@ export interface SystemNow {
 export function statusSentence({ pvW, gridW, batteryW, gridAvailable }: SystemNow): string {
   const parts: string[] = [];
   const discharging = active(batteryW) && (batteryW ?? 0) < 0;
-  if (active(gridW)) parts.push('On grid');
-  else if (active(pvW) && discharging) parts.push('On solar and battery');
-  else if (active(pvW)) parts.push('On solar');
-  else if (discharging) parts.push('On battery');
+  if (active(gridW)) parts.push(t('overview.sentence.onGrid'));
+  else if (active(pvW) && discharging) parts.push(t('overview.sentence.onSolarAndBattery'));
+  else if (active(pvW)) parts.push(t('overview.sentence.onSolar'));
+  else if (discharging) parts.push(t('overview.sentence.onBattery'));
 
   if (batteryW !== undefined) {
-    if (!active(batteryW)) parts.push('battery idle');
-    else parts.push(`battery ${batteryW > 0 ? 'charging' : 'discharging'} ${formatKw(batteryW)}`);
+    if (!active(batteryW)) parts.push(t('overview.sentence.batteryIdle'));
+    else
+      parts.push(
+        t(batteryW > 0 ? 'overview.sentence.batteryCharging' : 'overview.sentence.batteryDischarging', {
+          power: formatKw(batteryW),
+        }),
+      );
   }
-  if (gridAvailable !== undefined) parts.push(gridAvailable ? 'grid available' : 'grid down');
-  return parts.length ? parts.join(' · ') : 'No data yet';
+  if (gridAvailable !== undefined) parts.push(t(gridAvailable ? 'overview.sentence.gridAvailable' : 'overview.sentence.gridDown'));
+  return parts.length ? parts.join(' · ') : t('overview.sentence.noData');
 }
 
 /** Hours until the pack is full (charging) or empty (discharging), from the BMS's own counters. */
@@ -54,8 +64,8 @@ export function formatDuration(hours: number): string {
   const totalMinutes = Math.round(hours * 60);
   const h = Math.floor(totalMinutes / 60);
   const m = totalMinutes % 60;
-  if (h === 0) return `${m} m`;
-  return m === 0 ? `${h} h` : `${h} h ${m} m`;
+  if (h === 0) return `${m} ${unit('m')}`;
+  return m === 0 ? `${h} ${unit('h')}` : `${h} ${unit('h')} ${m} ${unit('m')}`;
 }
 
 /** Mains voltage above this means the grid is there, used or not. */
@@ -65,7 +75,7 @@ const GRID_PRESENT_MIN_V = 90;
 export function formatKw(watts: number | undefined): string {
   if (watts === undefined || Number.isNaN(watts)) return '--';
   const magnitude = Math.abs(watts);
-  return magnitude >= 1000 ? `${(magnitude / 1000).toFixed(2)} kW` : `${Math.round(magnitude)} W`;
+  return magnitude >= 1000 ? `${num(magnitude / 1000, 2)} ${unit('kW')}` : `${num(Math.round(magnitude))} ${unit('W')}`;
 }
 
 export interface SceneValue {
@@ -112,26 +122,32 @@ export function sceneValues(payload: Record<string, number>, options: { pvRatedW
   const soc = bms ? (bms.stateOfChargePct ?? undefined) : read('BatterySoc');
 
   const pvShare = pvW !== undefined && options.pvRatedW ? Math.round((Math.max(0, pvW) / options.pvRatedW) * 100) : undefined;
-  const sources = [active(pvW) && 'solar', active(gridW) && 'grid', active(batteryW) && (batteryW ?? 0) < 0 && 'battery'].filter(
-    (s): s is string => Boolean(s),
+  const sources = [
+    active(pvW) && t('overview.scene.fromSolar'),
+    active(gridW) && t('overview.scene.fromGrid'),
+    active(batteryW) && (batteryW ?? 0) < 0 && t('overview.scene.fromBattery'),
+  ].filter((s): s is string => Boolean(s));
+  const batteryState = t(
+    !active(batteryW) ? 'overview.scene.batteryIdle' : (batteryW ?? 0) > 0 ? 'overview.scene.batteryCharging' : 'overview.scene.batteryDischarging',
   );
-  const batteryState = !active(batteryW) ? 'idle' : (batteryW ?? 0) > 0 ? 'charging' : 'discharging';
   const eta = bms ? batteryEta(bms) : null;
 
   return {
-    pv: { value: formatKw(pvW), sub: options.pvRatedW ? `${pvShare ?? '--'}% of array` : 'Array not set up' },
+    pv: { value: formatKw(pvW), sub: options.pvRatedW ? t('overview.scene.ofArray', { share: pvShare ?? '--' }) : t('overview.scene.arrayNotSet') },
     grid: {
       value: formatKw(gridW),
-      sub: active(gridW) ? 'Importing' : gridAvailable ? 'On standby' : 'Not available',
+      sub: t(active(gridW) ? 'overview.scene.importing' : gridAvailable ? 'overview.scene.standby' : 'overview.scene.notAvailable'),
     },
     load: {
       value: formatKw(loadW),
-      sub: sources.length ? `From ${sources.join(' and ')}` : active(loadW) ? 'Powered' : 'Idle',
+      sub: sources.length
+        ? t('overview.scene.from', { sources: sources.join(t('overview.scene.and')) })
+        : t(active(loadW) ? 'overview.scene.powered' : 'overview.scene.idle'),
     },
     battery: {
       value: formatKw(batteryW),
       sub: soc === undefined ? '--' : `${Math.round(soc)}% · ${batteryState}`,
-      ...(eta && { extra: `${eta.kind === 'full' ? 'Full' : 'Empty'} in ${formatDuration(eta.hours)}` }),
+      ...(eta && { extra: t(eta.kind === 'full' ? 'overview.scene.fullIn' : 'overview.scene.emptyIn', { time: formatDuration(eta.hours) }) }),
     },
     watts: { pv: pvW, grid: gridW, load: loadW, battery: batteryW },
     sentence: statusSentence({ pvW, gridW, batteryW, gridAvailable }),

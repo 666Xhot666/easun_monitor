@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { House, Sun, UtilityPole, BatteryMedium, type LucideIcon } from 'lucide-react';
 import dayPhoto from '../assets/scene/house-day.jpg';
 import nightPhoto from '../assets/scene/house-night.jpg';
@@ -119,6 +120,7 @@ function Tile({ Icon, colour, name, node }: { Icon: LucideIcon; colour: string; 
 
 /** Where power flows, drawn on a photo of a house; tiles replace the labels on narrow screens. */
 export default function EnergyScene({ watts, pv, grid, battery, load, mode, systemState, staleNote, night }: SceneProps) {
+  const { t } = useTranslation();
   const hour = new Date().getHours();
   const isNight = night ?? (hour < 6 || hour >= 19);
   const dimmed = systemState === 'stale' || systemState === 'offline';
@@ -185,17 +187,17 @@ export default function EnergyScene({ watts, pv, grid, battery, load, mode, syst
             {staleNote}
           </div>
         )}
-        <Label style={{ left: '63.48%', top: '10.84%' }} colour="var(--pv)" name="Solar" node={pv} active={active(lineWatts.pv)} />
-        <Label style={{ left: '68.36%', top: '31.12%' }} colour="var(--good)" name="Home" node={load} active={active(lineWatts.load)} />
-        <Label style={{ right: '60.45%', bottom: '54.2%' }} colour="var(--muted)" name="Inverter" node={{ value: mode, sub: '' }} active />
-        <Label style={{ left: '2.5%', bottom: '3%' }} colour="var(--grid)" name="Grid" node={grid} active={active(lineWatts.grid)} />
-        <Label style={{ left: '47.27%', bottom: '3%' }} colour="var(--batt)" name="Battery" node={battery} active={active(lineWatts.battery)} />
+        <Label style={{ left: '63.48%', top: '10.84%' }} colour="var(--pv)" name={t('overview.scene.solar')} node={pv} active={active(lineWatts.pv)} />
+        <Label style={{ left: '68.36%', top: '31.12%' }} colour="var(--good)" name={t('overview.scene.home')} node={load} active={active(lineWatts.load)} />
+        <Label style={{ right: '60.45%', bottom: '54.2%' }} colour="var(--muted)" name={t('overview.scene.inverter')} node={{ value: mode, sub: '' }} active />
+        <Label style={{ left: '2.5%', bottom: '3%' }} colour="var(--grid)" name={t('overview.scene.grid')} node={grid} active={active(lineWatts.grid)} />
+        <Label style={{ left: '47.27%', bottom: '3%' }} colour="var(--batt)" name={t('overview.scene.battery')} node={battery} active={active(lineWatts.battery)} />
       </div>
       <div className="mt-2.5 grid grid-cols-2 gap-2.5 @[560px]:hidden">
-        <Tile Icon={Sun} colour="var(--pv)" name="Solar" node={pv} />
-        <Tile Icon={UtilityPole} colour="var(--grid)" name="Grid" node={grid} />
-        <Tile Icon={House} colour="var(--good)" name="Home" node={load} />
-        <Tile Icon={BatteryMedium} colour="var(--batt)" name="Battery" node={battery} />
+        <Tile Icon={Sun} colour="var(--pv)" name={t('overview.scene.solar')} node={pv} />
+        <Tile Icon={UtilityPole} colour="var(--grid)" name={t('overview.scene.grid')} node={grid} />
+        <Tile Icon={House} colour="var(--good)" name={t('overview.scene.home')} node={load} />
+        <Tile Icon={BatteryMedium} colour="var(--batt)" name={t('overview.scene.battery')} node={battery} />
       </div>
     </div>
   );
