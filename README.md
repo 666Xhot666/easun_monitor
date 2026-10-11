@@ -422,9 +422,26 @@ by the owner under Settings > Server access), `SERVER_AGENT_INTERVAL_SECONDS`
 (60) and `SERVER_AGENT_SERVICES` (the systemd units to show). Containers are
 listed when the agent's user may run `docker ps`.
 
+Fan control: with `SERVER_AGENT_FAN` set to the fan's hwmon name (the
+device under `/sys/class/hwmon` with a `pwm1`), the agent runs that fan as
+the owner sets it on the Server page:
+
+- **Firmware:** the machine decides; the agent does not touch the fan.
+- **Auto:** a minimum speed, and rules "above T °C, at least S %",
+  following the hottest sensor. A rule is left only 3 °C below its
+  threshold. With no temperature to read, full speed.
+- **Manual:** one fixed speed.
+
+A fan with a few fixed speeds (`SERVER_AGENT_FAN_STEPS`, off included)
+gets the nearest one; the page says which. The fan starts under the firmware
+until the owner chooses Auto or Manual.
+
 On Linux, install it as a systemd service with
 `scripts/install-linux-service.sh server-agent`. Log:
-`journalctl -u easun-server-agent -f`.
+`journalctl -u easun-server-agent -f`. With `SERVER_AGENT_FAN` set, the
+unit lets the agent's user write that fan's `pwm1` files while it runs. When
+the agent stops for any reason, the unit hands the fan back to the firmware
+(`scripts/fan-access.sh`, installed root-owned).
 
 ## Tests
 

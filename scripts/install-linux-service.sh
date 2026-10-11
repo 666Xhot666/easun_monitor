@@ -9,6 +9,12 @@
 #   scripts/install-linux-service.sh outage-reader
 #   scripts/install-linux-service.sh server-agent
 #
+# The server agent controls the fan named by SERVER_AGENT_FAN (its hwmon
+# name; from the environment or its .env): the unit lets the agent's user
+# write that fan's pwm1 files, and hands the fan back to the firmware
+# whenever the agent stops (scripts/fan-access.sh, installed root-owned as
+# /usr/local/libexec/easun-fan-access).
+#
 # Run as the user the service runs as (not root); it uses sudo. Build first:
 # `cd eam_server && npx nest build`. The BMS reader, the outage reader and the
 # server agent read their settings from their .env files, as when run by hand. Logs: journalctl -u easun-<name> -f
@@ -64,8 +70,21 @@ Environment=SERIAL_TX_BAUD=$TX_BAUD"
         EXTRA="AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
 CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN"
         ;;
-    outage-reader|server-agent)
+    outage-reader)
         EXTRA=""
+        ;;
+    server-agent)
+        EXTRA=""
+        FAN="${SERVER_AGENT_FAN:-$(sed -n 's/^SERVER_AGENT_FAN=//p' "$SERVER_DIR/.env" "$SERVER_DIR/../.env" 2>/dev/null | head -n 1)}"
+        if [ -n "$FAN" ]; then
+            # A root-owned copy: systemd runs it as root, so it must not be
+            # a file the agent's user can change.
+            ACCESS=/usr/local/libexec/easun-fan-access
+            sudo install -D -o root -g root -m 0755 "$SERVER_DIR/../scripts/fan-access.sh" "$ACCESS"
+            EXTRA="ExecStartPre=+$ACCESS grant $FAN $RUN_USER
+ExecStopPost=+$ACCESS release $FAN"
+            echo "The agent will run the fan $FAN"
+        fi
         ;;
 esac
 

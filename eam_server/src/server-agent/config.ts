@@ -5,6 +5,8 @@ export interface ServerAgentConfig {
   };
   intervalSeconds: number;
   services: string[];
+  /** The fan to control: its hwmon name, and its fixed speeds (off included) if any. */
+  fan: { name: string; steps: number | null } | null;
 }
 
 /**
@@ -58,7 +60,20 @@ export function serverAgentConfig(
       .filter((s) => s.length > 0);
   }
 
+  const fanName = env.SERVER_AGENT_FAN?.trim();
+  const stepsRaw = env.SERVER_AGENT_FAN_STEPS?.trim();
+  let steps: number | null = null;
+  if (stepsRaw) {
+    steps = Number(stepsRaw);
+    if (!Number.isInteger(steps) || steps < 2) {
+      throw new Error(
+        'SERVER_AGENT_FAN_STEPS must be the number of fixed speeds, off included (at least 2)',
+      );
+    }
+  }
+
   return {
+    fan: fanName ? { name: fanName, steps } : null,
     server: {
       url,
       token,

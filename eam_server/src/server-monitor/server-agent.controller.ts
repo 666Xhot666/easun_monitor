@@ -14,13 +14,17 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { parseHostSample } from './parse-sample';
 import { ServerAgentService } from './server-agent.service';
+import { ServerFanService } from './server-fan.service';
 
 /**
  * The server agent's reports, and the server page's view of them. The agent authenticates with its own token, not a user session.
  */
 @Controller('api/server')
 export class ServerAgentController {
-  constructor(private readonly agent: ServerAgentService) {}
+  constructor(
+    private readonly agent: ServerAgentService,
+    private readonly fan: ServerFanService,
+  ) {}
 
   /**
    * A new agent token, shown once; the old one stops working. Owner only.
@@ -55,9 +59,7 @@ export class ServerAgentController {
     );
   }
 
-  /**
-   * One sample from the agent.
-   */
+  /** One sample from the agent; answered with the fan settings. */
   @Post('agent/samples')
   @HttpCode(202)
   async postSample(
@@ -68,6 +70,8 @@ export class ServerAgentController {
     if (!token || !(await this.agent.isAgent(token))) {
       throw new UnauthorizedException('Unknown server agent token');
     }
-    return this.agent.ingest(parseHostSample(body));
+    const stored = await this.agent.ingest(parseHostSample(body));
+    // The fan settings ride on the answer: the agent applies them each cycle.
+    return { ...stored, fan: await this.fan.settings() };
   }
 }

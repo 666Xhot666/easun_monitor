@@ -43,6 +43,20 @@ function listOrNull<T>(
 }
 const at = (s: Shape, key: string) => new Shape(`${s.path}.${key}`);
 
+function fanControl(v: unknown, s: Shape): HostSample['fanControl'] {
+  if (v === null || v === undefined) return null;
+  const o = object(v, s);
+  if (o.mode !== 'firmware' && o.mode !== 'manual')
+    at(s, 'mode').fail('expected firmware or manual');
+  return {
+    mode: o.mode as 'firmware' | 'manual',
+    percent: numOrNull(o.percent, at(s, 'percent')),
+    pwm: numOrNull(o.pwm, at(s, 'pwm')),
+    steps: numOrNull(o.steps, at(s, 'steps')),
+    error: o.error === null ? null : text(o.error, at(s, 'error')),
+  };
+}
+
 /** The agent's sample, checked field by field; anything else is refused (400). */
 export function parseHostSample(body: unknown): HostSample {
   const s = new Shape('sample');
@@ -119,6 +133,10 @@ export function parseHostSample(body: unknown): HostSample {
         name: text(service.name, at(v, 'name')),
         active: service.active as boolean,
       };
+    }),
+    // Only an agent controlling a fan reports on it.
+    ...(o.fanControl != null && {
+      fanControl: fanControl(o.fanControl, at(s, 'fanControl')),
     }),
     containers: listOrNull(o.containers, at(s, 'containers'), (x, c) => {
       const container = object(x, c);

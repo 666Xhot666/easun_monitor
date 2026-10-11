@@ -5,6 +5,7 @@ import axios from '../lib/apiClient';
 import { ageText, useNow } from '../shell/age';
 import { PageHeader } from '../ui';
 import { bytes, rate, uptime } from './format';
+import FanPanel from './FanPanel';
 import ServerHistory from './ServerHistory';
 import type { HostSample, ServerStatus } from './types';
 
@@ -219,6 +220,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
           )}
         </Panel>
       </div>
+      <FanPanel owner={user?.server === 'OWNER'} />
       <ServerHistory />
     </>
   );

@@ -15,6 +15,7 @@ describe('serverAgentConfig', () => {
         'easun-bms-reader',
         'easun-outage-reader',
       ],
+      fan: null,
     });
     expect(() => serverAgentConfig({ ...base, SERVER_AGENT_URL: '' })).toThrow(
       /SERVER_AGENT_URL/,
@@ -38,5 +39,28 @@ describe('serverAgentConfig', () => {
     expect(() =>
       serverAgentConfig({ ...base, SERVER_AGENT_INTERVAL_SECONDS: '5' }),
     ).toThrow(/at least 10/);
+  });
+
+  it('takes the fan to control by its hwmon name, and how many speeds it has', () => {
+    expect(
+      serverAgentConfig({
+        ...base,
+        SERVER_AGENT_FAN: 'fanchip',
+        SERVER_AGENT_FAN_STEPS: '3',
+      }).fan,
+    ).toEqual({ name: 'fanchip', steps: 3 });
+    expect(
+      serverAgentConfig({ ...base, SERVER_AGENT_FAN: 'fanchip' }).fan,
+    ).toEqual({
+      name: 'fanchip',
+      steps: null,
+    });
+    expect(() =>
+      serverAgentConfig({
+        ...base,
+        SERVER_AGENT_FAN: 'fanchip',
+        SERVER_AGENT_FAN_STEPS: '1',
+      }),
+    ).toThrow(/SERVER_AGENT_FAN_STEPS/);
   });
 });

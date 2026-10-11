@@ -1,4 +1,5 @@
 import type { Container, Service } from './host/commands';
+import type { FanControlState } from './fan/fan-controller';
 import type { Disk } from './host/disks';
 import type { Fan, Temperature } from './host/sensors';
 
@@ -32,4 +33,6 @@ export interface HostSample {
   services: Service[] | null;
   /** null when Docker could not be asked. */
   containers: Container[] | null;
+  /** What the agent did with the fan; absent or null without a fan to control. */
+  fanControl?: FanControlState | null;
 }

@@ -29,7 +29,11 @@ const sample: HostSample = {
 
 function renderPage(status: ServerStatus, role: 'OWNER' | 'VIEWER' = 'OWNER') {
   const server = fakeServer((config) =>
-    config.url === '/api/server/history' ? { status: 200, data: { bucketSeconds: 300, points: [] } } : { status: 200, data: status },
+    config.url === '/api/server/history'
+      ? { status: 200, data: { bucketSeconds: 300, points: [] } }
+      : config.url === '/api/server/fan'
+        ? { status: 200, data: { settings: { mode: 'FIRMWARE', minPercent: 0, manualPercent: 100, rules: [] }, state: null } }
+        : { status: 200, data: status },
   );
   const auth = { user: { id: 1, email: 'a@example.com', server: role }, refreshUser: vi.fn() } as unknown as AuthContextValue;
   render(

@@ -75,6 +75,30 @@ model ServerSample {
   @@map("server_samples")
 }
 
+/// Who runs the host's fan: the firmware, the agent by the rules, or the
+/// agent at a fixed speed.
+enum ServerFanMode {
+  FIRMWARE
+  AUTO
+  MANUAL
+}
+
+/// The owner's fan settings, handed to the agent with each report. One row
+/// only (id 1, checked in the database); none means the defaults.
+model ServerFanSettings {
+  id            Int           @id @default(1)
+  mode          ServerFanMode @default(FIRMWARE)
+  /// AUTO: never slower than this (0-100 %).
+  minPercent    Int           @default(0)
+  /// MANUAL: the speed (0-100 %).
+  manualPercent Int           @default(100)
+  /// AUTO: [{ aboveC, percent }], in order of temperature.
+  rules         Json
+  updatedAt     DateTime      @updatedAt
+
+  @@map("server_fan_settings")
+}
+
 /// What a member may do in a household: ADMIN everything, READER only read.
 enum HouseholdRole {
   ADMIN
