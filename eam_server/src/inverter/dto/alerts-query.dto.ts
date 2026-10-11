@@ -1,5 +1,5 @@
 import { Transform } from 'class-transformer';
-import { IsInt, IsOptional, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 /** GET /api/inverter/:profileId/alerts query string. */
 export class AlertsQueryDto {
@@ -17,4 +17,9 @@ export class AlertsQueryDto {
   @IsInt()
   @Min(1)
   before?: number;
+
+  /** The language to word the alerts in (en when not one the app speaks). */
+  @IsOptional()
+  @IsString()
+  lang?: string;
 }

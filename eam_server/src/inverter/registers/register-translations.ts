@@ -4,7 +4,8 @@
  * register name (and panel program), with the same shape as the English.
  */
 import type { Language } from '../../i18n/languages';
-import type { RegisterDefinition } from './register-map';
+import { RegisterMap, type RegisterDefinition } from './register-map';
+import { SMG_II_REGISTERS } from './smg-ii.registers';
 import type { PanelSetting } from './smg-ii.panel-settings';
 import uk from './smg-ii.uk.json';
 
@@ -86,4 +87,16 @@ export function translatePanelSettings(
     const texts = catalog.panelSettings[s.program];
     return texts ? { ...s, ...texts } : s;
   });
+}
+
+const maps = new Map<Language, RegisterMap>();
+
+/** The SMG-II register map with its texts in `language`, made once. */
+export function registerMapFor(language: Language): RegisterMap {
+  let map = maps.get(language);
+  if (!map) {
+    map = new RegisterMap(translateRegisters(SMG_II_REGISTERS, language));
+    maps.set(language, map);
+  }
+  return map;
 }

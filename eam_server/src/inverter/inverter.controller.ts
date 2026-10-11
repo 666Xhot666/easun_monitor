@@ -31,6 +31,7 @@ import {
   translateRegisters,
 } from './registers/register-translations';
 import { languageOr } from '../i18n/languages';
+import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
@@ -79,6 +80,7 @@ export class InverterController {
     private readonly registers: RegisterMap,
     private readonly settings: SettingsService,
     private readonly settingsHistory: SettingsHistory,
+    private readonly alerts: TelegramAlerts,
   ) {}
 
   /**
@@ -335,15 +337,28 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.requireOwnedProfile(profileId, user.userId, 'read');
-    return this.prisma.alertEvent.findMany({
+    const language = languageOr(query.lang);
+    const rows = await this.prisma.alertEvent.findMany({
       where: {
         inverterProfileId: profileId,
         ...(query.before ? { id: { lt: query.before } } : {}),
       },
       orderBy: { id: 'desc' },
       take: query.limit ?? DEFAULT_ALERTS_PAGE,
-      select: { id: true, kind: true, text: true, source: true, at: true },
+      select: {
+        id: true,
+        kind: true,
+        text: true,
+        key: true,
+        params: true,
+        source: true,
+        at: true,
+      },
     });
+    return rows.map(({ key, params, ...row }) => ({
+      ...row,
+      text: this.alerts.wordRecorded({ text: row.text, key, params }, language),
+    }));
   }
 
   /** Raw readings in a range, newest first, a page at a time. */

@@ -1,6 +1,20 @@
 {
-  "units": { "hours": "{{count}} h", "minutes": "{{count}} min" },
+  "units": {
+    "hours": "{{count}} h",
+    "minutes": "{{count}} min"
+  },
   "alerts": {
-    "batteryLow": "Battery low: {{soc}} %"
+    "fault": "Fault: {{fault}}",
+    "faultsCleared": "Faults cleared",
+    "warning": "Warning: {{warning}}",
+    "gridLost": "Grid lost",
+    "gridRestored": "Grid restored",
+    "batteryLow": "Battery low: {{soc}} %",
+    "bmsAlarm": "BMS alarm: {{alarm}}",
+    "bmsAlarmsCleared": "BMS alarms cleared",
+    "loggerDown": "Logger not answering since {{sinceAt}}",
+    "loggerBack": "Logger back online after {{downMs}}",
+    "bmsSilent": "BMS reader silent since {{sinceAt}}",
+    "bmsBack": "BMS reader back online after {{silentMs}}"
   }
 }

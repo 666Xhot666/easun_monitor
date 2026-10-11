@@ -1,6 +1,20 @@
 {
-  "units": { "hours": "{{count}} год", "minutes": "{{count}} хв" },
+  "units": {
+    "hours": "{{count}} год",
+    "minutes": "{{count}} хв"
+  },
   "alerts": {
-    "batteryLow": "Низький заряд акумулятора: {{soc}} %"
+    "fault": "Несправність: {{fault}}",
+    "faultsCleared": "Несправності усунено",
+    "warning": "Попередження: {{warning}}",
+    "gridLost": "Мережа зникла",
+    "gridRestored": "Мережа повернулася",
+    "batteryLow": "Низький заряд акумулятора: {{soc}} %",
+    "bmsAlarm": "Тривога BMS: {{alarm}}",
+    "bmsAlarmsCleared": "Тривоги BMS зникли",
+    "loggerDown": "Логер не відповідає з {{sinceAt}}",
+    "loggerBack": "Логер знову на зв’язку, не відповідав {{downMs}}",
+    "bmsSilent": "Зчитувач BMS мовчить з {{sinceAt}}",
+    "bmsBack": "Зчитувач BMS знову на зв’язку, мовчав {{silentMs}}"
   }
 }

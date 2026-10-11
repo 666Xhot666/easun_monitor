@@ -1,4 +1,5 @@
-import type { RegisterMap } from '../inverter/registers/register-map';
+import type { AlertMessage } from '../alerts/alert-message';
+import { activeBits } from '../inverter/registers/register-map';
 
 /** Mains above this voltage counts as the grid being there. */
 const GRID_PRESENT_V = 100;
@@ -11,8 +12,9 @@ function isNumber(value: unknown): value is number {
 
 /** Inverter alert state derived from register readings. */
 export interface InverterAlertState {
-  faults: string[];
-  warnings: string[];
+  /** Fault and warning bits set. */
+  faults: number[];
+  warnings: number[];
   gridUp?: boolean;
   batteryLow?: boolean;
 }
@@ -21,19 +23,18 @@ export interface InverterAlertState {
 export function inverterAlerts(
   previous: InverterAlertState | undefined,
   reading: Record<string, number>,
-  map: RegisterMap,
   lowSoc: number,
-): { state: InverterAlertState; messages: string[] } {
+): { state: InverterAlertState; messages: AlertMessage[] } {
   const faultCode = reading.FaultCode;
   const warningCode = reading.WarningCode;
   const mainsVoltage = reading.MainsVoltage;
   const soc = reading.BatterySoc;
 
   const faults = isNumber(faultCode)
-    ? map.activeFlags('FaultCode', faultCode)
+    ? activeBits(faultCode)
     : (previous?.faults ?? []);
   const warnings = isNumber(warningCode)
-    ? map.activeFlags('WarningCode', warningCode)
+    ? activeBits(warningCode)
     : (previous?.warnings ?? []);
   const gridUp = isNumber(mainsVoltage)
     ? mainsVoltage > GRID_PRESENT_V
@@ -50,36 +51,36 @@ export function inverterAlerts(
     return { state, messages: [] };
   }
 
-  const messages: string[] = [];
+  const messages: AlertMessage[] = [];
   const previousFaults = previous.faults;
   const previousWarnings = previous.warnings;
 
   for (const fault of faults) {
     if (!previousFaults.includes(fault)) {
-      messages.push(`Fault: ${fault}`);
+      messages.push({ key: 'fault', params: { fault } });
     }
   }
 
   if (previousFaults.length > 0 && faults.length === 0) {
-    messages.push('Faults cleared');
+    messages.push({ key: 'faultsCleared' });
   }
 
   for (const warning of warnings) {
     if (!previousWarnings.includes(warning)) {
-      messages.push(`Warning: ${warning}`);
+      messages.push({ key: 'warning', params: { warning } });
     }
   }
 
   if (previous.gridUp === true && gridUp === false) {
-    messages.push('Grid lost');
+    messages.push({ key: 'gridLost' });
   }
 
   if (previous.gridUp === false && gridUp === true) {
-    messages.push('Grid restored');
+    messages.push({ key: 'gridRestored' });
   }
 
   if (batteryLow === true && previous.batteryLow !== true && isNumber(soc)) {
-    messages.push(`Battery low: ${Math.round(soc)} %`);
+    messages.push({ key: 'batteryLow', params: { soc: Math.round(soc) } });
   }
 
   return { state, messages };
@@ -89,23 +90,23 @@ export function inverterAlerts(
 export function bmsAlerts(
   previous: string[] | undefined,
   alarms: string[],
-): { state: string[]; messages: string[] } {
+): { state: string[]; messages: AlertMessage[] } {
   const state = alarms;
 
   if (previous === undefined) {
     return { state, messages: [] };
   }
 
-  const messages: string[] = [];
+  const messages: AlertMessage[] = [];
 
   for (const alarm of alarms) {
     if (!previous.includes(alarm)) {
-      messages.push(`BMS alarm: ${alarm}`);
+      messages.push({ key: 'bmsAlarm', params: { alarm } });
     }
   }
 
   if (previous.length > 0 && alarms.length === 0) {
-    messages.push('BMS alarms cleared');
+    messages.push({ key: 'bmsAlarmsCleared' });
   }
 
   return { state, messages };
