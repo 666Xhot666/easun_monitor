@@ -53,6 +53,7 @@ describe('register translations', () => {
       });
       expect({
         ...ua,
+        unit: en.unit,
         label: '',
         description: '',
         risk: '',
@@ -69,6 +70,13 @@ describe('register translations', () => {
         bits: {},
       });
     });
+  });
+
+  it('gives the units their Ukrainian symbols', () => {
+    const byName = (name: string) => uk.find((r) => r.name === name)?.unit;
+    expect(byName('MainsVoltage')).toBe('В');
+    expect(byName('MainsFrequency')).toBe('Гц');
+    expect(byName('BatterySoc')).toBe('%');
   });
 
   it('names an unidentified register by its address', () => {

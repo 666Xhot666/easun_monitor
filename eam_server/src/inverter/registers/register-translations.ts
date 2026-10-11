@@ -28,6 +28,8 @@ interface PanelTexts {
 interface Catalog {
   /** For registers seen on the device but not identified; {{address}} is filled in. */
   unidentified: { label: string; description: string };
+  /** Unit symbols by the English ones; units not listed stay as they are. */
+  units: Readonly<Record<string, string>>;
   registers: Readonly<Record<string, RegisterTexts>>;
   panelSettings: Readonly<Record<string, PanelTexts>>;
 }
@@ -55,8 +57,9 @@ export function translateRegisters(
   const catalog = CATALOGS[language];
   if (!catalog) return registers;
   return registers.map((r) => {
+    const unit = r.unit && { unit: catalog.units[r.unit] ?? r.unit };
     const texts = registerTexts(catalog, r);
-    if (!texts) return r;
+    if (!texts) return { ...r, ...unit };
     const bits = texts.bits
       ? Object.fromEntries(
           Object.entries(texts.bits).map(([bit, text]) => [Number(bit), text]),
@@ -64,6 +67,7 @@ export function translateRegisters(
       : undefined;
     return {
       ...r,
+      ...unit,
       label: texts.label,
       ...(texts.description && { description: texts.description }),
       ...(texts.risk && { risk: texts.risk }),

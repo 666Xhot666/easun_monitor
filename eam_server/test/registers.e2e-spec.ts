@@ -49,7 +49,7 @@ describe('Register metadata and decoded alerts (e2e)', () => {
       request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${token}`).expect(200);
 
     const uk = Object.fromEntries((await get('/api/inverter/registers?lang=uk')).body.map((d: { name: string }) => [d.name, d]));
-    expect(uk.MainsVoltage).toMatchObject({ label: 'Напруга мережі', unit: 'V', scale: 0.1 });
+    expect(uk.MainsVoltage).toMatchObject({ label: 'Напруга мережі', unit: 'В', scale: 0.1 });
     expect(uk.OutputPriority.options[2]).toBe('Сонце-акумулятор-мережа (SBU)');
     expect((await get('/api/inverter/registers?lang=ru')).body[0].label).toBe('Faults');
 

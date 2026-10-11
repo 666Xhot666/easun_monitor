@@ -40,9 +40,7 @@ export class ReadingsCsv {
       translate(this.language, `csv.${key}`, values);
     return csvLine([
       t('time', { zone: this.timeZone }),
-      ...this.columns.map((d) =>
-        d.unit ? `${d.label} (${t(`units.${d.unit}`)})` : d.label,
-      ),
+      ...this.columns.map((d) => (d.unit ? `${d.label} (${d.unit})` : d.label)),
     ]);
   }
 

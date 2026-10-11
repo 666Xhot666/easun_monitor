@@ -182,17 +182,6 @@
     "unknown": "Unknown ({{value}})",
     "on": "on",
     "off": "off",
-    "units": {
-      "%": "%",
-      "°C": "°C",
-      "days": "days",
-      "Hz": "Hz",
-      "min": "min",
-      "V": "V",
-      "A": "A",
-      "W": "W",
-      "VA": "VA"
-    },
     "bms": {
       "soc": "State of charge (%)",
       "packVoltage": "Pack voltage (V)",
