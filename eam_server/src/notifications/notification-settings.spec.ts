@@ -72,6 +72,21 @@ describe('notification settings', () => {
     ).toEqual({ inApp: true, telegram: true });
   });
 
+  it('sends the server notices too', () => {
+    for (const kind of [
+      'server-heat',
+      'server-storage',
+      'server-memory',
+      'server-agent',
+      'server-updates',
+    ] as const) {
+      expect(DEFAULT_SETTINGS.channels[kind]).toEqual({
+        inApp: true,
+        telegram: true,
+      });
+    }
+  });
+
   describe('sendsToTelegram', () => {
     const quiet = mergeSettings(DEFAULT_SETTINGS, { quietHours: true });
     const at = (hhmm: string) => new Date(`2026-10-07T${hhmm}:00Z`);
@@ -89,6 +104,13 @@ describe('notification settings', () => {
       expect(sendsToTelegram(quiet, 'grid', at('06:59'), 'UTC')).toBe(false);
       expect(sendsToTelegram(quiet, 'grid', at('07:00'), 'UTC')).toBe(true);
       expect(sendsToTelegram(quiet, 'fault', at('03:00'), 'UTC')).toBe(true);
+      // Overheating cannot wait for the morning either.
+      expect(sendsToTelegram(quiet, 'server-heat', at('03:00'), 'UTC')).toBe(
+        true,
+      );
+      expect(sendsToTelegram(quiet, 'server-updates', at('03:00'), 'UTC')).toBe(
+        false,
+      );
       // 21:30 UTC is 00:30 in Kyiv (UTC+3 in October).
       expect(sendsToTelegram(quiet, 'grid', at('21:30'), 'Europe/Kyiv')).toBe(
         false,

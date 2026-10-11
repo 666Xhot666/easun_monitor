@@ -73,7 +73,7 @@ export default function SettingsPage() {
       {tab === 'notifications' && (
         <div className="space-y-4">
           <TelegramLink />
-          <NotificationSettings />
+          <NotificationSettings showServer={Boolean(user?.server)} />
         </div>
       )}
       {tab === 'account' && <AccountSettings />}

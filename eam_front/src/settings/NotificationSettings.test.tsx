@@ -14,6 +14,11 @@ const settings = {
     schedule: { inApp: true, telegram: true },
     outage: { inApp: true, telegram: true },
     'schedule-unavailable': { inApp: true, telegram: true },
+    'server-heat': { inApp: true, telegram: true },
+    'server-storage': { inApp: true, telegram: true },
+    'server-memory': { inApp: true, telegram: true },
+    'server-agent': { inApp: true, telegram: true },
+    'server-updates': { inApp: true, telegram: true },
     summary: { inApp: false, telegram: true },
   },
   quietHours: false,
@@ -21,7 +26,7 @@ const settings = {
   possibleOutages: false,
 };
 
-function renderSettings(linked: boolean) {
+function renderSettings(linked: boolean, showServer = false) {
   const server = fakeServer((config) => {
     if (config.url === '/api/notifications/settings' && config.method === 'get') return { status: 200, data: settings };
     if (config.url === '/api/notifications/settings' && config.method === 'put') {
@@ -36,7 +41,7 @@ function renderSettings(linked: boolean) {
     if (config.url === '/api/telegram/link') return { status: 200, data: { linked } };
     return { status: 404 };
   });
-  render(<NotificationSettings />);
+  render(<NotificationSettings showServer={showServer} />);
   return server;
 }
 
@@ -122,5 +127,23 @@ describe('NotificationSettings', () => {
 
     await userEvent.click(await screen.findByRole('switch', { name: 'Also before possible outages' }));
     expect(JSON.parse(server.sent.find((c) => c.method === 'put')?.data)).toEqual({ possibleOutages: true });
+  });
+
+  it('has the server notices for the owner and those who may look at the server', async () => {
+    const server = renderSettings(true, true);
+    restore = server.restore;
+    await userEvent.click(await screen.findByRole('switch', { name: 'Server overheating on Telegram' }));
+    expect(JSON.parse(server.sent.find((c) => c.method === 'put')?.data)).toEqual({ channels: { 'server-heat': { telegram: false } } });
+    for (const name of ['Server storage low', 'Server memory short', 'Server agent silent', 'Server updates']) {
+      expect(screen.getByRole('switch', { name: `${name} on Telegram` })).toBeInTheDocument();
+    }
+    // In the app they are on the Server page.
+    expect(screen.queryByRole('switch', { name: 'Server overheating in the app' })).not.toBeInTheDocument();
+  });
+
+  it('leaves the server notices out for everyone else', async () => {
+    restore = renderSettings(true).restore;
+    await screen.findByRole('switch', { name: 'Faults in the app' });
+    expect(screen.queryByRole('switch', { name: 'Server overheating on Telegram' })).not.toBeInTheDocument();
   });
 });

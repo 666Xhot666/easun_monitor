@@ -99,6 +99,33 @@ model ServerFanSettings {
   @@map("server_fan_settings")
 }
 
+/// The owner's limits for the server notices. One row only (id 1, checked
+/// in the database); none means the defaults.
+model ServerAlertSettings {
+  id                 Int      @id @default(1)
+  /// Overheating at or above this, on any sensor.
+  heatC              Int      @default(90)
+  /// Storage low below this share free, on any filesystem.
+  storageFreePercent Int      @default(10)
+  /// Memory short at or above this share used.
+  memoryUsedPercent  Int      @default(90)
+  updatedAt          DateTime @updatedAt
+
+  @@map("server_alert_settings")
+}
+
+/// A server notice as sent, for the Server page.
+model ServerAlertEvent {
+  id   Int      @id @default(autoincrement())
+  /// server-heat | server-storage | server-memory | server-agent | server-updates
+  kind String
+  text String
+  at   DateTime @default(now())
+
+  @@index([at])
+  @@map("server_alert_events")
+}
+
 /// What a member may do in a household: ADMIN everything, READER only read.
 enum HouseholdRole {
   ADMIN

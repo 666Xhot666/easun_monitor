@@ -3,7 +3,21 @@ import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { Switch } from '../ui/Switch';
 
-export type NotificationKind = 'fault' | 'warning' | 'grid' | 'battery' | 'connection' | 'schedule' | 'outage' | 'schedule-unavailable' | 'summary';
+export type NotificationKind =
+  | 'fault'
+  | 'warning'
+  | 'grid'
+  | 'battery'
+  | 'connection'
+  | 'schedule'
+  | 'outage'
+  | 'schedule-unavailable'
+  | 'server-heat'
+  | 'server-storage'
+  | 'server-memory'
+  | 'server-agent'
+  | 'server-updates'
+  | 'summary';
 interface Channels {
   inApp: boolean;
   telegram: boolean;
@@ -20,7 +34,8 @@ export interface NotificationSettingsValue {
 
 const LEAD = { min: 1, max: 120 };
 
-const ROWS: { kind: NotificationKind; label: string; detail: string }[] = [
+/** `server`: for the server's owner and viewers; in the app these are on the Server page. */
+const ROWS: { kind: NotificationKind; label: string; detail: string; server?: true }[] = [
   { kind: 'fault', label: 'Faults', detail: 'Inverter faults and fault mode, as they happen' },
   { kind: 'warning', label: 'Warnings', detail: 'Inverter warnings and BMS alarms' },
   { kind: 'grid', label: 'Grid lost and restored', detail: 'With how long the outage lasted' },
@@ -29,11 +44,16 @@ const ROWS: { kind: NotificationKind; label: string; detail: string }[] = [
   { kind: 'schedule', label: 'Outage schedule updated', detail: 'A new or changed outage schedule for your address, old → new times' },
   { kind: 'outage', label: 'Outage soon', detail: 'Before a scheduled outage starts, with the battery level' },
   { kind: 'schedule-unavailable', label: 'Outage schedule unavailable', detail: 'When the DTEK site could not be checked for 12 hours' },
+  { kind: 'server-heat', label: 'Server overheating', detail: 'A sensor at the limit set on the Server page; also in quiet hours', server: true },
+  { kind: 'server-storage', label: 'Server storage low', detail: 'A filesystem under the free space limit', server: true },
+  { kind: 'server-memory', label: 'Server memory short', detail: 'Memory over the limit for 5 minutes', server: true },
+  { kind: 'server-agent', label: 'Server agent silent', detail: 'No report from the server agent for 5 minutes', server: true },
+  { kind: 'server-updates', label: 'Server updates', detail: 'Security updates waiting, or a restart required', server: true },
   { kind: 'summary', label: 'Daily summary', detail: 'In the evening: solar, grid, load, self-sufficiency' },
 ];
 
 /** What reaches the signed-in user, per kind of alert, in the app and on Telegram. */
-export default function NotificationSettings() {
+export default function NotificationSettings({ showServer = false }: { showServer?: boolean }) {
   const [settings, setSettings] = useState<NotificationSettingsValue | null>(null);
   const [linked, setLinked] = useState(false);
   const [error, setError] = useState('');
@@ -112,16 +132,20 @@ export default function NotificationSettings() {
               </tr>
             </thead>
             <tbody>
-              {ROWS.map(({ kind, label, detail }) => (
+              {ROWS.filter((row) => showServer || !row.server).map(({ kind, label, detail, server }) => (
                 <tr key={kind} className="border-t border-line">
                   <th scope="row" className="py-3 pr-3 text-left font-normal">
                     <span className="block text-[15px]">{label}</span>
                     <span className="block text-xs text-muted">{detail}</span>
                   </th>
                   <td className="text-center">
-                    <span className="inline-flex">
-                      <Switch label={`${label} in the app`} on={settings.channels[kind].inApp} onChange={(on) => set(kind, 'inApp', on)} />
-                    </span>
+                    {server ? (
+                      <span className="text-xs text-muted">Server page</span>
+                    ) : (
+                      <span className="inline-flex">
+                        <Switch label={`${label} in the app`} on={settings.channels[kind].inApp} onChange={(on) => set(kind, 'inApp', on)} />
+                      </span>
+                    )}
                   </td>
                   <td className="text-center">
                     <span className="inline-flex">
@@ -141,7 +165,7 @@ export default function NotificationSettings() {
           <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
             <div className="flex-1">
               <p className="text-[15px]">Quiet hours</p>
-              <p className="text-xs text-muted">23:00 to 07:00: only faults reach Telegram.</p>
+              <p className="text-xs text-muted">23:00 to 07:00: only faults{showServer ? ' and server overheating' : ''} reach Telegram.</p>
             </div>
             <Switch
               label="Quiet hours"

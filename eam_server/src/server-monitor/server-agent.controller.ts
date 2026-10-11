@@ -14,6 +14,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { parseHostSample } from './parse-sample';
 import { ServerAgentService } from './server-agent.service';
+import { ServerAlertsService } from './server-alerts.service';
 import { ServerFanService } from './server-fan.service';
 
 /**
@@ -24,6 +25,7 @@ export class ServerAgentController {
   constructor(
     private readonly agent: ServerAgentService,
     private readonly fan: ServerFanService,
+    private readonly alerts: ServerAlertsService,
   ) {}
 
   /**
@@ -70,7 +72,9 @@ export class ServerAgentController {
     if (!token || !(await this.agent.isAgent(token))) {
       throw new UnauthorizedException('Unknown server agent token');
     }
-    const stored = await this.agent.ingest(parseHostSample(body));
+    const sample = parseHostSample(body);
+    const stored = await this.agent.ingest(sample);
+    if (stored.stored) await this.alerts.onSample(sample);
     // The fan settings ride on the answer: the agent applies them each cycle.
     return { ...stored, fan: await this.fan.settings() };
   }

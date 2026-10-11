@@ -6,6 +6,7 @@ import { ageText, useNow } from '../shell/age';
 import { PageHeader } from '../ui';
 import { bytes, rate, uptime } from './format';
 import FanPanel from './FanPanel';
+import NoticesPanel from './NoticesPanel';
 import ServerHistory from './ServerHistory';
 import type { HostSample, ServerStatus } from './types';
 
@@ -225,6 +226,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
         </Panel>
       </div>
       <FanPanel owner={user?.server === 'OWNER'} />
+      <NoticesPanel owner={user?.server === 'OWNER'} now={now} />
       <ServerHistory />
     </>
   );

@@ -427,6 +427,23 @@ Package updates: every `SERVER_AGENT_UPDATES_HOURS` (6) the agent reads
 refreshes and installs nothing. The counts are as of apt's last package
 list refresh, and the page shows how old that is.
 
+Server notices go to the owner and the accounts allowed to look, on
+Telegram and in the Server page's list, each kind with its own switch under
+Settings > Notifications. The owner sets the limits on the Server page:
+
+- **Overheating:** a sensor at the limit (90 °C) in two readings in a row,
+  and back 5 °C below it. Overheating also gets through quiet hours.
+- **Storage low:** a filesystem under the free space limit (10 %), and back
+  2 points above it.
+- **Memory short:** memory used at the limit (90 %) for 5 readings, and back
+  5 points below it.
+- **Agent silent:** no report for 5 minutes, and back.
+- **Updates:** more security updates waiting than before, or a restart
+  required.
+
+After a server restart the first reading is the baseline, as with the other
+alerts.
+
 Fan control: with `SERVER_AGENT_FAN` set to the fan's hwmon name (the
 device under `/sys/class/hwmon` with a `pwm1`), the agent runs that fan as
 the owner sets it on the Server page:

@@ -31,7 +31,9 @@ function renderPage(status: ServerStatus, role: 'OWNER' | 'VIEWER' = 'OWNER') {
   const server = fakeServer((config) =>
     config.url === '/api/server/history'
       ? { status: 200, data: { bucketSeconds: 300, points: [] } }
-      : config.url === '/api/server/fan'
+      : config.url === '/api/server/alerts'
+        ? { status: 200, data: { limits: { heatC: 90, storageFreePercent: 10, memoryUsedPercent: 90 }, events: [] } }
+        : config.url === '/api/server/fan'
         ? { status: 200, data: { settings: { mode: 'FIRMWARE', minPercent: 0, manualPercent: 100, rules: [] }, state: null } }
         : { status: 200, data: status },
   );
