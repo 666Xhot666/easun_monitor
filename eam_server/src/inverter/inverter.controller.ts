@@ -27,6 +27,7 @@ import { SettingsRuleError, SettingsService } from './settings.service';
 import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { SMG_II_PANEL_SETTINGS } from './registers/smg-ii.panel-settings';
 import {
+  registerMapFor,
   translatePanelSettings,
   translateRegisters,
 } from './registers/register-translations';
@@ -253,6 +254,7 @@ export class InverterController {
   async getLatest(
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Query('lang') lang?: string,
   ) {
     await this.requireOwnedProfile(profileId, user.userId, 'read');
 
@@ -263,14 +265,12 @@ export class InverterController {
     }
 
     const payload = latest.payload as Record<string, number>;
+    const map = registerMapFor(languageOr(lang));
     return {
       ...latest,
       alerts: {
-        faults: this.registers.activeFlags('FaultCode', payload.FaultCode ?? 0),
-        warnings: this.registers.activeFlags(
-          'WarningCode',
-          payload.WarningCode ?? 0,
-        ),
+        faults: map.activeFlags('FaultCode', payload.FaultCode ?? 0),
+        warnings: map.activeFlags('WarningCode', payload.WarningCode ?? 0),
       },
     };
   }

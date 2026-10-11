@@ -76,5 +76,15 @@ describe('Register metadata and decoded alerts (e2e)', () => {
       faults: ['Output overload'],
       warnings: ['Battery low voltage', 'Fan blocked'],
     });
+
+    const uk = await request(app.getHttpServer())
+      .get(`/api/inverter/${id}/latest`)
+      .query({ lang: 'uk' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(uk.body.alerts).toEqual({
+      faults: ['Перевантаження виходу'],
+      warnings: ['Низька напруга акумулятора', 'Вентилятор заблоковано'],
+    });
   });
 });
