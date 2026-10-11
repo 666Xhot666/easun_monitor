@@ -1,4 +1,7 @@
 import { csvLine, wallClock } from '../telemetry/csv';
+import type { Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
+import { bmsAlarmName } from '../telegram/cards';
 import type { BmsReading } from './reading';
 
 /** How many cell columns and which temperature sensors an export has. */
@@ -11,8 +14,6 @@ const fixed = (value: number | null | undefined, decimals: number) =>
   typeof value === 'number' ? value.toFixed(decimals) : '';
 const plain = (value: number | null | undefined) =>
   typeof value === 'number' ? String(value) : '';
-const onOff = (value: boolean | null | undefined) =>
-  value === true ? 'on' : value === false ? 'off' : '';
 
 /**
  * Stored BMS readings as CSV: one row per reading, the pack values, a
@@ -25,6 +26,7 @@ export class BmsCsv {
   constructor(
     private readonly timeZone: string,
     private readonly layout: BmsCsvLayout,
+    private readonly language: Language = 'en',
   ) {
     this.time = wallClock(timeZone);
   }
@@ -38,31 +40,41 @@ export class BmsCsv {
   }
 
   header(): string {
+    const t = (key: string, values?: Record<string, string | number>) =>
+      translate(this.language, `csv.${key}`, values);
     return csvLine([
-      `Time (${this.timeZone})`,
-      'State of charge (%)',
-      'Pack voltage (V)',
-      'Current (A)',
-      'Power (W)',
-      'Remaining capacity (Ah)',
-      'Nominal capacity (Ah)',
-      'Cycles',
-      'Lowest cell (V)',
-      'Highest cell (V)',
-      'Cell spread (mV)',
-      'Lowest cell no.',
-      'Highest cell no.',
-      ...Array.from(
-        { length: this.layout.cells },
-        (_, i) => `Cell ${i + 1} (V)`,
+      t('time', { zone: this.timeZone }),
+      ...[
+        'soc',
+        'packVoltage',
+        'current',
+        'power',
+        'remaining',
+        'nominal',
+        'cycles',
+        'lowestCell',
+        'highestCell',
+        'spread',
+        'lowestNo',
+        'highestNo',
+      ].map((key) => t(`bms.${key}`)),
+      ...Array.from({ length: this.layout.cells }, (_, i) =>
+        t('bms.cell', { n: i + 1 }),
       ),
       ...this.layout.temperatures.map((name) => `${name} (°C)`),
-      'Balancing',
-      'Balance current (A)',
-      'Charge MOSFET',
-      'Discharge MOSFET',
-      'Alarms',
+      ...[
+        'balancing',
+        'balanceCurrent',
+        'chargeMosfet',
+        'dischargeMosfet',
+        'alarms',
+      ].map((key) => t(`bms.${key}`)),
     ]);
+  }
+
+  private onOff(value: boolean | null | undefined): string {
+    if (value === null || value === undefined) return '';
+    return translate(this.language, value ? 'csv.on' : 'csv.off');
   }
 
   row(reading: BmsReading): string {
@@ -89,11 +101,11 @@ export class BmsCsv {
         fixed(reading.cellVoltagesV[i], 3),
       ),
       ...this.layout.temperatures.map((name) => fixed(celsius.get(name), 1)),
-      onOff(reading.balancing),
+      this.onOff(reading.balancing),
       fixed(reading.balanceCurrentA, 3),
-      onOff(reading.chargeMosfetOn),
-      onOff(reading.dischargeMosfetOn),
-      reading.alarms.join('; '),
+      this.onOff(reading.chargeMosfetOn),
+      this.onOff(reading.dischargeMosfetOn),
+      reading.alarms.map((a) => bmsAlarmName(a, this.language)).join('; '),
     ]);
   }
 }

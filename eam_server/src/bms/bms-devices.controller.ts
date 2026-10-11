@@ -22,6 +22,7 @@ import { ReadingsQueryDto } from '../inverter/dto/readings-query.dto';
 import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
 import { ReadingsExportQueryDto } from '../inverter/dto/readings-export-query.dto';
 import { BmsCsv } from './bms-csv';
+import { languageOr } from '../i18n/languages';
 import {
   HouseholdsService,
   type Access,
@@ -244,6 +245,7 @@ export class BmsDevicesController {
       first.done || first.value.length === 0
         ? { cells: 0, temperatures: [] }
         : BmsCsv.layoutFor(first.value[0]),
+      languageOr(query.lang),
     );
     const day = (date: Date) => date.toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');

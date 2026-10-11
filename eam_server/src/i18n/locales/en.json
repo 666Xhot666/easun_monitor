@@ -176,5 +176,42 @@
     "Discharge OCP III": "Discharge OCP III",
     "Discharge undertemperature alarm": "Discharge undertemperature alarm",
     "GPS remote lock": "GPS remote lock"
+  },
+  "csv": {
+    "time": "Time ({{zone}})",
+    "unknown": "Unknown ({{value}})",
+    "on": "on",
+    "off": "off",
+    "units": {
+      "%": "%",
+      "°C": "°C",
+      "days": "days",
+      "Hz": "Hz",
+      "min": "min",
+      "V": "V",
+      "A": "A",
+      "W": "W",
+      "VA": "VA"
+    },
+    "bms": {
+      "soc": "State of charge (%)",
+      "packVoltage": "Pack voltage (V)",
+      "current": "Current (A)",
+      "power": "Power (W)",
+      "remaining": "Remaining capacity (Ah)",
+      "nominal": "Nominal capacity (Ah)",
+      "cycles": "Cycles",
+      "lowestCell": "Lowest cell (V)",
+      "highestCell": "Highest cell (V)",
+      "spread": "Cell spread (mV)",
+      "lowestNo": "Lowest cell no.",
+      "highestNo": "Highest cell no.",
+      "cell": "Cell {{n}} (V)",
+      "balancing": "Balancing",
+      "balanceCurrent": "Balance current (A)",
+      "chargeMosfet": "Charge MOSFET",
+      "dischargeMosfet": "Discharge MOSFET",
+      "alarms": "Alarms"
+    }
   }
 }

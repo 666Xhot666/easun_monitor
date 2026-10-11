@@ -406,7 +406,8 @@ export class InverterController {
     const timeZone = query.tz ?? 'UTC';
     let csv: ReadingsCsv;
     try {
-      csv = new ReadingsCsv(this.registers, timeZone);
+      const language = languageOr(query.lang);
+      csv = new ReadingsCsv(registerMapFor(language), timeZone, language);
     } catch {
       throw new BadRequestException(`Unknown time zone "${timeZone}"`);
     }
