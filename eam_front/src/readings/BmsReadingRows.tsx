@@ -1,4 +1,5 @@
 import type { BmsReading } from '../bms/types';
+import { alarmName } from '../bms/alarmName';
 import { useTranslation } from 'react-i18next';
 import { num, unit, withUnit } from '../i18n/format';
 
@@ -51,7 +52,7 @@ export default function BmsReadingRows({ reading }: { reading: BmsReading }) {
     rows.push([t('readings.bmsRows.dischargeMosfet'), t(reading.dischargeMosfetOn ? 'readings.bmsRows.on' : 'readings.bmsRows.off')]);
   }
   if (reading.alarms) {
-    rows.push([t('readings.bmsRows.alarms'), reading.alarms.length ? reading.alarms.join(', ') : t('readings.bmsRows.none')]);
+    rows.push([t('readings.bmsRows.alarms'), reading.alarms.length ? reading.alarms.map(alarmName).join(', ') : t('readings.bmsRows.none')]);
   }
 
   return (

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { alarmName } from './alarmName';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { num, unit, withUnit } from '../i18n/format';
@@ -224,7 +225,7 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
               <ul aria-label={t('battery.alarms')} className="flex flex-col gap-1">
                 {reading.alarms.map((alarm) => (
                   <li key={alarm} className="text-crit-ink">
-                    {alarm}
+                    {alarmName(alarm)}
                   </li>
                 ))}
               </ul>
