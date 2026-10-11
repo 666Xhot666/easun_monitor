@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { PrismaService } from '../src/prisma/prisma.service';
+import { ServerAgentService } from '../src/server-monitor/server-agent.service';
 import type { HostSample } from '../src/server-agent/sample';
 import {
   AgentServerClient,
@@ -154,5 +155,104 @@ describe('Server agent (e2e)', () => {
     const error = await wrong.postSample(sample(new Date())).catch((e) => e);
     expect(error).toBeInstanceOf(ServerError);
     expect(error.unauthorized).toBe(true);
+  });
+
+  describe('history', () => {
+    // Two samples in one 5-minute bucket, one in the next.
+    const t0 = Date.parse('2026-10-11T09:00:00Z');
+    const store = (minutes: number, over: Partial<HostSample>) =>
+      prisma.serverSample.create({
+        data: {
+          at: new Date(t0 + minutes * 60_000),
+          data: sample(new Date(t0 + minutes * 60_000), over) as object,
+        },
+      });
+
+    beforeEach(async () => {
+      await store(1, {
+        cpu: { usagePercent: 10, coresPercent: [], load: [0, 0, 0] },
+        temperatures: [
+          { device: 'coretemp', label: 'Package id 0', celsius: 60 },
+          { device: 'acpitz', label: 'temp1', celsius: 45 },
+        ],
+        fans: [{ device: 'f', label: 'fan1', rpm: 0 }],
+        network: [
+          { name: 'eth0', rxBytesPerSecond: 100, txBytesPerSecond: 10 },
+          { name: 'wlan0', rxBytesPerSecond: 50, txBytesPerSecond: null },
+        ],
+      });
+      await store(3, {
+        cpu: { usagePercent: 30, coresPercent: [], load: [0, 0, 0] },
+        temperatures: [
+          { device: 'coretemp', label: 'Package id 0', celsius: 80 },
+        ],
+        fans: [{ device: 'f', label: 'fan1', rpm: 4900 }],
+        network: [
+          { name: 'eth0', rxBytesPerSecond: 300, txBytesPerSecond: 30 },
+        ],
+      });
+      await store(6, {
+        cpu: { usagePercent: null, coresPercent: [], load: [0, 0, 0] },
+      });
+    });
+
+    it('averages the samples per bucket, with the hottest temperature in each', async () => {
+      const { body } = await as(viewer)
+        .get('/api/server/history')
+        .query({ range: '24h', to: new Date(t0 + 10 * 60_000).toISOString() })
+        .expect(200);
+      expect(body.bucketSeconds).toBe(300);
+      expect(body.points).toEqual([
+        {
+          at: '2026-10-11T09:00:00.000Z',
+          cpuPercent: 20,
+          memoryPercent: 62.5,
+          temperatureMax: 80,
+          fanRpm: 2450,
+          rxBytesPerSecond: 225,
+          txBytesPerSecond: 20,
+        },
+        {
+          at: '2026-10-11T09:05:00.000Z',
+          cpuPercent: null,
+          memoryPercent: 62.5,
+          temperatureMax: 61,
+          fanRpm: 2509,
+          rxBytesPerSecond: 1200,
+          txBytesPerSecond: 300,
+        },
+      ]);
+    });
+
+    it('uses hourly buckets for a week, and keeps to the range', async () => {
+      const { body } = await as(owner)
+        .get('/api/server/history')
+        .query({ range: '7d', to: new Date(t0 + 10 * 60_000).toISOString() })
+        .expect(200);
+      expect(body.bucketSeconds).toBe(3600);
+      expect(body.points).toHaveLength(1);
+
+      const before = await as(owner)
+        .get('/api/server/history')
+        .query({ range: '24h', to: new Date(t0).toISOString() })
+        .expect(200);
+      expect(before.body.points).toEqual([]);
+    });
+
+    it('is for the owner and viewers, over a known range', async () => {
+      await as(stranger).get('/api/server/history').expect(403);
+      await as(owner)
+        .get('/api/server/history')
+        .query({ range: '1y' })
+        .expect(400);
+    });
+
+    it('forgets samples older than 30 days', async () => {
+      const service = app.get(ServerAgentService);
+      await service.prune(new Date(t0 + 30 * 86_400_000 + 4 * 60_000));
+      expect(
+        (await prisma.serverSample.findMany()).map((s) => s.at.toISOString()),
+      ).toEqual(['2026-10-11T09:06:00.000Z']);
+    });
   });
 });

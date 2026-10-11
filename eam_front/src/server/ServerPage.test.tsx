@@ -28,7 +28,9 @@ const sample: HostSample = {
 };
 
 function renderPage(status: ServerStatus, role: 'OWNER' | 'VIEWER' = 'OWNER') {
-  const server = fakeServer(() => ({ status: 200, data: status }));
+  const server = fakeServer((config) =>
+    config.url === '/api/server/history' ? { status: 200, data: { bucketSeconds: 300, points: [] } } : { status: 200, data: status },
+  );
   const auth = { user: { id: 1, email: 'a@example.com', server: role }, refreshUser: vi.fn() } as unknown as AuthContextValue;
   render(
     <AuthContext.Provider value={auth}>

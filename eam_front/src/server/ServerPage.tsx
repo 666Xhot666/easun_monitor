@@ -5,6 +5,7 @@ import axios from '../lib/apiClient';
 import { ageText, useNow } from '../shell/age';
 import { PageHeader } from '../ui';
 import { bytes, rate, uptime } from './format';
+import ServerHistory from './ServerHistory';
 import type { HostSample, ServerStatus } from './types';
 
 const REFRESH_MS = 30_000;
@@ -218,6 +219,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
           )}
         </Panel>
       </div>
+      <ServerHistory />
     </>
   );
 }

@@ -5,6 +5,7 @@ import {
   Headers,
   HttpCode,
   Post,
+  Query,
   UnauthorizedException,
   UseGuards,
 } from '@nestjs/common';
@@ -37,6 +38,21 @@ export class ServerAgentController {
   @UseGuards(AuthGuard('jwt'))
   status(@CurrentUser() user: AuthenticatedUser) {
     return this.agent.status(user.userId);
+  }
+
+  /** CPU, memory, temperature, fan and network over 24h or 7d, in buckets. Owner and viewers. */
+  @Get('history')
+  @UseGuards(AuthGuard('jwt'))
+  history(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query('range') range?: string,
+    @Query('to') to?: string,
+  ) {
+    return this.agent.history(
+      user.userId,
+      range,
+      to ? new Date(to) : undefined,
+    );
   }
 
   /**
