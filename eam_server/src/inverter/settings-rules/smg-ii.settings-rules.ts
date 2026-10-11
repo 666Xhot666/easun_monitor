@@ -53,41 +53,49 @@ const RULES: SettingsRule[] = [
   {
     id: 'R-VOLT-1', kind: 'compare', severity: 'error',
     left: 'MaxChargingVoltage', op: '>=', right: 'FloatingChargingVoltage',
+    key: 'bulkAboveFloat',
     message: 'Bulk charging voltage must be at least the float charging voltage',
   },
   {
     id: 'R-EQ-2', kind: 'compare', severity: 'error',
     left: 'EqChargingVoltage', op: '>=', right: 'FloatingChargingVoltage',
+    key: 'eqAboveFloat',
     message: 'Equalization voltage must be at least the float charging voltage',
   },
   {
     id: 'R-VOLT-4', kind: 'compare', severity: 'error',
     left: 'BatteryLowVoltageProtectionMains', op: '>', right: 'BatteryLowVoltageProtectionOffGrid',
+    key: 'utilityAboveCutoff',
     message: 'Back-to-utility voltage must be above the low DC cut-off voltage',
   },
   {
     id: 'R-CUR-1', kind: 'compare', severity: 'error',
     left: 'MaxChargingCurrent', op: '>=', right: 'MaxMainsChargingCurrent',
+    key: 'chargeAboveMains',
     message: 'Max charging current must be at least the max utility charging current',
   },
   {
     id: 'R-LIB-5', kind: 'compare', severity: 'warning',
     left: 'BatteryLowVoltageProtectionMains', op: '>=', right: 'BatteryLowVoltageProtectionOffGrid', offset: 1,
+    key: 'utilityMarginAboveCutoff',
     message: 'Back-to-utility voltage should be at least 1 V above the low DC cut-off, or the inverter warns of a low battery',
   },
   {
     id: 'R-EQ-3', kind: 'compare', severity: 'warning',
     left: 'EqualizationTimeoutExit', op: '>=', right: 'BatteryEqualizationTime',
+    key: 'eqTimeoutAboveTime',
     message: 'Equalization timeout is normally at least the equalization time',
   },
   {
     id: 'R-VOLT-6', kind: 'compare', severity: 'warning',
     left: 'BatteryOvervoltageProtection', op: '>', right: 'MaxChargingVoltage',
+    key: 'overvoltageAboveBulk',
     message: 'Battery overvoltage protection should be above the bulk charging voltage',
   },
   {
     id: 'R-VOLT-6', kind: 'compare', severity: 'warning',
     left: 'BatteryOvervoltageProtection', op: '>', right: 'EqChargingVoltage',
+    key: 'overvoltageAboveEq',
     message: 'Battery overvoltage protection should be above the equalization voltage',
   },
   // Errors in the manual, warnings here until the device confirms that
@@ -95,11 +103,13 @@ const RULES: SettingsRule[] = [
   {
     id: 'R-VOLT-3', kind: 'compare', severity: 'warning',
     left: 'BatteryDischargeRecoveryMains', op: '>', right: 'BatteryLowVoltageProtectionMains',
+    key: 'batteryAboveUtility',
     message: 'Back-to-battery voltage should be above the back-to-utility voltage',
   },
   {
     id: 'R-VOLT-5', kind: 'compare', severity: 'warning',
     left: 'BatteryDischargeRecoveryMains', op: '<=', right: 'MaxChargingVoltage', offset: -0.4,
+    key: 'batteryBelowBulk',
     message: 'Back-to-battery voltage should be at most the bulk charging voltage - 0.4 V',
   },
 ];
@@ -109,12 +119,14 @@ const INACTIVE_RULES: SettingsRule[] = [
     id: 'R-EQ-1', kind: 'inactive',
     settings: ['EqChargingVoltage', 'BatteryEqualizationTime', 'EqualizationTimeoutExit', 'TwoEqChargingIntervals'],
     when: 'BatteryEqModeEnabled', in: [1],
+    key: 'onlyWithEqualization',
     reason: 'Only used while battery equalization is enabled',
   },
   {
     id: 'R-PRIO-1', kind: 'inactive',
     settings: ['BatteryDischargeRecoveryMains', 'BatteryLowVoltageProtectionMains'],
     when: 'OutputPriority', in: [1, 2],
+    key: 'onlyWithSolarFirst',
     reason: 'Only used with output priority Solar first or SBU',
   },
 ];
@@ -123,6 +135,7 @@ const LITHIUM_RULES: SettingsRule[] = [
   {
     id: 'R-TYPE-2', kind: 'avoid',
     setting: 'BatteryEqModeEnabled', value: 1,
+    key: 'neverEqualizeLithium',
     message: 'Never equalize a lithium battery',
   },
 ];

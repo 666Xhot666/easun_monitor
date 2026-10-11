@@ -247,5 +247,22 @@
     "wholeNumber": "{{field}} must be a whole number from {{min}} to {{max}}",
     "bmsNotFound": "BMS not found",
     "noBmsReading": "No BMS reading yet"
+  },
+  "settingsRules": {
+    "bulkAboveFloat": "Bulk charging voltage must be at least the float charging voltage",
+    "eqAboveFloat": "Equalization voltage must be at least the float charging voltage",
+    "utilityAboveCutoff": "Back-to-utility voltage must be above the low DC cut-off voltage",
+    "chargeAboveMains": "Max charging current must be at least the max utility charging current",
+    "utilityMarginAboveCutoff": "Back-to-utility voltage should be at least 1 V above the low DC cut-off, or the inverter warns of a low battery",
+    "eqTimeoutAboveTime": "Equalization timeout is normally at least the equalization time",
+    "overvoltageAboveBulk": "Battery overvoltage protection should be above the bulk charging voltage",
+    "overvoltageAboveEq": "Battery overvoltage protection should be above the equalization voltage",
+    "batteryAboveUtility": "Back-to-battery voltage should be above the back-to-utility voltage",
+    "batteryBelowBulk": "Back-to-battery voltage should be at most the bulk charging voltage - 0.4 V",
+    "onlyWithEqualization": "Only used while battery equalization is enabled",
+    "onlyWithSolarFirst": "Only used with output priority Solar first or SBU",
+    "neverEqualizeLithium": "Never equalize a lithium battery",
+    "forBattery": "for a {{voltage}} V battery",
+    "between": "Must be between {{min}} and {{max}}{{context}}"
   }
 }

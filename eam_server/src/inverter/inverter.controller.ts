@@ -7,6 +7,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Logger,
   NotFoundException,
   Param,
@@ -54,7 +55,8 @@ import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
-import { localized } from '../i18n/localized';
+import { localized, requestLanguage } from '../i18n/localized';
+import { wordConstraints } from './settings-rules/worded-constraints';
 
 /** The Wi-Fi Plug Pro's TCP port, used when none is given. */
 const DEFAULT_LOGGER_PORT = 8899;
@@ -459,9 +461,13 @@ export class InverterController {
   async getSettingsConstraints(
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return settingsConstraints(
-      await this.requireOwnedProfile(profileId, user.userId, 'read'),
+    return wordConstraints(
+      settingsConstraints(
+        await this.requireOwnedProfile(profileId, user.userId, 'read'),
+      ),
+      requestLanguage(acceptLanguage),
     );
   }
 
@@ -510,7 +516,9 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @Body() dto: UpdateSettingsDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
+    const language = requestLanguage(acceptLanguage);
     const profile = await this.requireOwnedProfile(
       profileId,
       user.userId,
@@ -525,7 +533,12 @@ export class InverterController {
     }
     try {
       return await this.deviceCall(() =>
-        this.settings.apply(profile, dto.changes, dto.acknowledgeWarnings),
+        this.settings.apply(
+          profile,
+          dto.changes,
+          dto.acknowledgeWarnings,
+          language,
+        ),
       );
     } catch (error) {
       if (!(error instanceof SettingsRuleError)) throw error;
@@ -534,7 +547,7 @@ export class InverterController {
         Object.keys(errors).length ? errors : warnings,
       ).map(
         ([name, messages]) =>
-          `${this.registers.get(name)?.label ?? name}: ${messages.join('; ')}`,
+          `${registerMapFor(language).get(name)?.label ?? name}: ${messages.join('; ')}`,
       );
       throw new BadRequestException({
         message: lines.join('\n'),
