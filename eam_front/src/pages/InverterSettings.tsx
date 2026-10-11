@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import i18n, { currentLocale } from '../i18n';
+import i18n, { currentLanguage, currentLocale } from '../i18n';
 import { useParams } from 'react-router-dom';
 import { Check, CircleAlert, Info, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import axios from '../lib/apiClient';
@@ -55,6 +55,7 @@ const sectionId = (title: string) => `settings-${title.toLowerCase().replace(/[^
  */
 export default function InverterSettings() {
   const { t } = useTranslation();
+  const language = currentLanguage();
   const { profileId } = useParams<{ profileId: string }>();
   const { user } = useAuth();
   // Readers see everything and change nothing; the server enforces the same.
@@ -141,7 +142,7 @@ export default function InverterSettings() {
   useEffect(() => {
     let cancelled = false;
     axios
-      .get<PanelSetting[]>('/api/inverter/panel-settings')
+      .get<PanelSetting[]>('/api/inverter/panel-settings', { params: { lang: language } })
       .then(({ data }) => {
         if (!cancelled) setPanelSettings(data);
       })
@@ -149,7 +150,7 @@ export default function InverterSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   // Leaving the page (reload, close) with edits not yet written asks first.
   useEffect(() => {
