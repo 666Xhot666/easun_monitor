@@ -138,7 +138,8 @@
     "h": "h",
     "m": "m",
     "s": "s",
-    "rpm": "rpm"
+    "rpm": "rpm",
+    "mV": "mV"
   },
   "overview": {
     "title": "Overview",
@@ -276,6 +277,79 @@
         "SERVER": "the site was down",
         "NETWORK": "the site could not be reached"
       }
+    }
+  },
+  "ageShort": {
+    "s": "{{count}}s",
+    "m": "{{count}}m",
+    "h": "{{count}}h",
+    "d": "{{count}}d"
+  },
+  "ranges": {
+    "1h": "1 h",
+    "24h": "24 h",
+    "7d": "7 d",
+    "30d": "30 d",
+    "1y": "1 y",
+    "2y": "2 y",
+    "label": "History range"
+  },
+  "battery": {
+    "title": "Battery",
+    "subtitleDevice": "{{name}} · as its BMS reports it",
+    "subtitle": "The pack as its BMS reports it",
+    "noMonitor": "No battery monitor yet",
+    "setUp": "Set up a battery monitor",
+    "noMonitorBody": "With a BMS reader connected, this page shows the pack’s charge, every cell, temperatures and alarms.",
+    "askAdmin": "Ask a household admin to set one up.",
+    "noReading": "No reading from the BMS yet. Start the BMS reader and check its token.",
+    "staleReading": "Last reading {{age}} ago, not current",
+    "pack": "Pack",
+    "live": "Live · {{age}} ago",
+    "idle": "Idle",
+    "charging": "Charging",
+    "discharging": "Discharging",
+    "etaFull": "Full in {{time}} at the current rate",
+    "etaEmpty": "Empty in {{time}} at the current rate",
+    "packVoltage": "Pack voltage",
+    "current": "Current",
+    "intoPack": "into the pack",
+    "outOfPack": "out of the pack",
+    "power": "Power",
+    "remaining": "Remaining",
+    "ofCapacity": "of {{capacity}}",
+    "cycles": "Cycles",
+    "cells": "Cells",
+    "spread": "Spread {{mv}} mV",
+    "scale": "Scale {{min}}–{{max}} · LiFePO4",
+    "cellVoltages": "Cell voltages",
+    "cell": "Cell {{n}}: {{voltage}}",
+    "low": "Low",
+    "high": "High",
+    "min": "Min",
+    "avg": "Avg",
+    "max": "Max",
+    "status": "Status",
+    "balancing": "Balancing",
+    "balancingAt": "Balancing ({{current}})",
+    "chargeMosfet": "Charge MOSFET",
+    "dischargeMosfet": "Discharge MOSFET",
+    "on": "On",
+    "off": "Off",
+    "temperatures": "Temperatures",
+    "alarms": "Alarms",
+    "noAlarms": "No alarms",
+    "settings": "Battery monitor settings",
+    "history": "History",
+    "latest": "Latest",
+    "now": "Now",
+    "noStored": "No stored BMS readings in this range.",
+    "loadFailed": "Couldn’t load the battery history.",
+    "series": {
+      "stateOfChargePct": "State of charge",
+      "packVoltageV": "Pack voltage",
+      "currentA": "Current",
+      "cellDeltaV": "Cell spread"
     }
   }
 }

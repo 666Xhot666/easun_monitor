@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { BatteryMedium } from 'lucide-react';
 import BmsHistoryCharts from '../bms/BmsHistoryCharts';
 import BmsLivePanel from '../bms/BmsLivePanel';
@@ -9,6 +10,7 @@ import { EmptyState, PageHeader } from '../ui';
 
 /** The battery as its BMS reports it: live values, cells, status and history. */
 export default function BatteryPage() {
+  const { t } = useTranslation();
   const { profile, isAdmin } = useLiveData();
   const { devices } = useBmsDevices(profile.id);
   // One BMS per inverter for now; the data model allows more.
@@ -18,23 +20,23 @@ export default function BatteryPage() {
 
   return (
     <>
-      <PageHeader title="Battery" subtitle={device ? `${device.name} · as its BMS reports it` : 'The pack as its BMS reports it'} />
+      <PageHeader title={t('battery.title')} subtitle={device ? t('battery.subtitleDevice', { name: device.name }) : t('battery.subtitle')} />
       {devices === null ? (
         <div className="h-64 animate-pulse rounded-xl border border-line bg-surface-2" aria-busy="true" />
       ) : !device ? (
         <EmptyState
           icon={<BatteryMedium className="h-7 w-7" />}
-          title="No battery monitor yet"
+          title={t('battery.noMonitor')}
           action={
             isAdmin && (
               <Link to={settingsHref} className="inline-flex h-10 items-center rounded-lg bg-ink px-4 text-sm font-semibold text-page">
-                Set up a battery monitor
+                {t('battery.setUp')}
               </Link>
             )
           }
         >
-          With a BMS reader connected, this page shows the pack’s charge, every cell, temperatures and alarms.
-          {!isAdmin && ' Ask a household admin to set one up.'}
+          {t('battery.noMonitorBody')}
+          {!isAdmin && ` ${t('battery.askAdmin')}`}
         </EmptyState>
       ) : (
         <div className="space-y-4">
