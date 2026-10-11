@@ -2,6 +2,7 @@ import { INestApplication, ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import { json, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
+import { LocalizedErrorFilter } from './i18n/localized';
 
 /**
  * Middleware and global pipes shared by main.ts and the e2e tests, so the
@@ -25,6 +26,9 @@ export function configureApp(app: INestApplication): void {
     (req: Request, res: Response, next: NextFunction) =>
       largeJson(req, res, next),
   );
+
+  // Error messages in the language each request asks for.
+  app.useGlobalFilters(new LocalizedErrorFilter());
 
   app.useGlobalPipes(
     new ValidationPipe({

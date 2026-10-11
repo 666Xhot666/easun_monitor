@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { lookup as dnsLookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { localized } from '../i18n/localized';
 
 export interface LoggerAddressPolicyOptions {
   /** ALLOW_PUBLIC_LOGGER_HOSTS=true: skip the private-network check. */
@@ -39,15 +40,12 @@ export class LoggerAddressPolicy {
       try {
         addresses = await this.lookup(host);
       } catch {
-        throw new BadRequestException(`The logger address ${host} could not be resolved`);
+        throw new BadRequestException(localized('loggerUnresolved', { host }));
       }
     }
 
     if (addresses.length === 0 || !addresses.every(isPrivateAddress)) {
-      throw new BadRequestException(
-        `The logger address ${host} is not on a private network. ` +
-          `Use the logger's LAN address, or set ALLOW_PUBLIC_LOGGER_HOSTS=true.`,
-      );
+      throw new BadRequestException(localized('loggerNotPrivate', { host }));
     }
   }
 }

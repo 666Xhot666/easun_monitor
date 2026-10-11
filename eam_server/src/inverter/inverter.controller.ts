@@ -54,6 +54,7 @@ import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { localized } from '../i18n/localized';
 
 /** The Wi-Fi Plug Pro's TCP port, used when none is given. */
 const DEFAULT_LOGGER_PORT = 8899;
@@ -139,9 +140,7 @@ export class InverterController {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
     const householdId = await this.households.adminHouseholdId(user.userId);
     if (householdId === null) {
-      throw new ForbiddenException(
-        'Only a household admin can add an inverter, and you have no household of your own',
-      );
+      throw new ForbiddenException(localized('adminOnlyInverter'));
     }
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.create({
@@ -181,7 +180,7 @@ export class InverterController {
         where: { id: dto.pvPanelTypeId, householdId: current.householdId },
       });
       if (!owned) {
-        throw new BadRequestException('Unknown panel type');
+        throw new BadRequestException(localized('unknownPanelType'));
       }
     }
 
@@ -235,7 +234,10 @@ export class InverterController {
       // 400, not 500: a wrong or unreachable address is an expected,
       // user-actionable outcome of this endpoint, not a server fault.
       throw new BadRequestException(
-        `Couldn't verify the logger at ${dto.ipAddress}: ${message}`,
+        localized('loggerUnverified', {
+          address: dto.ipAddress,
+          reason: message,
+        }),
       );
     }
   }
@@ -261,7 +263,7 @@ export class InverterController {
     const latest = await this.telemetry.latest(profileId);
 
     if (!latest) {
-      throw new NotFoundException('No inverter readings recorded yet');
+      throw new NotFoundException(localized('noReadingsYet'));
     }
 
     const payload = latest.payload as Record<string, number>;
@@ -313,12 +315,10 @@ export class InverterController {
     const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
     const span = to.getTime() - from.getTime();
     if (span <= 0) {
-      throw new BadRequestException('`from` must be before `to`');
+      throw new BadRequestException(localized('fromBeforeTo'));
     }
     if (span > MAX_HISTORY_SPAN_MS) {
-      throw new BadRequestException(
-        'A history range can cover at most 5 years',
-      );
+      throw new BadRequestException(localized('historyTooLong', { years: 5 }));
     }
 
     return this.telemetry.history(profileId, {
@@ -409,7 +409,9 @@ export class InverterController {
       const language = languageOr(query.lang);
       csv = new ReadingsCsv(registerMapFor(language), timeZone, language);
     } catch {
-      throw new BadRequestException(`Unknown time zone "${timeZone}"`);
+      throw new BadRequestException(
+        localized('unknownTimeZone', { zone: timeZone }),
+      );
     }
 
     const day = (date: Date) => date.toISOString().slice(0, 10);
@@ -516,7 +518,7 @@ export class InverterController {
     );
     const entries = Object.entries(dto.changes);
     if (entries.length === 0) {
-      throw new BadRequestException('No settings to change');
+      throw new BadRequestException(localized('noSettings'));
     }
     if (entries.some(([, value]) => typeof value !== 'number')) {
       throw new BadRequestException('Every setting value must be a number');
@@ -564,7 +566,7 @@ export class InverterController {
     return this.deviceCall(async () => {
       const { OperationMode } = await link.read(['telemetry']);
       if (OperationMode !== faultMode) {
-        throw new ConflictException('The inverter is not in fault mode');
+        throw new ConflictException(localized('notInFaultMode'));
       }
       await link.command('ExitFaultMode', 1);
       return { success: true as const };
@@ -600,9 +602,7 @@ export class InverterController {
       return await write();
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
-        throw new ConflictException(
-          'This logger address and port is already paired with an inverter profile',
-        );
+        throw new ConflictException(localized('loggerPaired'));
       }
       throw error;
     }
@@ -630,9 +630,9 @@ export class InverterController {
 function checkReadingsSpan(from: Date, to: Date): void {
   const span = to.getTime() - from.getTime();
   if (span <= 0) {
-    throw new BadRequestException('`from` must be before `to`');
+    throw new BadRequestException(localized('fromBeforeTo'));
   }
   if (span > MAX_READINGS_SPAN_MS) {
-    throw new BadRequestException('A range can cover at most 31 days');
+    throw new BadRequestException(localized('rangeTooLong', { days: 31 }));
   }
 }

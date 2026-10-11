@@ -15,6 +15,7 @@ import {
   type ServerNotice,
 } from './server-alerts';
 import { ServerAccessService } from './server-access.service';
+import { localized } from '../i18n/localized';
 
 export const DEFAULT_LIMITS: AlertThresholds = {
   heatC: 90,
@@ -45,7 +46,7 @@ export function parseLimits(body: unknown): AlertThresholds {
     const v = o[key];
     if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) {
       throw new BadRequestException(
-        `${key} must be a whole number from ${min} to ${max}`,
+        localized('wholeNumber', { field: key, min, max }),
       );
     }
     limits[key] = v as number;

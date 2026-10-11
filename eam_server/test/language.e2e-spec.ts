@@ -48,4 +48,33 @@ describe('Language (e2e)', () => {
       .send({ language: 'uk' })
       .expect(401);
   });
+
+  it('words error messages in the language the request asks for', async () => {
+    const login = (password: string, language?: string) => {
+      const r = request(app.getHttpServer()).post('/api/auth/login');
+      if (language) r.set('Accept-Language', language);
+      return r.send({ email: 'user@example.com', password });
+    };
+
+    const uk = await login('wrong-password', 'uk-UA,uk;q=0.9').expect(401);
+    expect(uk.body).toEqual({
+      statusCode: 401,
+      message: 'Неправильна пошта або пароль',
+    });
+    expect((await login('wrong-password').expect(401)).body.message).toBe(
+      'Invalid email or password',
+    );
+    expect((await login('wrong-password', 'ru').expect(401)).body.message).toBe(
+      'Invalid email or password',
+    );
+
+    const short = await request(app.getHttpServer())
+      .post('/api/auth/register')
+      .set('Accept-Language', 'uk')
+      .send({ email: 'other@example.com', password: 'short' })
+      .expect(400);
+    expect(short.body.message).toContain(
+      'Пароль має містити щонайменше 8 символів',
+    );
+  });
 });

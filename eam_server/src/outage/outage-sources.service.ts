@@ -12,6 +12,7 @@ import { HouseholdsService } from '../households/households.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { PutOutageSourceDto } from './dto/put-outage-source.dto';
 import type { PutSiteStreetsDto } from './dto/put-site-streets.dto';
+import { localized } from '../i18n/localized';
 
 /** The only DTEK site so far: DTEK Dnipro. */
 const SITE = 'dnem';
@@ -146,9 +147,7 @@ export class OutageSourcesService {
     });
     if (!source) throw new NotFoundException('No outage source here');
     if (!source.enabled) {
-      throw new ConflictException(
-        'Checking the outage schedule is switched off',
-      );
+      throw new ConflictException(localized('checkingOff'));
     }
     if (
       source.refreshRequestedAt &&
@@ -162,7 +161,7 @@ export class OutageSourcesService {
       const ago = Math.floor(age / 60_000);
       const wait = Math.ceil((REFRESH_EVERY_MS - age) / 60_000);
       throw new HttpException(
-        `Checked ${ago} min ago; try again in ${wait} min`,
+        localized('checkedRecently', { ago, wait }),
         HttpStatus.TOO_MANY_REQUESTS,
       );
     }
@@ -219,7 +218,7 @@ export class OutageSourcesService {
 
   async streets(city: string): Promise<string[]> {
     const list = (await this.siteStreets())?.[city];
-    if (!list) throw new NotFoundException('No such city on the site');
+    if (!list) throw new NotFoundException(localized('noSuchCity'));
     return list;
   }
 
@@ -239,11 +238,11 @@ export class OutageSourcesService {
     const streets = await this.siteStreets();
     if (!streets) return;
     if (!streets[city]) {
-      throw new BadRequestException(`${city} is not on the site's list`);
+      throw new BadRequestException(localized('cityNotListed', { city }));
     }
     if (!streets[city].includes(street)) {
       throw new BadRequestException(
-        `${street} is not on the site's list for ${city}`,
+        localized('streetNotListed', { street, city }),
       );
     }
   }

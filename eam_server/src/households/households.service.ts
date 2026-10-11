@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { localized } from '../i18n/localized';
 
 /** read: any member. write: admins only. */
 export type Access = 'read' | 'write';
@@ -55,12 +56,12 @@ export class HouseholdsService {
     const panelType = await this.prisma.panelType.findUnique({
       where: { id: panelTypeId },
     });
-    if (!panelType) throw new NotFoundException('Panel type not found');
+    if (!panelType) throw new NotFoundException(localized('panelTypeNotFound'));
     await this.requireHousehold(
       panelType.householdId,
       userId,
       access,
-      'Panel type not found',
+      localized('panelTypeNotFound'),
     );
     return panelType;
   }
@@ -79,7 +80,7 @@ export class HouseholdsService {
     householdId: number,
     userId: number,
     access: Access,
-    notFound: string,
+    notFound: string | ReturnType<typeof localized>,
   ): Promise<void> {
     const membership = await this.prisma.membership.findUnique({
       where: { userId_householdId: { userId, householdId } },
@@ -87,7 +88,7 @@ export class HouseholdsService {
     });
     if (!membership) throw new NotFoundException(notFound);
     if (access === 'write' && membership.role !== 'ADMIN') {
-      throw new ForbiddenException('Read-only access to this household');
+      throw new ForbiddenException(localized('readOnly'));
     }
   }
 }

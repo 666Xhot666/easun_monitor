@@ -6,6 +6,7 @@ import {
 import { HouseholdRole } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { HouseholdsService } from './households.service';
+import { localized } from '../i18n/localized';
 
 const MEMBER_FIELDS = {
   userId: true,
@@ -55,13 +56,12 @@ export class MembersService {
       const target = await tx.membership.findUnique({
         where: { userId_householdId: { userId: targetUserId, householdId } },
       });
-      if (!target) throw new NotFoundException('Member not found');
+      if (!target) throw new NotFoundException(localized('memberNotFound'));
       if (target.role === 'ADMIN' && role === 'READER') {
         const admins = await tx.membership.count({
           where: { householdId, role: 'ADMIN' },
         });
-        if (admins === 1)
-          throw new ConflictException('A household needs at least one admin');
+        if (admins === 1) throw new ConflictException(localized('needAdmin'));
       }
       if (target.role !== 'ADMIN' && role === 'ADMIN') {
         const adminElsewhere = await tx.membership.count({
@@ -72,9 +72,7 @@ export class MembersService {
           },
         });
         if (adminElsewhere) {
-          throw new ConflictException(
-            'This member already runs another household and cannot be an admin here',
-          );
+          throw new ConflictException(localized('adminElsewhere'));
         }
       }
       const updated = await tx.membership.update({
@@ -97,13 +95,12 @@ export class MembersService {
       const target = await tx.membership.findUnique({
         where: { userId_householdId: { userId: targetUserId, householdId } },
       });
-      if (!target) throw new NotFoundException('Member not found');
+      if (!target) throw new NotFoundException(localized('memberNotFound'));
       if (target.role === 'ADMIN') {
         const admins = await tx.membership.count({
           where: { householdId, role: 'ADMIN' },
         });
-        if (admins === 1)
-          throw new ConflictException('A household needs at least one admin');
+        if (admins === 1) throw new ConflictException(localized('needAdmin'));
       }
       await tx.membership.delete({ where: { id: target.id } });
     });
