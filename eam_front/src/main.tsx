@@ -4,11 +4,16 @@ import { BrowserRouter } from 'react-router-dom'
 import './lib/apiClient'
 import './i18n'
 // Served with the app instead of from Google Fonts: no render-blocking
-// third-party request, and the app works without internet access.
-import '@fontsource/instrument-sans/latin-400.css'
-import '@fontsource/instrument-sans/latin-500.css'
-import '@fontsource/instrument-sans/latin-600.css'
-import '@fontsource/instrument-sans/latin-700.css'
+// third-party request, and the app works without internet access. Latin and
+// Cyrillic, for English and Ukrainian.
+import '@fontsource/inter/latin-400.css'
+import '@fontsource/inter/latin-500.css'
+import '@fontsource/inter/latin-600.css'
+import '@fontsource/inter/latin-700.css'
+import '@fontsource/inter/cyrillic-400.css'
+import '@fontsource/inter/cyrillic-500.css'
+import '@fontsource/inter/cyrillic-600.css'
+import '@fontsource/inter/cyrillic-700.css'
 import '@fontsource/jetbrains-mono/latin-400.css'
 import '@fontsource/jetbrains-mono/latin-500.css'
 import '@fontsource/jetbrains-mono/cyrillic-400.css'
