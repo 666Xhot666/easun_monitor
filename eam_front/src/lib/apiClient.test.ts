@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import i18n from '../i18n';
 import { fakeServer } from '../test/fakeServer';
 import axios, { clearAccessToken, getAccessToken, setAccessToken } from './apiClient';
 
@@ -23,6 +24,16 @@ describe('apiClient', () => {
     expect(sent[0].headers.get('Authorization')).toBe('Bearer token-1');
     expect(localStorage.length).toBe(0);
     expect(sessionStorage.length).toBe(0);
+  });
+
+  it('asks for answers in the current language', async () => {
+    const server = fakeServer(() => ({ status: 200, data: {} }));
+    restore = server.restore;
+    await axios.get('/api/a');
+    await i18n.changeLanguage('uk');
+    await axios.get('/api/b');
+
+    expect(server.sent.map((c) => c.headers.get('Accept-Language'))).toEqual(['en', 'uk']);
   });
 
   it('refreshes once on a 401 and retries with the new token', async () => {
