@@ -77,6 +77,26 @@ describe('Alert history (e2e)', () => {
     ]);
   });
 
+  it('words the alerts in the language asked for; older text-only ones as they are', async () => {
+    await prisma.alertEvent.create({
+      data: {
+        inverterProfileId: profileId,
+        kind: 'warning',
+        text: 'Kept as text',
+      },
+    });
+    const res = await request(app.getHttpServer())
+      .get(`/api/inverter/${profileId}/alerts`)
+      .query({ lang: 'uk' })
+      .set('Authorization', `Bearer ${owner}`)
+      .expect(200);
+    expect(res.body.map((a: { text: string }) => a.text)).toEqual([
+      'Kept as text',
+      'Мережа повернулася',
+      'Мережа зникла',
+    ]);
+  });
+
   it("keeps an inverter's alerts from other households", async () => {
     await request(app.getHttpServer())
       .get(`/api/inverter/${profileId}/alerts`)

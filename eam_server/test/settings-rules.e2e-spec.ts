@@ -76,6 +76,14 @@ describe('Settings rules (e2e)', () => {
       expect.objectContaining({ id: 'R-TYPE-2', setting: 'BatteryEqModeEnabled' }),
     );
     expect(exchanges()).toBe(before);
+
+    const uk = await call('get', `/api/inverter/${id}/settings/constraints`)
+      .set('Accept-Language', 'uk')
+      .expect(200);
+    expect(uk.body.rules).toContainEqual(
+      expect.objectContaining({ id: 'R-TYPE-2', message: 'Ніколи не вирівнюйте літієвий акумулятор' }),
+    );
+    expect(uk.body.bounds.MaxChargingVoltage.context).toBe('для акумулятора 24 В');
   });
 
   it('refuses changes that break a settings rule, writing nothing', async () => {

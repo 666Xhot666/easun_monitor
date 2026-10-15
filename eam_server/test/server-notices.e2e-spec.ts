@@ -106,6 +106,13 @@ describe('Server notices (e2e)', () => {
         at: expect.any(String),
       },
     ]);
+    const uk = await as(viewer)
+      .get('/api/server/alerts')
+      .query({ lang: 'uk' })
+      .expect(200);
+    expect(uk.body.events[0].text).toBe(
+      'Сервер: перегрів, 93 °C (Package id 0)',
+    );
     await report(60);
     expect(telegram.sent.map((m) => m.text)[2]).toBe(
       'Server: temperature back to 60 °C',

@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { dateLocale, withUnit } from '../i18n/format';
 import { format, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from '../lib/apiClient';
@@ -7,24 +9,22 @@ import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
 import { Segmented } from '../ui';
 
 type Span = 7 | 30;
-const SPANS: { value: '7' | '30'; label: string }[] = [
-  { value: '7', label: '7 days' },
-  { value: '30', label: '30 days' },
-];
+const SPANS: ('7' | '30')[] = ['7', '30'];
 
 interface DayTotals {
   day: Day;
   totals: EnergyTotals | null;
 }
 
-const kWh = (v: number) => `${v.toFixed(1)} kWh`;
-const label = (day: Day) => format(parseISO(day), 'd MMM');
+const kWh = (v: number) => withUnit(v, 'kWh', 1);
+const label = (day: Day) => format(parseISO(day), 'd MMM', { locale: dateLocale() });
 
 /** The days of a period ending on `last`, oldest first. */
 const daysEnding = (last: Day, span: Span): Day[] => Array.from({ length: span }, (_, i) => shiftDay(last, i - span + 1));
 
 /** Energy per day over the last 7 or 30 days: totals, and where each day's load came from. */
 export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { profileId: number; today?: Day }) {
+  const { t } = useTranslation();
   const [span, setSpan] = useState<Span>(7);
   const [last, setLast] = useState<Day>(today);
   const [data, setData] = useState<DayTotals[] | null>(null);
@@ -61,13 +61,13 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
   const maxLoad = Math.max(1, ...known.map((t) => t.outputKWh));
   const pick = data?.find((d) => d.day === selected)?.totals ?? null;
   const pickSources = pick ? loadSources(pick) : null;
-  const periodLabel = `${format(parseISO(first), 'd MMM')} – ${format(parseISO(last), 'd MMM yyyy')}`;
+  const periodLabel = `${label(first)} – ${format(parseISO(last), 'd MMM yyyy', { locale: dateLocale() })}`;
 
   const tiles = [
-    { name: 'Solar', colour: 'var(--pv)', value: data ? kWh(period.pvKWh) : '--' },
-    { name: 'Grid', colour: 'var(--grid)', value: data ? kWh(period.gridKWh) : '--' },
-    { name: 'Load', colour: 'var(--load)', value: data ? kWh(period.outputKWh) : '--' },
-    { name: 'Self-sufficiency', colour: 'var(--good)', value: ss === undefined || !data ? '--' : `${ss}%` },
+    { name: t('daily.solar'), colour: 'var(--pv)', value: data ? kWh(period.pvKWh) : '--' },
+    { name: t('daily.grid'), colour: 'var(--grid)', value: data ? kWh(period.gridKWh) : '--' },
+    { name: t('daily.load'), colour: 'var(--load)', value: data ? kWh(period.outputKWh) : '--' },
+    { name: t('daily.selfSufficiency'), colour: 'var(--good)', value: ss === undefined || !data ? '--' : `${ss}%` },
   ];
   const navButton = 'grid h-9 w-9 place-items-center rounded-lg border border-line-strong hover:bg-surface-2 disabled:opacity-40';
 
@@ -75,9 +75,9 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
       <div className="flex flex-wrap items-center gap-2">
         <Segmented
-          ariaLabel="Period"
+          ariaLabel={t('daily.period')}
           size="sm"
-          options={SPANS}
+          options={SPANS.map((value) => ({ value, label: t(`daily.spans.${value}`) }))}
           value={String(span) as '7' | '30'}
           onChange={(v) => {
             setSpan(Number(v) as Span);
@@ -85,13 +85,13 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
             setSelected(today);
           }}
         />
-        <button type="button" aria-label="Previous period" className={navButton} onClick={() => setLast(shiftDay(first, -1))}>
+        <button type="button" aria-label={t('daily.previous')} className={navButton} onClick={() => setLast(shiftDay(first, -1))}>
           <ChevronLeft className="h-4 w-4" />
         </button>
         <span className="rounded-lg border border-line-strong px-3 py-1.5 text-sm font-semibold">{periodLabel}</span>
         <button
           type="button"
-          aria-label="Next period"
+          aria-label={t('daily.next')}
           className={navButton}
           disabled={last >= today}
           onClick={() => {
@@ -102,16 +102,16 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      <p className="mt-2 text-[13px] text-muted">Where the load’s energy came from, per day</p>
+      <p className="mt-2 text-[13px] text-muted">{t('daily.sourcesPerDay')}</p>
 
       <div className="mt-3 grid grid-cols-2 gap-2.5 md:grid-cols-4">
-        {tiles.map((t) => (
-          <div key={t.name} role="group" aria-label={t.name} className="rounded-[10px] bg-surface-2 p-3">
+        {tiles.map((tile) => (
+          <div key={tile.name} role="group" aria-label={tile.name} className="rounded-[10px] bg-surface-2 p-3">
             <p className="flex items-center gap-1.5 text-xs text-muted">
-              <span className="h-2 w-2 rounded-[2px]" style={{ background: t.colour }} />
-              {t.name}
+              <span className="h-2 w-2 rounded-[2px]" style={{ background: tile.colour }} />
+              {tile.name}
             </p>
-            <p className="mt-1 text-[22px] font-semibold tabular-nums">{t.value}</p>
+            <p className="mt-1 text-[22px] font-semibold tabular-nums">{tile.value}</p>
           </div>
         ))}
       </div>
@@ -123,13 +123,13 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
             <b>{label(selected)}</b>
             {pickSources && pick ? (
               <>
-                <Legend colour="var(--pv)" name="Solar direct" value={kWh(pickSources.solar)} />
-                <Legend colour="var(--batt)" name="From battery" value={kWh(pickSources.battery)} />
-                <Legend colour="var(--grid)" name="From grid" value={kWh(pickSources.grid)} />
-                <Legend colour="var(--pv-fill)" name="Solar produced" value={kWh(pick.pvKWh)} />
+                <Legend colour="var(--pv)" name={t('daily.solarDirect')} value={kWh(pickSources.solar)} />
+                <Legend colour="var(--batt)" name={t('daily.fromBattery')} value={kWh(pickSources.battery)} />
+                <Legend colour="var(--grid)" name={t('daily.fromGrid')} value={kWh(pickSources.grid)} />
+                <Legend colour="var(--pv-fill)" name={t('daily.solarProduced')} value={kWh(pick.pvKWh)} />
               </>
             ) : (
-              <span className="text-muted">No data for this day</span>
+              <span className="text-muted">{t('daily.noData')}</span>
             )}
           </div>
           <div className="mt-3 flex h-56 items-end gap-[3px]">
@@ -142,7 +142,7 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
                   key={day}
                   type="button"
                   aria-pressed={isSelected}
-                  aria-label={`${label(day)}: ${totals ? totals.outputKWh.toFixed(1) : '--'} kWh load`}
+                  aria-label={t('daily.barLabel', { day: label(day), load: totals ? kWh(totals.outputKWh) : '--' })}
                   onClick={() => setSelected(day)}
                   className={'flex h-full min-w-0 flex-1 flex-col justify-end rounded-t-[3px] ' + (isSelected ? '' : 'opacity-60 hover:opacity-90')}
                 >

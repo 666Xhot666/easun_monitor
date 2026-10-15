@@ -28,6 +28,7 @@ describe('powerChartSvg', () => {
     from: FROM,
     to: TO,
     timeZone: 'UTC',
+    language: 'en',
     maxGapMs: 30 * 60_000,
   });
 
@@ -55,6 +56,7 @@ describe('powerChartSvg', () => {
         from: FROM,
         to: TO,
         timeZone: 'UTC',
+        language: 'en',
         maxGapMs: 1,
       }),
     ).toContain('No readings');
@@ -68,6 +70,7 @@ describe('svgToPng', () => {
         from: FROM,
         to: TO,
         timeZone: 'UTC',
+        language: 'en',
         maxGapMs: 30 * 60_000,
       }),
     );

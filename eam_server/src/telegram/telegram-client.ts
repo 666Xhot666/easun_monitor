@@ -2,13 +2,19 @@
 export const TELEGRAM_CLIENT = Symbol('TELEGRAM_CLIENT');
 
 /** One incoming update, as much of it as the bot uses. */
+/** Who sent an update: the language their Telegram app is in. */
+export interface TelegramUser {
+  language_code?: string;
+}
+
 export interface TelegramUpdate {
   update_id: number;
-  message?: { chat: { id: number }; text?: string };
+  message?: { chat: { id: number }; text?: string; from?: TelegramUser };
   /** A press on an inline button. */
   callback_query?: {
     id: string;
     data?: string;
+    from?: TelegramUser;
     message?: { message_id: number; chat: { id: number } };
   };
 }
@@ -55,7 +61,8 @@ export interface TelegramClient {
     caption?: string,
     options?: MessageOptions,
   ): Promise<void>;
-  setCommands(commands: BotCommand[]): Promise<void>;
+  /** The "/" menu; for apps in `languageCode`, or the default one. */
+  setCommands(commands: BotCommand[], languageCode?: string): Promise<void>;
 }
 
 const messageFields = (options?: MessageOptions) => ({
@@ -149,8 +156,14 @@ export class HttpTelegramClient implements TelegramClient {
     await this.request('sendPhoto', { method: 'POST', body: form });
   }
 
-  async setCommands(commands: BotCommand[]): Promise<void> {
-    await this.call('setMyCommands', { commands });
+  async setCommands(
+    commands: BotCommand[],
+    languageCode?: string,
+  ): Promise<void> {
+    await this.call('setMyCommands', {
+      commands,
+      ...(languageCode && { language_code: languageCode }),
+    });
   }
 
   private call<T>(method: string, body: object): Promise<T> {

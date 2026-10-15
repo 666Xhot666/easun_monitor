@@ -1,4 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
+import { num, withUnit } from '../i18n/format';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import axios from '../lib/apiClient';
@@ -11,8 +14,8 @@ import ServerHistory from './ServerHistory';
 import type { HostSample, ServerStatus } from './types';
 
 const REFRESH_MS = 30_000;
-const gb = (n: number) => `${(n / 1e9).toFixed(1)} GB`;
-const celsius = (n: number) => `${Math.round(n * 10) / 10} °C`;
+const gb = (n: number) => `${num(n / 1e9, 1)} ${i18n.t('units.GB')}`;
+const celsius = (n: number) => `${num(Math.round(n * 10) / 10, Number.isInteger(Math.round(n * 10) / 10) ? 0 : 1)} °C`;
 /** A sensor's own label, or its device's name when the label is only a number. */
 const sensorName = (t: HostSample['temperatures'][number]) => (/^temp\d+$/.test(t.label) ? t.device : t.label);
 
@@ -42,6 +45,7 @@ interface Props {
 
 /** The host the app runs on, as the server agent last reported it. Owner and viewers. */
 export default function ServerPage({ now: fixedNow }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [status, setStatus] = useState<ServerStatus | null>(null);
   const [failed, setFailed] = useState(false);
@@ -73,7 +77,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
   const sample = status?.sample ?? null;
   const age = sample ? now - Date.parse(sample.at) : 0;
   const header = (
-    <PageHeader title="Server" subtitle={sample ? `Updated ${ageText(age)} ago` : 'The host the app runs on'} />
+    <PageHeader title={t('server.title')} subtitle={sample ? t('server.updatedAgo', { age: ageText(age) }) : t('server.subtitle')} />
   );
 
   if (failed && !status) {
@@ -81,7 +85,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
       <>
         {header}
         <p role="alert" className="text-sm text-crit-ink">
-          Couldn’t load the server’s state.
+          {t('server.loadFailed')}
         </p>
       </>
     );
@@ -94,14 +98,14 @@ export default function ServerPage({ now: fixedNow }: Props) {
         <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">
           {user?.server === 'OWNER' ? (
             <>
-              No report from the server agent yet. Set it up in{' '}
+              {t('server.noReportOwner')}{' '}
               <Link to="../settings/server-access" relative="path" className="underline">
-                Settings › Server access
+                {t('server.settingsLink')}
               </Link>
               .
             </>
           ) : (
-            'The server agent is not set up yet.'
+            t('server.notSetUp')
           )}
         </p>
       </>
@@ -118,20 +122,20 @@ export default function ServerPage({ now: fixedNow }: Props) {
       {header}
       {status.stale && (
         <p role="alert" className="mb-4 rounded-lg border border-warn-line bg-warn-bg px-3 py-2 text-sm text-warn-ink">
-          No report from the agent for {ageText(age)}; these values are old.
+          {t('server.stale', { age: ageText(age) })}
         </p>
       )}
       <div className={'grid gap-4 md:grid-cols-2 lg:grid-cols-3 ' + (status.stale ? 'opacity-80' : '')}>
-        <Panel title="CPU">
+        <Panel title={t('server.cpu')}>
           <p className="text-[26px] font-semibold tabular-nums">{cpu.usagePercent === null ? '—' : `${cpu.usagePercent} %`}</p>
-          {cpu.usagePercent !== null && <Bar percent={cpu.usagePercent} label="CPU use" />}
-          <p className="mt-2 text-muted">Load {cpu.load.map((l) => l.toFixed(2)).join(' · ')}</p>
+          {cpu.usagePercent !== null && <Bar percent={cpu.usagePercent} label={t('server.cpuUse')} />}
+          <p className="mt-2 text-muted">{t('server.load', { values: cpu.load.map((l) => num(l, 2)).join(' · ') })}</p>
           {cpu.coresPercent.length > 0 && (
-            <p className="mt-1 text-xs text-muted">Cores {cpu.coresPercent.map((c) => `${Math.round(c)} %`).join(' · ')}</p>
+            <p className="mt-1 text-xs text-muted">{t('server.cores', { values: cpu.coresPercent.map((c) => `${Math.round(c)} %`).join(' · ') })}</p>
           )}
         </Panel>
 
-        <Panel title="Temperatures">
+        <Panel title={t('server.temperatures')}>
           <p className="text-[26px] font-semibold tabular-nums">{hottest === null ? '—' : celsius(hottest)}</p>
           <ul className="mt-2 divide-y divide-line">
             {sample.temperatures.map((t) => (
@@ -141,50 +145,44 @@ export default function ServerPage({ now: fixedNow }: Props) {
               </li>
             ))}
           </ul>
-          {sample.temperatures.length === 0 && <p className="text-muted">No temperature sensors found.</p>}
+          {sample.temperatures.length === 0 && <p className="text-muted">{t('server.noSensors')}</p>}
         </Panel>
 
-        <Panel title="Fan">
+        <Panel title={t('server.fan')}>
           {sample.fans.length === 0 ? (
-            <p className="text-muted">No fan found.</p>
+            <p className="text-muted">{t('server.noFan')}</p>
           ) : (
             sample.fans.map((f) => (
               <p key={`${f.device}-${f.label}`} className="text-[26px] font-semibold tabular-nums">
-                {f.rpm.toLocaleString('en-US')} rpm
+                {withUnit(f.rpm, 'rpm')}
               </p>
             ))
           )}
         </Panel>
 
-        <Panel title="Memory">
-          <p>
-            {gb(memoryUsed)} of {gb(memory.totalBytes)} used
-          </p>
-          {memory.totalBytes > 0 && <Bar percent={(memoryUsed / memory.totalBytes) * 100} label="Memory use" />}
+        <Panel title={t('server.memory')}>
+          <p>{t('server.used', { used: gb(memoryUsed), total: gb(memory.totalBytes) })}</p>
+          {memory.totalBytes > 0 && <Bar percent={(memoryUsed / memory.totalBytes) * 100} label={t('server.memoryUse')} />}
           {memory.swapTotalBytes > 0 && (
-            <p className="mt-2 text-muted">
-              Swap {gb(swapUsed)} of {gb(memory.swapTotalBytes)}
-            </p>
+            <p className="mt-2 text-muted">{t('server.swap', { used: gb(swapUsed), total: gb(memory.swapTotalBytes) })}</p>
           )}
         </Panel>
 
-        <Panel title="Storage">
+        <Panel title={t('server.storage')}>
           <ul className="space-y-3">
             {sample.disks.map((d) => (
               <li key={d.mount}>
                 <p className="flex justify-between gap-2">
                   <span className="font-mono">{d.mount}</span>
-                  <span>
-                    {bytes(d.freeBytes)} free of {bytes(d.totalBytes)}
-                  </span>
+                  <span>{t('server.free', { free: bytes(d.freeBytes), total: bytes(d.totalBytes) })}</span>
                 </p>
-                {d.totalBytes > 0 && <Bar percent={((d.totalBytes - d.freeBytes) / d.totalBytes) * 100} label={`${d.mount} used`} />}
+                {d.totalBytes > 0 && <Bar percent={((d.totalBytes - d.freeBytes) / d.totalBytes) * 100} label={t('server.mountUsed', { mount: d.mount })} />}
               </li>
             ))}
           </ul>
         </Panel>
 
-        <Panel title="Network">
+        <Panel title={t('server.network')}>
           <ul className="space-y-1">
             {sample.network.map((n) => (
               <li key={n.name} className="flex justify-between gap-2">
@@ -197,18 +195,18 @@ export default function ServerPage({ now: fixedNow }: Props) {
           </ul>
         </Panel>
 
-        <Panel title="Updates">
+        <Panel title={t('server.updates')}>
           <Updates updates={sample.updates ?? null} now={now} />
         </Panel>
 
-        <Panel title="System">
-          <p>Up {uptime(sample.uptimeSeconds)}</p>
+        <Panel title={t('server.system')}>
+          <p>{t('server.up', { time: uptime(sample.uptimeSeconds) })}</p>
           {sample.services && sample.services.length > 0 && (
             <ul className="mt-2 divide-y divide-line">
               {sample.services.map((s) => (
                 <li key={s.name} className="flex justify-between py-1">
                   <span className="font-mono text-xs">{s.name}</span>
-                  <span className={s.active ? 'text-good-ink' : 'text-crit-ink'}>{s.active ? 'running' : 'stopped'}</span>
+                  <span className={s.active ? 'text-good-ink' : 'text-crit-ink'}>{t(s.active ? 'server.running' : 'server.stopped')}</span>
                 </li>
               ))}
             </ul>
@@ -233,26 +231,27 @@ export default function ServerPage({ now: fixedNow }: Props) {
 }
 
 function Updates({ updates, now }: { updates: HostSample['updates'] | null; now: number }) {
-  if (!updates) return <p className="text-muted">Not checked by the agent.</p>;
+  const { t } = useTranslation();
+  if (!updates) return <p className="text-muted">{t('server.notChecked')}</p>;
   const ago = (iso: string) => ageText(now - Date.parse(iso));
   return (
     <>
       {updates.rebootRequired && (
-        <p className="mb-2 inline-block rounded-full bg-warn-bg px-2.5 py-0.5 text-xs font-medium text-warn-ink">Restart required</p>
+        <p className="mb-2 inline-block rounded-full bg-warn-bg px-2.5 py-0.5 text-xs font-medium text-warn-ink">{t('server.restartRequired')}</p>
       )}
       <p>
         {updates.packages === 0
-          ? 'Up to date.'
-          : `${updates.packages} ${updates.packages === 1 ? 'package' : 'packages'} can be updated` +
-            (updates.security > 0 ? `, ${updates.security} of them security updates.` : '.')}
+          ? t('server.upToDate')
+          : t('server.updatesAvailable', { count: updates.packages }) +
+            (updates.security > 0 ? t('server.ofThemSecurity', { count: updates.security }) : '.')}
       </p>
       <p className="mt-1 text-xs text-muted">
-        Checked {ago(updates.checkedAt)} ago;{' '}
-        {updates.listsUpdatedAt ? `package lists from ${ago(updates.listsUpdatedAt)} ago.` : 'age of the package lists unknown.'}
+        {t('server.checkedAgo', { age: ago(updates.checkedAt) })}{' '}
+        {updates.listsUpdatedAt ? t('server.listsAgo', { age: ago(updates.listsUpdatedAt) }) : t('server.listsUnknown')}
       </p>
       {updates.names.length > 0 && (
         <details className="mt-2">
-          <summary className="cursor-pointer text-xs text-muted">Packages</summary>
+          <summary className="cursor-pointer text-xs text-muted">{t('server.packages')}</summary>
           <ul className="mt-1 columns-2 font-mono text-xs">
             {updates.names.map((name) => (
               <li key={name}>{name}</li>

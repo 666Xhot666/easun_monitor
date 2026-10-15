@@ -22,6 +22,7 @@ import { ReadingsQueryDto } from '../inverter/dto/readings-query.dto';
 import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
 import { ReadingsExportQueryDto } from '../inverter/dto/readings-export-query.dto';
 import { BmsCsv } from './bms-csv';
+import { languageOr } from '../i18n/languages';
 import {
   HouseholdsService,
   type Access,
@@ -31,6 +32,7 @@ import { BmsStore } from './bms.store';
 import { CreateBmsDeviceDto } from './dto/create-bms-device.dto';
 import { UpdateBmsDeviceDto } from './dto/update-bms-device.dto';
 import { newIngestToken } from './ingest-token';
+import { localized } from '../i18n/localized';
 
 /** A reading older than this is stale, never shown as current. */
 const STALE_AFTER_MS = 30_000;
@@ -155,7 +157,7 @@ export class BmsDevicesController {
     await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     const reading =
       this.ingest.latestFor(bmsId)?.reading ?? (await this.store.newest(bmsId));
-    if (!reading) throw new NotFoundException('No BMS reading yet');
+    if (!reading) throw new NotFoundException(localized('noBmsReading'));
     const ageSeconds = Math.max(
       0,
       Math.round((Date.now() - Date.parse(reading.timestamp)) / 1000),
@@ -178,7 +180,7 @@ export class BmsDevicesController {
   ) {
     await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     if (query.to <= query.from)
-      throw new BadRequestException('`from` must be before `to`');
+      throw new BadRequestException(localized('fromBeforeTo'));
     return this.store.readings(bmsId, {
       from: query.from,
       to: query.to,
@@ -198,11 +200,9 @@ export class BmsDevicesController {
     const to = query.to ?? new Date();
     const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
     const span = to.getTime() - from.getTime();
-    if (span <= 0) throw new BadRequestException('`from` must be before `to`');
+    if (span <= 0) throw new BadRequestException(localized('fromBeforeTo'));
     if (span > MAX_HISTORY_SPAN_MS) {
-      throw new BadRequestException(
-        'A history range can cover at most 5 years',
-      );
+      throw new BadRequestException(localized('historyTooLong', { years: 5 }));
     }
     return this.store.history(bmsId, {
       from,
@@ -226,15 +226,17 @@ export class BmsDevicesController {
   ): Promise<void> {
     await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
     const span = query.to.getTime() - query.from.getTime();
-    if (span <= 0) throw new BadRequestException('`from` must be before `to`');
+    if (span <= 0) throw new BadRequestException(localized('fromBeforeTo'));
     if (span > MAX_EXPORT_SPAN_MS) {
-      throw new BadRequestException('A range can cover at most 31 days');
+      throw new BadRequestException(localized('rangeTooLong', { days: 31 }));
     }
     const timeZone = query.tz ?? 'UTC';
     try {
       new Intl.DateTimeFormat('en', { timeZone });
     } catch {
-      throw new BadRequestException(`Unknown time zone "${timeZone}"`);
+      throw new BadRequestException(
+        localized('unknownTimeZone', { zone: timeZone }),
+      );
     }
 
     const batches = this.store.readingBatches(bmsId, query.from, query.to);
@@ -244,6 +246,7 @@ export class BmsDevicesController {
       first.done || first.value.length === 0
         ? { cells: 0, temperatures: [] }
         : BmsCsv.layoutFor(first.value[0]),
+      languageOr(query.lang),
     );
     const day = (date: Date) => date.toISOString().slice(0, 10);
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -271,7 +274,7 @@ export class BmsDevicesController {
     const exists = await this.prisma.bmsDevice.count({
       where: { id: bmsId, inverterProfileId: profileId },
     });
-    if (!exists) throw new NotFoundException('BMS not found');
+    if (!exists) throw new NotFoundException(localized('bmsNotFound'));
   }
 
   /** 404s for another user's inverter, the same as for a missing one. */

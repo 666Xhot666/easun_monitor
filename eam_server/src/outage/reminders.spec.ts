@@ -78,7 +78,7 @@ describe('remindersDue', () => {
 describe('reminderText', () => {
   it('says when and how long, with the battery level', () => {
     expect(
-      reminderText(confirmed, NOW, { soc: 64, staleHours: null }, TZ),
+      reminderText(confirmed, NOW, { soc: 64, staleHours: null }, TZ, 'en'),
     ).toBe('Outage in 15 min: 18:00–20:00\nBattery 64 %');
   });
 
@@ -89,20 +89,28 @@ describe('reminderText', () => {
       description: 'Аварійні ремонтні роботи',
     };
     const none = { soc: null, staleHours: null };
-    expect(reminderText(repair, NOW, none, TZ)).toBe(
+    expect(reminderText(repair, NOW, none, TZ, 'en')).toBe(
       'Outage in 15 min: 18:00–20:00, repair on the house: Аварійні ремонтні роботи',
     );
-    expect(reminderText(possible, NOW, none, TZ)).toBe(
+    expect(reminderText(possible, NOW, none, TZ, 'en')).toBe(
       'Possible outage in 15 min: 18:00–19:00',
     );
-    expect(reminderText(weekly, NOW, none, TZ)).toBe(
+    expect(reminderText(weekly, NOW, none, TZ, 'en')).toBe(
       'Possible outage in 15 min: 18:00–19:00 (weekly pattern, not confirmed)',
+    );
+  });
+
+  it('speaks Ukrainian', () => {
+    expect(
+      reminderText(weekly, NOW, { soc: 64, staleHours: 14 }, TZ, 'uk'),
+    ).toBe(
+      'Можливе відключення через 15 хв: 18:00–19:00 (за тижневим шаблоном, не підтверджено)\nАкумулятор 64 %\nГрафік востаннє перевірено 14 год тому',
     );
   });
 
   it('says how old the schedule is when it is stale', () => {
     expect(
-      reminderText(confirmed, NOW, { soc: null, staleHours: 14 }, TZ),
+      reminderText(confirmed, NOW, { soc: null, staleHours: 14 }, TZ, 'en'),
     ).toBe(
       'Outage in 15 min: 18:00–20:00\nThe schedule was last checked 14 h ago',
     );

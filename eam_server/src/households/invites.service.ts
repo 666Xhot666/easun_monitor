@@ -8,6 +8,7 @@ import { Prisma } from '../generated/prisma/client';
 import { HouseholdRole } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { HouseholdsService } from './households.service';
+import { localized } from '../i18n/localized';
 
 /** No 0/O, 1/I/L: easy to read out and type. 32 letters, 8 of them: 40 bits. */
 const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -93,7 +94,7 @@ export class InvitesService {
       where: { codeHash: hashCode(code) },
     });
     if (!invite || invite.usedAt || invite.expiresAt <= new Date()) {
-      throw new BadRequestException('This invite code is not valid');
+      throw new BadRequestException(localized('inviteInvalid'));
     }
     const memberships = await tx.membership.findMany({
       where: { userId },
@@ -104,15 +105,13 @@ export class InvitesService {
       },
     });
     if (memberships.some((m) => m.householdId === invite.householdId)) {
-      throw new ConflictException('You are already a member of this household');
+      throw new ConflictException(localized('alreadyMember'));
     }
     const own = memberships.find((m) => m.role === 'ADMIN');
     if (own && own.household._count.inverterProfiles === 0) {
       await tx.household.delete({ where: { id: own.householdId } });
     } else if (own && invite.role === 'ADMIN') {
-      throw new ConflictException(
-        'You already run a household with inverters; you can join others only as a reader',
-      );
+      throw new ConflictException(localized('runsHousehold'));
     }
 
     // Conditional update: two people racing for one code cannot both use it.
@@ -121,7 +120,7 @@ export class InvitesService {
       data: { usedAt: new Date(), usedById: userId },
     });
     if (claimed.count !== 1)
-      throw new BadRequestException('This invite code is not valid');
+      throw new BadRequestException(localized('inviteInvalid'));
 
     await tx.membership.create({
       data: { userId, householdId: invite.householdId, role: invite.role },

@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n, { currentLanguage, currentLocale } from '../i18n';
 import { useParams } from 'react-router-dom';
 import { Check, CircleAlert, Info, RefreshCw, Search, TriangleAlert } from 'lucide-react';
 import axios from '../lib/apiClient';
@@ -44,7 +46,6 @@ type SaveDialog =
   | { kind: 'error'; message: string };
 
 const sectionId = (title: string) => `settings-${title.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`;
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 /**
  * The inverter's settings, generated from the server's Register map and
@@ -53,6 +54,8 @@ const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`;
  * read-back.
  */
 export default function InverterSettings() {
+  const { t } = useTranslation();
+  const language = currentLanguage();
   const { profileId } = useParams<{ profileId: string }>();
   const { user } = useAuth();
   // Readers see everything and change nothing; the server enforces the same.
@@ -111,7 +114,7 @@ export default function InverterSettings() {
         setLoadState('ready');
       } catch (error) {
         if (cancelled) return;
-        setLoadError(extractErrorMessage(error, "Couldn't read the settings from the inverter."));
+        setLoadError(extractErrorMessage(error, i18n.t('invSettings.readFailed')));
         setLoadState('error');
       }
     })();
@@ -134,12 +137,13 @@ export default function InverterSettings() {
     return () => {
       cancelled = true;
     };
-  }, [profileId]);
+    // The rules' texts come in the request's language: asked for again when it changes.
+  }, [profileId, language]);
 
   useEffect(() => {
     let cancelled = false;
     axios
-      .get<PanelSetting[]>('/api/inverter/panel-settings')
+      .get<PanelSetting[]>('/api/inverter/panel-settings', { params: { lang: language } })
       .then(({ data }) => {
         if (!cancelled) setPanelSettings(data);
       })
@@ -147,7 +151,7 @@ export default function InverterSettings() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [language]);
 
   // Leaving the page (reload, close) with edits not yet written asks first.
   useEffect(() => {
@@ -179,7 +183,7 @@ export default function InverterSettings() {
       if (registers) setForm(toFormValues(registers, data.values));
       setLoadState('ready');
     } catch (error) {
-      setRefreshError(extractErrorMessage(error, "Couldn't read the settings from the inverter."));
+      setRefreshError(extractErrorMessage(error, i18n.t('invSettings.readFailed')));
     } finally {
       setRefreshing(false);
     }
@@ -211,7 +215,7 @@ export default function InverterSettings() {
           program: d.panelProgram,
           value: formatRegisterValue(d, sent[name]),
           ok,
-          note: ok ? 'Confirmed' : `Inverter still reports ${formatRegisterValue(d, data.values[name])}`,
+          note: ok ? t('invSettings.confirmed') : t('invSettings.stillReports', { value: formatRegisterValue(d, data.values[name]) }),
         };
       });
       // What the inverter confirmed becomes the new baseline; a value that
@@ -221,13 +225,13 @@ export default function InverterSettings() {
       setForm({ ...toFormValues(registers, data.values), ...keep });
       setDialog({ kind: 'done', rows });
     } catch (error) {
-      setDialog({ kind: 'error', message: extractErrorMessage(error, "Couldn't write the settings to the inverter.") });
+      setDialog({ kind: 'error', message: extractErrorMessage(error, t('invSettings.writeFailed')) });
     }
   }
 
   // Registers not yet identified are kept for working them out, in development only.
   const sections = registers
-    ? groupIntoSections(registers).filter((section) => import.meta.env.DEV || section.title !== 'Unverified registers')
+    ? groupIntoSections(registers).filter((section) => import.meta.env.DEV || section.key !== 'unverified')
     : [];
   const q = query.trim().toLowerCase();
   const visible = (d: RegisterDefinition) =>
@@ -241,15 +245,15 @@ export default function InverterSettings() {
 
   return (
     <div className="lg:grid lg:grid-cols-[200px_minmax(0,1fr)] lg:gap-8">
-      <nav aria-label="Sections" className="hidden lg:block">
+      <nav aria-label={t('invSettings.sections')} className="hidden lg:block">
         <div className="sticky top-24">
-          <p className="mb-2 text-xs text-muted">Sections</p>
+          <p className="mb-2 text-xs text-muted">{t('invSettings.sections')}</p>
           {sections.map((section) => {
             const changed = section.registers.filter((d) => d.name in changes).length;
             return (
               <a
-                key={section.title}
-                href={`#${sectionId(section.title)}`}
+                key={section.key}
+                href={`#${sectionId(section.key)}`}
                 className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm text-ink hover:bg-surface-2"
               >
                 {section.title}
@@ -270,34 +274,34 @@ export default function InverterSettings() {
             <Search className="h-4 w-4 flex-none text-muted" />
             <input
               type="search"
-              aria-label="Search settings"
-              placeholder="Search settings or program number"
+              aria-label={t('invSettings.search')}
+              placeholder={t('invSettings.searchPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-muted"
             />
           </label>
           <Segmented
-            ariaLabel="Show"
+            ariaLabel={t('invSettings.show')}
             size="sm"
             value={filter}
             onChange={setFilter}
             options={[
-              { value: 'all', label: 'All' },
-              { value: 'changed', label: `Changed · ${editedCount}` },
-              { value: 'nondefault', label: `Non-default · ${nonDefaultCount}` },
+              { value: 'all', label: t('invSettings.all') },
+              { value: 'changed', label: t('invSettings.changed', { count: editedCount }) },
+              { value: 'nondefault', label: t('invSettings.nonDefault', { count: nonDefaultCount }) },
             ]}
           />
         </div>
         <div className="mb-4 flex flex-wrap items-center gap-3">
           {snapshot && (
             <p role="status" className="text-[13px] text-muted">
-              Read from the inverter {new Date(snapshot.readAt).toLocaleString()}.
+              {t('invSettings.readAt', { time: new Date(snapshot.readAt).toLocaleString(currentLocale()) })}
             </p>
           )}
           <Button size="sm" onClick={() => void refresh()} disabled={refreshing || saving || !registers}>
             <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-            Refresh from inverter
+            {t('invSettings.refresh')}
           </Button>
         </div>
         {refreshError && (
@@ -306,7 +310,7 @@ export default function InverterSettings() {
           </p>
         )}
 
-        {loadState === 'loading' && <p className="py-16 text-center text-sm text-muted">Reading settings from the inverter…</p>}
+        {loadState === 'loading' && <p className="py-16 text-center text-sm text-muted">{t('invSettings.reading')}</p>}
         {loadState === 'error' && (
           <p role="alert" className="py-16 text-center text-sm text-crit-ink">
             {loadError}
@@ -316,18 +320,18 @@ export default function InverterSettings() {
         {loadState === 'ready' && registers && (
           <div className="space-y-4">
             {readOnly ? (
-              <p className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm text-muted">Read-only: only a household admin can change settings.</p>
+              <p className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm text-muted">{t('invSettings.readOnly')}</p>
             ) : (
               <LithiumSetupHelper onPropose={propose} />
             )}
             {shownSections.length === 0 && (
-              <p className="rounded-xl border border-dashed border-line-strong p-7 text-center text-sm text-muted">No settings match.</p>
+              <p className="rounded-xl border border-dashed border-line-strong p-7 text-center text-sm text-muted">{t('invSettings.noMatch')}</p>
             )}
             {shownSections.map((section) => (
-              <section key={section.title} id={sectionId(section.title)} className="scroll-mt-24 rounded-xl border border-line bg-surface">
+              <section key={section.key} id={sectionId(section.key)} className="scroll-mt-24 rounded-xl border border-line bg-surface">
                 <h2 className="flex items-baseline gap-2 border-b border-line px-4 py-3 text-[15px] font-semibold">
                   {section.title}
-                  <span className="text-xs font-normal text-muted">{plural(section.registers.length, 'setting')}</span>
+                  <span className="text-xs font-normal text-muted">{t('invSettings.settingCount', { count: section.registers.length })}</span>
                 </h2>
                 <div className="divide-y divide-line">
                   {section.registers.map((definition) => (
@@ -358,13 +362,13 @@ export default function InverterSettings() {
           <>
             <div aria-hidden="true" className="h-20" />
             <div className="sticky bottom-20 z-10 -mt-16 flex items-center gap-2 rounded-xl bg-ink py-2 pr-2 pl-4 text-page shadow-xl md:bottom-4">
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{plural(editedCount, 'unsaved change')}</span>
+              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{t('invSettings.unsavedCount', { count: editedCount })}</span>
               <button
                 type="button"
                 onClick={() => registers && snapshot && setForm(toFormValues(registers, snapshot.values))}
                 className="h-9 rounded-lg border border-white/25 px-3 text-sm font-medium hover:bg-white/10"
               >
-                Discard
+                {t('invSettings.discard')}
               </button>
               <button
                 type="button"
@@ -372,7 +376,7 @@ export default function InverterSettings() {
                 onClick={() => setDialog({ kind: 'review' })}
                 className="h-9 rounded-lg bg-page px-3 text-sm font-semibold text-ink disabled:opacity-50"
               >
-                Review and save
+                {t('invSettings.review')}
               </button>
             </div>
           </>
@@ -381,25 +385,25 @@ export default function InverterSettings() {
 
       <Dialog
         open={dialog?.kind === 'review'}
-        title={`Write ${plural(changeCount, 'setting')} to the inverter?`}
+        title={t('invSettings.writeTitle', { count: changeCount })}
         width={560}
         onClose={() => setDialog(null)}
         actions={
           <>
-            <Button onClick={() => setDialog(null)}>Keep editing</Button>
+            <Button onClick={() => setDialog(null)}>{t('invSettings.keepEditing')}</Button>
             <Button variant="primary" onClick={() => void write()}>
-              {warnings.length || risks.length ? 'Write anyway' : 'Write to inverter'}
+              {warnings.length || risks.length ? t('invSettings.writeAnyway') : t('invSettings.writeToInverter')}
             </Button>
           </>
         }
       >
-        <p>The inverter applies each value straight away. EAM reads it back to confirm.</p>
+        <p>{t('invSettings.appliesNow')}</p>
         <table className="mt-3 w-full overflow-hidden rounded-lg border border-line text-left text-sm text-ink">
           <thead className="bg-surface-2 text-xs text-muted">
             <tr>
-              <th scope="col" className="px-3 py-2 font-normal">Setting</th>
-              <th scope="col" className="px-3 py-2 font-normal">Now</th>
-              <th scope="col" className="px-3 py-2 font-normal">New</th>
+              <th scope="col" className="px-3 py-2 font-normal">{t('invSettings.setting')}</th>
+              <th scope="col" className="px-3 py-2 font-normal">{t('invSettings.now')}</th>
+              <th scope="col" className="px-3 py-2 font-normal">{t('invSettings.new')}</th>
             </tr>
           </thead>
           <tbody>
@@ -434,9 +438,9 @@ export default function InverterSettings() {
         open={dialog !== null && dialog.kind !== 'review'}
         title={
           dialog?.kind === 'writing'
-            ? `Writing ${plural(dialog.count, 'setting')}…`
+            ? t('invSettings.writing', { count: dialog.count })
             : dialog?.kind === 'error'
-              ? 'The inverter didn’t take the settings'
+              ? t('invSettings.notTaken')
               : dialog?.kind === 'done'
                 ? resultTitle(dialog.rows)
                 : ''
@@ -446,13 +450,13 @@ export default function InverterSettings() {
         actions={
           dialog?.kind === 'writing' ? null : dialog?.kind === 'done' && dialog.rows.every((r) => r.ok) ? (
             <Button variant="primary" onClick={() => setDialog(null)}>
-              Done
+              {t('invSettings.done')}
             </Button>
           ) : (
             <>
-              <Button onClick={() => setDialog({ kind: 'review' })}>Retry</Button>
+              <Button onClick={() => setDialog({ kind: 'review' })}>{t('invSettings.retry')}</Button>
               <Button variant="primary" onClick={() => setDialog(null)}>
-                Close
+                {t('invSettings.close')}
               </Button>
             </>
           )
@@ -460,7 +464,7 @@ export default function InverterSettings() {
       >
         {dialog?.kind === 'writing' && (
           <>
-            <p>Sending to the inverter, then reading each value back. Keep this page open.</p>
+            <p>{t('invSettings.sending')}</p>
             <div className="mt-3 h-1 overflow-hidden rounded bg-surface-2">
               <div className="h-full w-3/5 animate-pulse rounded bg-accent" />
             </div>
@@ -475,8 +479,8 @@ export default function InverterSettings() {
           <>
             <p>
               {dialog.rows.every((r) => r.ok)
-                ? `Read back at ${snapshot ? new Date(snapshot.readAt).toLocaleTimeString() : ''}.`
-                : 'The inverter accepted the write but reported the old value when read back. The failed setting is kept as an unsaved change so you can retry.'}
+                ? t('invSettings.readBackAt', { time: snapshot ? new Date(snapshot.readAt).toLocaleTimeString(currentLocale()) : '' })
+                : t('invSettings.oldValue')}
             </p>
             <ul className="mt-3 overflow-hidden rounded-lg border border-line text-sm text-ink">
               {dialog.rows.map((r) => (
@@ -502,9 +506,8 @@ export default function InverterSettings() {
 
 function resultTitle(rows: ResultRow[]): string {
   const ok = rows.filter((r) => r.ok).length;
-  if (ok === rows.length) return 'Saved. The inverter confirmed every value';
-  const failed = rows.length - ok;
-  return `Saved ${ok} of ${rows.length}. ${failed === 1 ? 'One setting' : `${failed} settings`} didn’t stick`;
+  if (ok === rows.length) return i18n.t('invSettings.allConfirmed');
+  return i18n.t('invSettings.someFailed', { count: rows.length - ok, ok, total: rows.length });
 }
 
 function SettingRow({
@@ -536,6 +539,7 @@ function SettingRow({
   disabled: boolean;
   onChange: (text: string) => void;
 }) {
+  const { t } = useTranslation();
   const id = `setting-${definition.name}`;
   const inputClass =
     'h-[38px] w-full rounded-lg border bg-surface px-3 text-sm text-ink disabled:opacity-60 sm:w-60 ' +
@@ -543,7 +547,7 @@ function SettingRow({
 
   const [open, setOpen] = useState(false);
   const facts = [
-    defaultValue !== undefined && `Default: ${formatRegisterValue(definition, defaultValue)}`,
+    defaultValue !== undefined && t('invSettings.default', { value: formatRegisterValue(definition, defaultValue) }),
   ].filter((fact): fact is string => Boolean(fact));
   const explained = definition.description || definition.optionDescriptions;
 
@@ -557,11 +561,11 @@ function SettingRow({
           {definition.panelProgram && (
             <span className="rounded bg-surface-2 px-1.5 font-mono text-[11px] text-muted">P{definition.panelProgram}</span>
           )}
-          {changed && <span className="text-xs font-semibold text-accent">Edited</span>}
+          {changed && <span className="text-xs font-semibold text-accent">{t('invSettings.edited')}</span>}
           {explained && (
             <button
               type="button"
-              aria-label={`About ${definition.label}`}
+              aria-label={t('invSettings.about', { label: definition.label })}
               aria-expanded={open}
               onClick={() => setOpen((o) => !o)}
               className="rounded text-muted hover:text-ink"
@@ -584,7 +588,7 @@ function SettingRow({
             href={`#panel-${program}`}
             className="mr-2 text-xs text-accent hover:underline"
           >
-            Depends on panel program {program}
+            {t('invSettings.dependsOn', { program })}
           </a>
         ))}
       </div>
@@ -601,7 +605,7 @@ function SettingRow({
             onChange={(e) => onChange(e.target.value)}
             className={inputClass}
           >
-            {value === '' && <option value="">No data</option>}
+            {value === '' && <option value="">{t('invSettings.noData')}</option>}
             {definition.options.map((option, index) => (
               <option key={option} value={String(index)}>
                 {option}
@@ -616,10 +620,10 @@ function SettingRow({
             onChange={(e) => onChange(e.target.value)}
             className={inputClass}
           >
-            {value === '' && <option value="">No data</option>}
+            {value === '' && <option value="">{t('invSettings.noData')}</option>}
             {current !== undefined && !definition.choices.includes(current) && (
               <option value={current.toFixed(decimalsFor(definition))}>
-                {formatRegisterValue(definition, current)} (not a panel option)
+                {t('invSettings.notPanelOption', { value: formatRegisterValue(definition, current) })}
               </option>
             )}
             {definition.choices.map((choice) => (
@@ -638,7 +642,7 @@ function SettingRow({
               min={bounds?.min ?? definition.min}
               max={bounds?.max ?? definition.max}
               value={value}
-              placeholder="No data"
+              placeholder={t('invSettings.noData')}
               disabled={disabled}
               onChange={(e) => onChange(e.target.value)}
               className={inputClass}
@@ -683,20 +687,21 @@ function SettingRow({
 
 /** Settings with no register: shown for reference, set on the inverter. */
 function PanelSettings({ settings }: { settings: PanelSetting[] }) {
+  const { t } = useTranslation();
   return (
     <section aria-labelledby="panel-settings-title">
       <h2 id="panel-settings-title" className="mb-1 text-[15px] font-semibold">
-        Set on the inverter's panel
+        {t('invSettings.panelTitle')}
       </h2>
       <p className="mb-3 text-sm text-muted">
-        The app can't read or change these; they still change how the settings above behave.
+        {t('invSettings.panelIntro')}
       </p>
       <div className="divide-y divide-line rounded-xl border border-line bg-surface">
         {settings.map((setting) => (
           <div key={`${setting.program}-${setting.title}`} id={`panel-${setting.program}`} className="px-4 py-3">
             <p className="text-[15px] font-medium text-ink">{setting.title}</p>
             <p className="mt-0.5 text-xs text-muted">
-              Program {setting.program} · Default: {setting.default}
+              {t('invSettings.programDefault', { program: setting.program, value: setting.default })}
             </p>
             {setting.options && (
               <p className="mt-1 text-xs text-muted">{setting.options.join(', ')}</p>

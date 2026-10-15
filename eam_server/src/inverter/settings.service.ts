@@ -5,6 +5,8 @@ import { LoggerLinks } from './link/logger-links';
 import type { Reading } from './registers/register-map';
 import { checkSettings, type SettingsCheck } from './settings-rules/settings-rules';
 import { settingsConstraints, type InstallationProfile } from './settings-rules/smg-ii.settings-rules';
+import { outOfBoundsIn, wordConstraints } from './settings-rules/worded-constraints';
+import type { Language } from '../i18n/languages';
 
 export interface SettingsSnapshot {
   /** Settings register name -> value, as read from the inverter. */
@@ -103,9 +105,11 @@ export class SettingsService {
     profile: LoggerAddress & InstallationProfile,
     changes: Record<string, number>,
     acknowledgeWarnings = false,
+    language: Language = 'en',
   ): Promise<SettingsSnapshot> {
     const { values } = await this.get(profile);
-    const check = checkSettings(settingsConstraints(profile), values, changes);
+    const constraints = wordConstraints(settingsConstraints(profile), language);
+    const check = checkSettings(constraints, values, changes, outOfBoundsIn(language));
     const hasErrors = Object.keys(check.errors).length > 0;
     const hasWarnings = Object.keys(check.warnings).length > 0;
     if (hasErrors || (hasWarnings && !acknowledgeWarnings)) {

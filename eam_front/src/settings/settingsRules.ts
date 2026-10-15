@@ -1,3 +1,4 @@
+import i18n from '../i18n';
 /**
  * The server's Settings rules for one profile, as served by
  * GET /api/inverter/:profileId/settings/constraints, and the same check the
@@ -77,7 +78,7 @@ export function checkSettings(
     if (!bounds) continue;
     if ((bounds.min !== undefined && value < bounds.min) || (bounds.max !== undefined && value > bounds.max)) {
       const context = bounds.context ? ` ${bounds.context}` : '';
-      add(result.errors, name, `Must be between ${bounds.min ?? '-∞'} and ${bounds.max ?? '∞'}${context}`);
+      add(result.errors, name, i18n.t('validation.between', { min: bounds.min ?? '-∞', max: bounds.max ?? '∞', unit: context }));
     }
   }
 

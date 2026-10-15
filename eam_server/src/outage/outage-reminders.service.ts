@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
-import { KYIV } from '../outage-reader/dnem/windows';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import type { ForecastWindow } from './forecast';
 import { OutageForecastService } from './outage-forecast.service';
-import { reminderText, remindersDue, type Member } from './reminders';
+import { reminderMessage, remindersDue, type Member } from './reminders';
 
 /** A battery level older than this is left out of the reminder. */
 const SOC_FRESH_MS = 10 * 60_000;
@@ -120,12 +119,12 @@ export class OutageReminders {
         ? Math.floor((now.getTime() - forecast.lastOkAt.getTime()) / 3_600_000)
         : null;
     for (const [key, { window, userIds: due }] of byWindow) {
-      const text = reminderText(window, now, { soc, staleHours }, KYIV);
+      const message = reminderMessage(window, now, { soc, staleHours });
       if (!this.recorded.has(key)) {
         this.recorded.set(key, window.start.getTime());
-        await this.alerts.record(profileId, text);
+        await this.alerts.record(profileId, message);
       }
-      await this.alerts.toChats(profileId, text, { userIds: due });
+      await this.alerts.toChats(profileId, message, { userIds: due });
     }
   }
 

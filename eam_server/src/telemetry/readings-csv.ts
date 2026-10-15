@@ -1,3 +1,5 @@
+import type { Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
 import type {
   RegisterDefinition,
   RegisterMap,
@@ -21,9 +23,11 @@ export class ReadingsCsv {
   private readonly columns: RegisterDefinition[];
   private readonly time: Intl.DateTimeFormat;
 
+  /** `map` gives the column and option names, in `language`. */
   constructor(
     private readonly map: RegisterMap,
     private readonly timeZone: string,
+    private readonly language: Language = 'en',
   ) {
     this.columns = map
       .list()
@@ -32,8 +36,10 @@ export class ReadingsCsv {
   }
 
   header(): string {
+    const t = (key: string, values?: Record<string, string>) =>
+      translate(this.language, `csv.${key}`, values);
     return csvLine([
-      `Time (${this.timeZone})`,
+      t('time', { zone: this.timeZone }),
       ...this.columns.map((d) => (d.unit ? `${d.label} (${d.unit})` : d.label)),
     ]);
   }
@@ -53,7 +59,10 @@ export class ReadingsCsv {
     if (definition.bits)
       return this.map.activeFlags(definition.name, value).join('; ');
     if (definition.options)
-      return definition.options[value] ?? `Unknown (${value})`;
+      return (
+        definition.options[value] ??
+        translate(this.language, 'csv.unknown', { value: String(value) })
+      );
     return value.toFixed(decimalsFor(definition));
   }
 }

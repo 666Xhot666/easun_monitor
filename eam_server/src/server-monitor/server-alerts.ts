@@ -1,3 +1,4 @@
+import type { AlertMessage } from '../alerts/alert-message';
 import type { HostSample } from '../server-agent/sample';
 
 /** The owner's limits for the server notices. */
@@ -17,9 +18,9 @@ export type ServerNoticeKind =
   | 'server-agent'
   | 'server-updates';
 
-export interface ServerNotice {
+/** A notice: an alert message (texts under "alerts" in src/i18n/locales) of a kind. */
+export interface ServerNotice extends AlertMessage {
   kind: ServerNoticeKind;
-  text: string;
 }
 
 /** What the previous samples showed, to tell changes. */
@@ -42,8 +43,8 @@ const HEAT_MARGIN_C = 5;
 const STORAGE_MARGIN = 2;
 const MEMORY_MARGIN = 5;
 
-const pct = (v: number) => `${Math.round(v * 10) / 10} %`;
-const gb = (bytes: number) => `${(bytes / 1e9).toFixed(1)} GB`;
+/** To one decimal, as notices show it. */
+const tenth = (v: number) => Math.round(v * 10) / 10;
 
 /**
  * The notices one sample brings, given the state the earlier ones left. The
@@ -55,8 +56,12 @@ export function serverAlerts(
   limits: AlertThresholds,
 ): { state: AlertState; notices: ServerNotice[] } {
   const notices: ServerNotice[] = [];
-  const say = (kind: ServerNoticeKind, text: string) => {
-    if (previous) notices.push({ kind, text: `Server: ${text}` });
+  const say = (
+    kind: ServerNoticeKind,
+    key: string,
+    params?: AlertMessage['params'],
+  ) => {
+    if (previous) notices.push({ kind, key, params });
   };
 
   // Heat: the hottest sensor.
@@ -68,10 +73,13 @@ export function serverAlerts(
   let hot = previous?.hot ?? isHot;
   if (!hot && hotStreak >= HOT_READINGS && hottest) {
     hot = true;
-    say('server-heat', `overheating, ${hottest.celsius} °C (${hottest.label})`);
+    say('server-heat', 'serverHot', {
+      celsius: hottest.celsius,
+      sensor: hottest.label,
+    });
   } else if (hot && hottest && hottest.celsius < limits.heatC - HEAT_MARGIN_C) {
     hot = false;
-    say('server-heat', `temperature back to ${hottest.celsius} °C`);
+    say('server-heat', 'serverCool', { celsius: hottest.celsius });
   }
 
   // Storage: each filesystem.
@@ -82,19 +90,20 @@ export function serverAlerts(
     const wasLow = previous ? previous.lowDisks.includes(disk.mount) : false;
     if (wasLow) {
       if (free >= limits.storageFreePercent + STORAGE_MARGIN) {
-        say(
-          'server-storage',
-          `storage on ${disk.mount} back to ${pct(free)} free`,
-        );
+        say('server-storage', 'serverStorageBack', {
+          mount: disk.mount,
+          freePercent: tenth(free),
+        });
       } else {
         lowDisks.push(disk.mount);
       }
     } else if (free < limits.storageFreePercent) {
       lowDisks.push(disk.mount);
-      say(
-        'server-storage',
-        `storage low on ${disk.mount}, ${pct(free)} free (${Math.round(disk.freeBytes / 1e9)} GB)`,
-      );
+      say('server-storage', 'serverStorageLow', {
+        mount: disk.mount,
+        freePercent: tenth(free),
+        freeGb: Math.round(disk.freeBytes / 1e9),
+      });
     }
   }
 
@@ -109,13 +118,13 @@ export function serverAlerts(
   let memoryShort = previous?.memoryShort ?? isShort;
   if (!memoryShort && memoryStreak >= MEMORY_READINGS) {
     memoryShort = true;
-    say(
-      'server-memory',
-      `memory short, ${pct(used)} used, swap ${gb(swapTotalBytes - swapFreeBytes)} used`,
-    );
+    say('server-memory', 'serverMemoryShort', {
+      usedPercent: tenth(used),
+      swapGb: tenth((swapTotalBytes - swapFreeBytes) / 1e9),
+    });
   } else if (memoryShort && used < limits.memoryUsedPercent - MEMORY_MARGIN) {
     memoryShort = false;
-    say('server-memory', `memory back to ${pct(used)} used`);
+    say('server-memory', 'serverMemoryBack', { usedPercent: tenth(used) });
   }
 
   // Updates: when the agent has checked.
@@ -124,13 +133,13 @@ export function serverAlerts(
   const updates = sample.updates;
   if (updates) {
     if (security !== null && updates.security > security) {
-      say(
-        'server-updates',
-        `${updates.security} security ${updates.security === 1 ? 'update' : 'updates'} available (${updates.packages} updates in all)`,
-      );
+      say('server-updates', 'serverSecurityUpdates', {
+        count: updates.security,
+        packages: updates.packages,
+      });
     }
     if (rebootRequired === false && updates.rebootRequired) {
-      say('server-updates', 'restart required after updates');
+      say('server-updates', 'serverRestart');
     }
     security = updates.security;
     rebootRequired = updates.rebootRequired;

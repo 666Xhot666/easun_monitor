@@ -75,6 +75,15 @@ export interface RegisterBlock {
 /** A decoded poll result: register name -> real value (enum = raw index). */
 export type Reading = Record<string, number>;
 
+/** The bits set in a bitfield value, lowest first. */
+export function activeBits(value: number): number[] {
+  const bits: number[] = [];
+  for (let bit = 0; bit < 32; bit++) {
+    if (Math.floor(value / 2 ** bit) % 2 === 1) bits.push(bit);
+  }
+  return bits;
+}
+
 export class RegisterValueError extends Error {
   constructor(message: string) {
     super(message);
@@ -176,14 +185,12 @@ export class RegisterMap {
   /** Labels of the bits set in a bitfield register's value, lowest bit
    * first; an undocumented bit is reported as "Code n". */
   activeFlags(name: string, value: number): string[] {
-    const bits = this.byName.get(name)?.bits ?? {};
-    const flags: string[] = [];
-    for (let bit = 0; bit < 32; bit++) {
-      if (Math.floor(value / 2 ** bit) % 2 === 1) {
-        flags.push(bits[bit] ?? `Code ${bit}`);
-      }
-    }
-    return flags;
+    return activeBits(value).map((bit) => this.flagName(name, bit));
+  }
+
+  /** The meaning of one bit of a bitfield register, or "Code n" when unknown. */
+  flagName(name: string, bit: number): string {
+    return this.byName.get(name)?.bits?.[bit] ?? `Code ${bit}`;
   }
 
   /**

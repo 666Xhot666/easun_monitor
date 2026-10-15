@@ -1,15 +1,12 @@
-import { RegisterMap } from '../inverter/registers/register-map';
-import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 
-const map = new RegisterMap(SMG_II_REGISTERS);
 const LOW_SOC = 20;
 
 /** Feeds readings in order; returns the messages of each step. */
 function run(readings: Record<string, number>[]) {
   let state: InverterAlertState | undefined;
   return readings.map((reading) => {
-    const result = inverterAlerts(state, reading, map, LOW_SOC);
+    const result = inverterAlerts(state, reading, LOW_SOC);
     state = result.state;
     return result.messages;
   });
@@ -22,10 +19,7 @@ describe('inverterAlerts', () => {
     ]);
   });
 
-  it('reports new faults and warnings by name, and when faults clear', () => {
-    const fault = map.activeFlags('FaultCode', 2)[0];
-    const warning = map.activeFlags('WarningCode', 8)[0];
-
+  it('reports new faults and warnings by bit, and when faults clear', () => {
     expect(
       run([
         { FaultCode: 0, WarningCode: 0 },
@@ -35,9 +29,12 @@ describe('inverterAlerts', () => {
       ]),
     ).toEqual([
       [],
-      [`Fault: ${fault}`, `Warning: ${warning}`],
+      [
+        { key: 'fault', params: { fault: 1 } },
+        { key: 'warning', params: { warning: 3 } },
+      ],
       [],
-      ['Faults cleared'],
+      [{ key: 'faultsCleared' }],
     ]);
   });
 
@@ -49,7 +46,7 @@ describe('inverterAlerts', () => {
         { MainsVoltage: 5 },
         { MainsVoltage: 228 },
       ]),
-    ).toEqual([[], ['Grid lost'], [], ['Grid restored']]);
+    ).toEqual([[], [{ key: 'gridLost' }], [], [{ key: 'gridRestored' }]]);
   });
 
   it('reports a low battery once, again only after it recovers 5 points', () => {
@@ -65,12 +62,12 @@ describe('inverterAlerts', () => {
       ]),
     ).toEqual([
       [],
-      ['Battery low: 20 %'],
+      [{ key: 'batteryLow', params: { soc: 20 } }],
       [],
       [],
       [],
       [],
-      ['Battery low: 20 %'],
+      [{ key: 'batteryLow', params: { soc: 20 } }],
     ]);
   });
 
@@ -81,7 +78,7 @@ describe('inverterAlerts', () => {
         { PVPower: 100 },
         { MainsVoltage: 0 },
       ]),
-    ).toEqual([[], [], ['Grid lost']]);
+    ).toEqual([[], [], [{ key: 'gridLost' }]]);
   });
 });
 
@@ -96,8 +93,8 @@ describe('bmsAlerts', () => {
     ).toEqual({
       state: ['Cell overvoltage', 'Charge overtemperature'],
       messages: [
-        'BMS alarm: Cell overvoltage',
-        'BMS alarm: Charge overtemperature',
+        { key: 'bmsAlarm', params: { alarm: 'Cell overvoltage' } },
+        { key: 'bmsAlarm', params: { alarm: 'Charge overtemperature' } },
       ],
     });
     expect(
@@ -105,7 +102,7 @@ describe('bmsAlerts', () => {
     ).toEqual([]);
     expect(bmsAlerts(['Cell overvoltage'], [])).toEqual({
       state: [],
-      messages: ['BMS alarms cleared'],
+      messages: [{ key: 'bmsAlarmsCleared' }],
     });
   });
 });

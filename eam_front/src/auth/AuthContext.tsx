@@ -6,6 +6,7 @@ import {
   type ReactNode,
 } from 'react';
 import axios, { clearAccessToken, setAccessToken } from '../lib/apiClient';
+import { applyLanguage } from '../i18n';
 import { AuthContext, type AuthContextValue } from './context';
 import type { AuthResponse, AuthUser } from './types';
 
@@ -37,6 +38,11 @@ export function AuthProvider({
 }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // The language saved on the account wins over this browser's.
+  useEffect(() => {
+    if (user?.language) applyLanguage(user.language);
+  }, [user?.language]);
 
   useEffect(() => {
     let cancelled = false;

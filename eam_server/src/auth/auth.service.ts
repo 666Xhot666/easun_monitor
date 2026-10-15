@@ -10,9 +10,11 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { createHash, randomBytes, randomUUID } from 'crypto';
+import type { Language } from '../i18n/languages';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServerAccessService } from '../server-monitor/server-access.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
+import { localized } from '../i18n/localized';
 
 // Cost factor for bcrypt hashing — 12 is comfortably above the commonly
 // recommended floor (10) without making login noticeably slow on modest
@@ -138,14 +140,12 @@ export class AuthService {
       !this.registrationOpen &&
       (await this.prisma.user.count()) > 0
     ) {
-      throw new ForbiddenException(
-        'Registration is closed. The owner can allow new accounts with ALLOW_REGISTRATION=true.',
-      );
+      throw new ForbiddenException(localized('registrationClosed'));
     }
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
     if (existing) {
-      throw new ConflictException('An account with this email already exists');
+      throw new ConflictException(localized('emailTaken'));
     }
 
     const passwordHash = await bcrypt.hash(password, BCRYPT_SALT_ROUNDS);
@@ -179,7 +179,7 @@ export class AuthService {
     // password is wrong — distinguishing the two lets an attacker
     // enumerate registered emails.
     const invalidCredentials = () =>
-      new UnauthorizedException('Invalid email or password');
+      new UnauthorizedException(localized('invalidCredentials'));
 
     if (!user) {
       throw invalidCredentials();
@@ -279,6 +279,14 @@ export class AuthService {
    * The user, their households with their role in each, and the inverters
    * of all those households, each tagged with that role.
    */
+  /** The language the user chose for the app and Telegram. */
+  async setLanguage(userId: number, language: Language): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { language },
+    });
+  }
+
   async getMe(userId: number) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -286,6 +294,7 @@ export class AuthService {
         id: true,
         email: true,
         createdAt: true,
+        language: true,
         memberships: {
           orderBy: { createdAt: 'asc' },
           select: {
@@ -383,7 +392,7 @@ export class AuthService {
   ): Promise<void> {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user || !(await bcrypt.compare(currentPassword, user.passwordHash))) {
-      throw new UnauthorizedException('The current password is wrong');
+      throw new UnauthorizedException(localized('currentPasswordWrong'));
     }
     const current = rawRefreshToken
       ? await this.prisma.refreshToken.findUnique({

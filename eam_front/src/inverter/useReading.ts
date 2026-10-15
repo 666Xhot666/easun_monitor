@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { currentLanguage } from '../i18n';
 import axios from '../lib/apiClient';
 import type { LatestReading } from './types';
 
@@ -39,7 +40,7 @@ export function useReading(profileId: number, options: UseReadingOptions = {}) {
   const fetchLatest = useCallback(async () => {
     const id = profileId;
     try {
-      const { data } = await axios.get<LatestReading>(`/api/inverter/${id}/latest`);
+      const { data } = await axios.get<LatestReading>(`/api/inverter/${id}/latest`, { params: { lang: currentLanguage() } });
       if (currentProfile.current !== id) return;
       setReading(data);
       setFetched('ok');

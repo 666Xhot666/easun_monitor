@@ -17,4 +17,9 @@ export class ReadingsExportQueryDto {
   @IsOptional()
   @IsString()
   tz?: string;
+
+  /** The language of the column and value names (en when not one the app speaks). */
+  @IsOptional()
+  @IsString()
+  lang?: string;
 }

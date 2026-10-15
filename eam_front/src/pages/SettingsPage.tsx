@@ -1,4 +1,5 @@
 import { NavLink, Navigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../auth/useAuth';
 import BmsSetup from '../bms/BmsSetup';
 import OutageSetup from '../outage/OutageSetup';
@@ -22,23 +23,24 @@ interface Tab {
 }
 
 const ADMIN_TABS: Tab[] = [
-  { slug: 'inverter', label: 'Inverter', reader: false },
-  { slug: 'inverter-settings', label: 'Inverter settings', reader: false },
-  { slug: 'solar', label: 'Solar array', reader: false },
-  { slug: 'battery-monitor', label: 'Battery monitor', reader: false },
-  { slug: 'outage-schedule', label: 'Outage schedule', reader: true },
-  { slug: 'household', label: 'Household', reader: true },
-  { slug: 'notifications', label: 'Notifications', reader: true },
-  { slug: 'account', label: 'Account', reader: true },
+  { slug: 'inverter', label: 'settings.tabs.inverter', reader: false },
+  { slug: 'inverter-settings', label: 'settings.tabs.inverter-settings', reader: false },
+  { slug: 'solar', label: 'settings.tabs.solar', reader: false },
+  { slug: 'battery-monitor', label: 'settings.tabs.battery-monitor', reader: false },
+  { slug: 'outage-schedule', label: 'settings.tabs.outage-schedule', reader: true },
+  { slug: 'household', label: 'settings.tabs.household', reader: true },
+  { slug: 'notifications', label: 'settings.tabs.notifications', reader: true },
+  { slug: 'account', label: 'settings.tabs.account', reader: true },
 ];
 
 /** The server owner's, whatever their household role. */
-const OWNER_TAB: Tab = { slug: 'server-access', label: 'Server access', reader: true };
+const OWNER_TAB: Tab = { slug: 'server-access', label: 'settings.tabs.server-access', reader: true };
 
-const READER_TABS: Tab[] = [{ slug: 'configuration', label: 'Current configuration', reader: true }, ...ADMIN_TABS.filter((t) => t.reader)];
+const READER_TABS: Tab[] = [{ slug: 'configuration', label: 'settings.tabs.configuration', reader: true }, ...ADMIN_TABS.filter((t) => t.reader)];
 
 /** Configuration for this inverter and the household, one tab per area. */
 export default function SettingsPage() {
+  const { t: translate } = useTranslation();
   const { tab } = useParams<{ tab?: string }>();
   const { profile, isAdmin } = useLiveData();
   const { user } = useAuth();
@@ -49,8 +51,8 @@ export default function SettingsPage() {
 
   return (
     <>
-      <PageHeader title="Settings" subtitle="Configuration for this inverter and your household" />
-      <nav aria-label="Settings" className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0">
+      <PageHeader title={translate('settings.title')} subtitle={translate('settings.subtitle')} />
+      <nav aria-label={translate('settings.nav')} className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-line px-4 md:mx-0 md:px-0">
         {tabs.map((t) => (
           <NavLink
             key={t.slug}
@@ -60,7 +62,7 @@ export default function SettingsPage() {
               (isActive ? 'border-ink text-ink' : 'border-transparent text-muted hover:text-ink')
             }
           >
-            {t.label}
+            {translate(t.label)}
           </NavLink>
         ))}
       </nav>

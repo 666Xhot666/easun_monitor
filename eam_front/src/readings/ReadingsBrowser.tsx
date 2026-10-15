@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import { currentLocale } from '../i18n';
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { formatRegisterValue } from '../inverter/format';
@@ -19,7 +21,7 @@ interface Reading {
 type Source = 'inverter' | 'bms';
 
 const PAGE = 100;
-const time = (iso: string) => new Date(iso).toLocaleTimeString('en-GB', { hour12: false });
+const time = (iso: string) => new Date(iso).toLocaleTimeString(currentLocale(), { hour12: false });
 const iconButton = 'grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink hover:bg-surface-2 disabled:opacity-40';
 
 /** One day's stored readings: their times on the left, the picked reading's values on the right. */
@@ -35,6 +37,7 @@ export default function ReadingsBrowser({
   /** The inverter's BMS, when there is one: its readings can be shown instead. */
   bmsId?: number | null;
 }) {
+  const { t } = useTranslation();
   const [source, setSource] = useState<Source>('inverter');
   const url =
     source === 'bms' && bmsId !== null
@@ -111,30 +114,30 @@ export default function ReadingsBrowser({
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
       <div className="flex flex-wrap items-center gap-2">
-        <button type="button" aria-label="Previous day" className={iconButton} onClick={() => setDay(shiftDay(day, -1))}>
+        <button type="button" aria-label={t('readings.previousDay')} className={iconButton} onClick={() => setDay(shiftDay(day, -1))}>
           <ChevronLeft className="h-4 w-4" />
         </button>
         <input
           type="date"
-          aria-label="Day"
+          aria-label={t('readings.day')}
           max={today}
           value={day}
           onChange={(e) => e.target.value && setDay(e.target.value as Day)}
           className="h-9 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink"
         />
-        <button type="button" aria-label="Next day" className={iconButton} disabled={day >= today} onClick={() => setDay(shiftDay(day, 1))}>
+        <button type="button" aria-label={t('readings.nextDay')} className={iconButton} disabled={day >= today} onClick={() => setDay(shiftDay(day, 1))}>
           <ChevronRight className="h-4 w-4" />
         </button>
         <span className="text-sm font-semibold">{dayLabel(day, today)}</span>
         {bmsId !== null && (
           <Segmented
-            ariaLabel="Readings of"
+            ariaLabel={t('readings.of')}
             size="sm"
             value={source}
             onChange={setSource}
             options={[
-              { value: 'inverter', label: 'Inverter' },
-              { value: 'bms', label: 'Battery (BMS)' },
+              { value: 'inverter', label: t('readings.inverter') },
+              { value: 'bms', label: t('readings.bms') },
             ]}
           />
         )}
@@ -147,7 +150,7 @@ export default function ReadingsBrowser({
               className="inline-flex h-9 items-center gap-2 rounded-lg border border-line-strong px-3 text-sm hover:bg-surface-2"
             >
               <SlidersHorizontal className="h-4 w-4" />
-              {`Fields · ${shownFields.length} of ${registers.length}`}
+              {t('readings.fields', { shown: shownFields.length, total: registers.length })}
             </button>
             {fieldsOpen && (
               <div className="absolute top-11 right-0 z-30 max-h-80 w-64 overflow-y-auto rounded-xl border border-line bg-surface p-2 shadow-xl">
@@ -163,18 +166,18 @@ export default function ReadingsBrowser({
         )}
       </div>
 
-      {status === 'loading' && <p className="py-10 text-center text-sm text-muted">Loading…</p>}
+      {status === 'loading' && <p className="py-10 text-center text-sm text-muted">{t('readings.loading')}</p>}
       {status === 'error' && (
         <p role="alert" className="py-10 text-center text-sm text-muted">
-          Couldn&apos;t load the readings.
+          {t('readings.failed')}
         </p>
       )}
-      {status === 'ready' && readings.length === 0 && <p className="py-10 text-center text-sm text-muted">No readings on this day.</p>}
+      {status === 'ready' && readings.length === 0 && <p className="py-10 text-center text-sm text-muted">{t('readings.empty')}</p>}
       {status === 'ready' && readings.length > 0 && (
         <div className="mt-4 grid gap-4 md:grid-cols-[180px_minmax(0,1fr)]">
           <div className="flex max-h-[520px] flex-col overflow-hidden rounded-lg border border-line">
             <p className="border-b border-line bg-surface-2 px-3 py-2 text-xs text-muted">{readings.length} readings</p>
-            <ul role="listbox" aria-label="Readings" className="flex-1 overflow-y-auto">
+            <ul role="listbox" aria-label={t('readings.list')} className="flex-1 overflow-y-auto">
               {readings.map((r) => {
                 const isSelected = r.id === selectedId;
                 return (
@@ -202,19 +205,19 @@ export default function ReadingsBrowser({
                 onClick={() => void loadMore()}
                 className="m-2 h-8 rounded-lg border border-line-strong text-[13px] hover:bg-surface-2 disabled:opacity-50"
               >
-                Load more
+                {t('readings.loadMore')}
               </button>
             )}
           </div>
           {selected && (
             <table
-              aria-label={`Reading at ${time(selected.timestamp)}`}
+              aria-label={t('readings.readingAt', { time: time(selected.timestamp) })}
               className="w-full overflow-hidden rounded-lg border border-line text-sm"
             >
               <caption className="border-b border-line bg-surface-2 px-3 py-2 text-left">
                 <span className="font-mono font-semibold">{time(selected.timestamp)}</span>{' '}
                 <span className="text-xs text-muted">
-                  {source === 'bms' ? 'Battery reading' : 'Inverter reading'} · {dayLabel(day, today)}
+                  {t(source === 'bms' ? 'readings.batteryReading' : 'readings.inverterReading')} · {dayLabel(day, today)}
                 </span>
               </caption>
               <tbody>

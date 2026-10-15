@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { formatAge } from '../energy/freshness';
@@ -10,11 +12,11 @@ import { Switch } from '../ui/Switch';
 import { Dialog } from '../ui/Dialog';
 
 const SOURCES: { value: BmsDevice['sourceType']; label: string }[] = [
-  { value: 'mac-ble', label: 'Mac Bluetooth reader' },
-  { value: 'esp32', label: 'ESP32' },
+  { value: 'mac-ble', label: 'bmsSetup.sources.mac-ble' },
+  { value: 'esp32', label: 'bmsSetup.sources.esp32' },
 ];
 const sourceLabel = (value: BmsDevice['sourceType']) =>
-  SOURCES.find((s) => s.value === value)?.label ?? value;
+  i18n.t(SOURCES.find((s) => s.value === value)?.label ?? value);
 
 interface Props {
   profileId: number;
@@ -29,8 +31,9 @@ interface Props {
  * replace a lost ingest token, remove it. A token is shown only once.
  */
 export default function BmsSetup({ profileId, now = Date.now, readOnly = false }: Props) {
+  const { t } = useTranslation();
   const { devices, reload } = useBmsDevices(profileId);
-  const [name, setName] = useState('Battery');
+  const [name, setName] = useState(() => i18n.t('bmsSetup.defaultName'));
   const [sourceType, setSourceType] = useState<BmsDevice['sourceType']>('mac-ble');
   const [token, setToken] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -57,7 +60,7 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
         sourceType,
       });
       setToken(data.token);
-    }, "Couldn't add the BMS.");
+    }, t('bmsSetup.addFailed'));
   };
 
   const replaceToken = (device: BmsDevice) => {
@@ -66,27 +69,27 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
         `/api/inverter/profiles/${profileId}/bms/${device.id}/token`,
       );
       setToken(data.token);
-    }, "Couldn't make a new token.");
+    }, t('bmsSetup.tokenFailed'));
   };
 
   const setEnergyFlowSource = (device: BmsDevice, on: boolean) => {
     void act(async () => {
       await axios.patch(`/api/inverter/profiles/${profileId}/bms/${device.id}`, { useForEnergyFlow: on });
-    }, "Couldn't change the energy flow source.");
+    }, t('bmsSetup.flowFailed'));
   };
 
   const remove = (device: BmsDevice) => {
     void act(async () => {
       await axios.delete(`/api/inverter/profiles/${profileId}/bms/${device.id}`);
-    }, "Couldn't remove the BMS.");
+    }, t('bmsSetup.removeFailed'));
   };
 
   const [asking, setAsking] = useState<{ kind: 'token' | 'remove'; device: BmsDevice } | null>(null);
   const ingest = token ? `BMS_INGEST_URL=${window.location.origin}/api/bms/ingest\nBMS_INGEST_TOKEN=${token}` : '';
 
   return (
-    <section aria-label="Battery monitor (BMS)" className="space-y-4">
-      <h2 className="sr-only">Battery monitor (BMS)</h2>
+    <section aria-label={t('bmsSetup.title')} className="space-y-4">
+      <h2 className="sr-only">{t('bmsSetup.title')}</h2>
       {error && (
         <p role="alert" className="rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
@@ -95,7 +98,7 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
       {devices === null ? (
         <div className="h-24 animate-pulse rounded-xl border border-line bg-surface-2" />
       ) : devices.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">No BMS yet.</p>
+        <p className="rounded-xl border border-dashed border-line-strong p-6 text-sm text-muted">{t('bmsSetup.none')}</p>
       ) : (
         <ul className="space-y-4">
           {devices.map((device) => (
@@ -105,37 +108,36 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
                 <span className="text-[15px] font-semibold">{device.name}</span>
                 <span className="text-[13px] text-muted">
                   {sourceLabel(device.sourceType)} ·{' '}
-                  {device.lastSeenAt ? `Last reading ${formatAge(now() - Date.parse(device.lastSeenAt))} ago` : 'No reading yet'}
+                  {device.lastSeenAt ? t('bmsSetup.lastReading', { age: formatAge(now() - Date.parse(device.lastSeenAt)) }) : t('bmsSetup.noReading')}
                 </span>
               </p>
               <label className="mt-3 flex items-center gap-3 text-sm">
                 <Switch
-                  label={`Use ${device.name} for the energy flow`}
+                  label={t('bmsSetup.useForFlow', { name: device.name })}
                   on={device.useForEnergyFlow}
                   disabled={busy || readOnly}
                   onChange={(on) => setEnergyFlowSource(device, on)}
                 />
-                Use for the battery on the Overview
+                {t('bmsSetup.useOnOverview')}
               </label>
               {!readOnly && (
                 <p className="mt-2 text-xs text-muted">
-                  Turn this on only once the current&apos;s sign is confirmed on the real BMS (first run, step 7): positive while charging, negative
-                  while discharging.
+                  {t('bmsSetup.signHint')}
                 </p>
               )}
               {!readOnly && (
                 <div className="mt-3 flex gap-2">
-                  <Button size="sm" aria-label={`New token for ${device.name}`} disabled={busy} onClick={() => setAsking({ kind: 'token', device })}>
-                    New reader token
+                  <Button size="sm" aria-label={t('bmsSetup.newTokenFor', { name: device.name })} disabled={busy} onClick={() => setAsking({ kind: 'token', device })}>
+                    {t('bmsSetup.newToken')}
                   </Button>
                   <button
                     type="button"
-                    aria-label={`Remove ${device.name}`}
+                    aria-label={t('bmsSetup.removeNamed', { name: device.name })}
                     disabled={busy}
                     onClick={() => setAsking({ kind: 'remove', device })}
                     className="h-8 rounded-lg px-2.5 text-[13px] font-medium text-crit-ink hover:bg-crit-bg"
                   >
-                    Remove
+                    {t('bmsSetup.remove')}
                   </button>
                 </div>
               )}
@@ -145,15 +147,15 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
       )}
 
       {token && (
-        <section aria-label="New ingest token" className="rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
+        <section aria-label={t('bmsSetup.tokenTitle')} className="rounded-xl border border-warn-line bg-warn-bg p-4 text-sm text-warn-ink">
           <p>
-            Put these in the BMS reader&apos;s <code>.env</code>. The token is shown only once; if it is lost, make a new one.
+            {t('bmsSetup.tokenIntro')}
           </p>
           <pre className="mt-2 overflow-x-auto rounded-lg bg-surface p-3 font-mono text-xs text-ink">{ingest}</pre>
           <div className="mt-3 flex gap-2">
             <CopyButton text={ingest} />
             <Button size="sm" onClick={() => setToken(null)}>
-              Done
+              {t('common.done')}
             </Button>
           </div>
         </section>
@@ -161,10 +163,10 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
 
       {!readOnly && (
         <form onSubmit={add} className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-          <h3 className="text-[15px] font-semibold">Add a battery monitor</h3>
+          <h3 className="text-[15px] font-semibold">{t('bmsSetup.add')}</h3>
           <div className="mt-3 grid gap-4 md:grid-cols-2">
             <label className="block text-sm font-medium">
-              Name
+              {t('bmsSetup.name')}
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -172,25 +174,25 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
               />
             </label>
             <div>
-              <p className="text-sm font-medium">How it is read</p>
+              <p className="text-sm font-medium">{t('bmsSetup.howRead')}</p>
               <div className="mt-1">
-                <Segmented ariaLabel="How it is read" options={SOURCES} value={sourceType} onChange={setSourceType} />
+                <Segmented ariaLabel={t('bmsSetup.howRead')} options={SOURCES.map((s) => ({ ...s, label: t(s.label) }))} value={sourceType} onChange={setSourceType} />
               </div>
             </div>
           </div>
           <Button type="submit" variant="primary" className="mt-4" disabled={busy}>
-            Add BMS
+            {t('bmsSetup.addButton')}
           </Button>
         </form>
       )}
 
       <Dialog
         open={asking !== null}
-        title={asking?.kind === 'token' ? `Make a new reader token for ${asking.device.name}?` : `Remove ${asking?.device.name}?`}
+        title={asking?.kind === 'token' ? t('bmsSetup.tokenAsk', { name: asking.device.name }) : t('bmsSetup.removeAsk', { name: asking?.device.name })}
         onClose={() => setAsking(null)}
         actions={
           <>
-            <Button onClick={() => setAsking(null)}>Cancel</Button>
+            <Button onClick={() => setAsking(null)}>{t('common.cancel')}</Button>
             <Button
               variant={asking?.kind === 'remove' ? 'danger' : 'primary'}
               onClick={() => {
@@ -200,14 +202,14 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
                 if (a?.kind === 'remove') remove(a.device);
               }}
             >
-              {asking?.kind === 'token' ? 'Make a new token' : 'Remove'}
+              {asking?.kind === 'token' ? t('bmsSetup.makeToken') : t('bmsSetup.remove')}
             </Button>
           </>
         }
       >
         {asking?.kind === 'token'
-          ? 'The reader stops working until it uses the new one.'
-          : 'EAM stops taking its readings. Its stored readings are deleted too.'}
+          ? t('bmsSetup.tokenWarning')
+          : t('bmsSetup.removeWarning')}
       </Dialog>
     </section>
   );

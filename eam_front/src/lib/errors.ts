@@ -13,8 +13,8 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
     if (body?.message) {
       return Array.isArray(body.message) ? body.message.join(' ') : body.message;
     }
-    if (error.message) return error.message;
   }
-  if (error instanceof Error) return error.message;
+  // Anything else ("Network Error", a status line) is the library's English:
+  // the caller's own words say it better, in the user's language.
   return fallback;
 }

@@ -1,6 +1,8 @@
 
 
 import axios from '../lib/apiClient';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import { extractErrorMessage } from '../lib/errors';
 import { useEffect, useState } from 'react';
 import { Button } from '../ui';
@@ -11,6 +13,7 @@ type Status = 'loading' | 'ready' | 'error';
 
 /** Links the signed-in user's Telegram chat to the bot. */
 export default function TelegramLink() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<Status>('loading');
   const [linked, setLinked] = useState(false);
   const [code, setCode] = useState<string | null>(null);
@@ -34,7 +37,7 @@ export default function TelegramLink() {
         if (cancelled) {
           return;
         }
-        setError('Could not load the Telegram link.');
+        setError(i18n.t('telegram.loadFailed'));
         setStatus('error');
       }
     };
@@ -55,7 +58,7 @@ export default function TelegramLink() {
       setLinked(false);
       setCode(null);
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not unlink the chat.'));
+      setError(extractErrorMessage(err, t('telegram.unlinkFailed')));
     } finally {
       setBusy(false);
     }
@@ -69,7 +72,7 @@ export default function TelegramLink() {
       const response = await axios.post<{ code: string; expiresAt: string }>('/api/telegram/link-code');
       setCode(response.data.code);
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not get a code.'));
+      setError(extractErrorMessage(err, t('telegram.codeFailed')));
     } finally {
       setBusy(false);
     }
@@ -77,7 +80,7 @@ export default function TelegramLink() {
 
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">Telegram</h2>
+      <h2 className="text-[15px] font-semibold">{t('telegram.title')}</h2>
 
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
@@ -90,26 +93,26 @@ export default function TelegramLink() {
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <p className="flex flex-1 items-center gap-2 text-sm">
               <span className="h-2 w-2 rounded-full bg-good" />
-              A Telegram chat is linked.
+              {t('telegram.linked')}
             </p>
             <Button size="sm" disabled={busy} onClick={() => setConfirming(true)}>
-              Unlink
+              {t('telegram.unlink')}
             </Button>
           </div>
         ) : (
           <div className="mt-2 space-y-3">
-            <p className="text-sm text-muted">Not linked. Alerts, /status and /energy come to a linked chat.</p>
+            <p className="text-sm text-muted">{t('telegram.notLinked')}</p>
             {code ? (
               <div className="rounded-lg bg-surface-2 p-3">
                 <div className="flex items-center gap-2">
                   <code className="flex-1 rounded-lg border border-line bg-surface px-3 py-2 font-mono text-sm">{`/start ${code}`}</code>
                   <CopyButton text={`/start ${code}`} />
                 </div>
-                <p className="mt-2 text-xs text-muted">Send this to the bot within 10 minutes.</p>
+                <p className="mt-2 text-xs text-muted">{t('telegram.sendWithin')}</p>
               </div>
             ) : (
               <Button variant="primary" disabled={busy} onClick={() => void handleGetCode()}>
-                Get a link code
+                {t('telegram.getCode')}
               </Button>
             )}
           </div>
@@ -117,11 +120,11 @@ export default function TelegramLink() {
 
       <Dialog
         open={confirming}
-        title="Unlink the Telegram chat?"
+        title={t('telegram.unlinkTitle')}
         onClose={() => setConfirming(false)}
         actions={
           <>
-            <Button onClick={() => setConfirming(false)}>Cancel</Button>
+            <Button onClick={() => setConfirming(false)}>{t('common.cancel')}</Button>
             <Button
               variant="danger"
               onClick={() => {
@@ -129,12 +132,12 @@ export default function TelegramLink() {
                 void handleUnlink();
               }}
             >
-              Unlink
+              {t('telegram.unlink')}
             </Button>
           </>
         }
       >
-        Alerts, summaries and replies stop coming to that chat.
+        {t('telegram.unlinkBody')}
       </Dialog>
     </section>
   );

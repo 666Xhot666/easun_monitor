@@ -7,7 +7,7 @@ import {
 } from 'class-validator';
 
 export class RegisterDto {
-  @IsEmail({}, { message: 'A valid email address is required' })
+  @IsEmail({}, { message: 'errors.emailInvalid' })
   email!: string;
 
   // 8 chars is a floor, not a strength guarantee — this is a single-tenant
@@ -15,7 +15,7 @@ export class RegisterDto {
   // policy, so we keep validation simple rather than pulling in a zxcvbn
   // dependency for it.
   @IsString()
-  @MinLength(8, { message: 'Password must be at least 8 characters' })
+  @MinLength(8, { message: 'errors.passwordTooShort' })
   password!: string;
 
   /** A household invite: join that household instead of getting one's own. */

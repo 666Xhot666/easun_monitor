@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { currentLanguage } from '../i18n';
 
 // The app's HTTP client: the default axios instance with interceptors that
 // attach the access token and transparently refresh it on a 401. Import
@@ -30,6 +31,8 @@ export function clearAccessToken(): void {
 axios.defaults.withCredentials = true;
 
 axios.interceptors.request.use((config) => {
+  // Server messages (errors) come back in the language the app is in.
+  config.headers.set('Accept-Language', currentLanguage());
   if (accessToken) {
     config.headers.set('Authorization', `Bearer ${accessToken}`);
   }

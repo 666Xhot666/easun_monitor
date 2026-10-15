@@ -2,6 +2,7 @@ import {
   RegisterMap,
   type RegisterDefinition,
 } from '../inverter/registers/register-map';
+import { registerMapFor } from '../inverter/registers/register-translations';
 import { ReadingsCsv } from './readings-csv';
 
 const definitions: RegisterDefinition[] = [
@@ -96,5 +97,11 @@ describe('ReadingsCsv', () => {
         payload: { OperationMode: 9, FaultCode: 0 },
       }),
     ).toBe('2026-10-05 21:17:34,,Unknown (9),,,\r\n');
+  });
+
+  it('names the columns and values in Ukrainian', () => {
+    const uk = new ReadingsCsv(registerMapFor('uk'), 'UTC', 'uk');
+    expect(uk.header()).toMatch(/^Час \(UTC\),Несправності,/);
+    expect(uk.header()).toContain(',Напруга мережі (В),');
   });
 });

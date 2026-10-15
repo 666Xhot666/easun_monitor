@@ -34,6 +34,8 @@ export interface SettingsConstraints {
  */
 export interface CompareRule {
   id: string;
+  /** Its text's key under "settingsRules" in src/i18n/locales. */
+  key: string;
   kind: 'compare';
   severity: 'error' | 'warning';
   left: string;
@@ -46,6 +48,7 @@ export interface CompareRule {
 /** `settings` have no effect unless `when` holds one of `in`. */
 export interface InactiveRule {
   id: string;
+  key: string;
   kind: 'inactive';
   settings: string[];
   when: string;
@@ -56,6 +59,7 @@ export interface InactiveRule {
 /** Setting `setting` to `value` is allowed but advised against. */
 export interface AvoidRule {
   id: string;
+  key: string;
   kind: 'avoid';
   setting: string;
   value: number;
@@ -81,6 +85,9 @@ export function checkSettings(
   constraints: SettingsConstraints,
   current: Record<string, number>,
   changes: Record<string, number>,
+  /** The message for a value out of `bounds`; English unless given. */
+  outOfBounds: (bounds: Bounds) => string = (bounds) =>
+    `Must be between ${bounds.min ?? '-∞'} and ${bounds.max ?? '∞'}${bounds.context ? ` ${bounds.context}` : ''}`,
 ): SettingsCheck {
   const result: SettingsCheck = { errors: {}, warnings: {}, inactive: {} };
   const add = (into: Record<string, string[]>, name: string, message: string) => {
@@ -91,8 +98,7 @@ export function checkSettings(
     const bounds = constraints.bounds[name];
     if (!bounds) continue;
     if ((bounds.min !== undefined && value < bounds.min) || (bounds.max !== undefined && value > bounds.max)) {
-      const context = bounds.context ? ` ${bounds.context}` : '';
-      add(result.errors, name, `Must be between ${bounds.min ?? '-∞'} and ${bounds.max ?? '∞'}${context}`);
+      add(result.errors, name, outOfBounds(bounds));
     }
   }
   const values = { ...current, ...changes };

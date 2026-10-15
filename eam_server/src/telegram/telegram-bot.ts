@@ -12,11 +12,12 @@ import {
   type MessageOptions,
   type TelegramClient,
   type TelegramUpdate,
+  type TelegramUser,
 } from './telegram-client';
 import { TelegramLinksService } from './telegram-links.service';
 import { HouseholdsService } from '../households/households.service';
-import { RegisterMap } from '../inverter/registers/register-map';
-import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
+import { LOCALES, type Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelemetryStore } from '../telemetry/telemetry.store';
 import type { BmsReading } from '../bms/reading';
@@ -34,42 +35,37 @@ import { dayStart, formatEnergy } from './messages';
 const POLL_TIMEOUT_SECONDS = 30;
 const RETRY_AFTER_ERROR_MS = 5_000;
 
-const HOW_TO_LINK =
-  'To link this chat, open Household in the app, get a Telegram code, and send it here as /start <code>.';
 type ViewName = 'status' | 'battery' | 'faults' | 'energy' | 'week';
 
 /** The views a command or a button shows, in menu order. */
-const VIEWS: { name: ViewName; button: string; description: string }[] = [
+const VIEWS: ViewName[] = ['status', 'battery', 'faults', 'energy', 'week'];
+
+/** The "/" menu in `language`. */
+const menu = (language: Language): BotCommand[] => [
+  ...VIEWS.map((name) => ({
+    command: name,
+    description: translate(language, `telegram.views.${name}.description`),
+  })),
   {
-    name: 'status',
-    button: '🏠 Status',
-    description: 'Mode, power flow and battery now',
+    command: 'chart',
+    description: translate(language, 'telegram.chartCommand'),
   },
-  {
-    name: 'battery',
-    button: '🔋 Battery',
-    description: 'Battery and BMS detail: cells, temperatures, alarms',
-  },
-  {
-    name: 'faults',
-    button: '🚨 Faults',
-    description: 'Active faults and warnings',
-  },
-  { name: 'energy', button: '⚡ Today', description: "Today's energy" },
-  {
-    name: 'week',
-    button: '📅 Week',
-    description: 'Energy by day, last 7 days',
-  },
+  { command: 'stop', description: translate(language, 'telegram.stopCommand') },
 ];
 
-const MENU: BotCommand[] = [
-  ...VIEWS.map((v) => ({ command: v.name, description: v.description })),
-  { command: 'chart', description: 'Power chart of the last 24 hours' },
-  { command: 'stop', description: 'Unlink this chat' },
-];
+const help = (language: Language) =>
+  translate(language, 'telegram.help', {
+    commands: menu(language)
+      .map((c) => `/${c.command}`)
+      .join(', '),
+  });
 
-const HELP = `Commands: ${MENU.map((c) => `/${c.command}`).join(', ')}.`;
+const howToLink = (language: Language) =>
+  translate(language, 'telegram.howToLink');
+
+/** The language of a Telegram app: Ukrainian if it is in Ukrainian, else English. */
+const appLanguage = (user?: TelegramUser): Language =>
+  user?.language_code?.startsWith('uk') ? 'uk' : 'en';
 
 const errorText = (error: unknown) =>
   error instanceof Error ? error.message : String(error);
@@ -84,7 +80,6 @@ export class TelegramBot
 {
   private readonly logger = new Logger(TelegramBot.name);
   private running = false;
-  private readonly map = new RegisterMap(SMG_II_REGISTERS);
 
   constructor(
     @Inject(TELEGRAM_CLIENT) private readonly client: TelegramClient | null,
@@ -114,9 +109,10 @@ export class TelegramBot
     this.running = false;
   }
 
-  /** Fills the "/" command menu in Telegram. */
+  /** Fills the "/" command menu in Telegram: English, and Ukrainian for apps in Ukrainian. */
   async registerCommands(): Promise<void> {
-    await this.client?.setCommands(MENU);
+    await this.client?.setCommands(menu('en'));
+    await this.client?.setCommands(menu('uk'), 'uk');
   }
 
   /** Sends a message to a chat; failures are logged, never thrown. */
@@ -139,41 +135,59 @@ export class TelegramBot
     const id = update.message?.chat.id;
     if (!text || id === undefined) return;
     const chatId = String(id);
+    const app = appLanguage(update.message?.from);
     // "/status@MyBot" in groups: drop the bot name.
     const [rawCommand, argument] = text.split(/\s+/, 2);
     const command = rawCommand.replace(/@.*$/, '');
 
     if (command === '/start' && argument) {
       const linked = await this.links.linkChat(argument, chatId);
+      const language = linked
+        ? ((await this.links.accountForChat(chatId))?.language ?? app)
+        : app;
       await this.send(
         chatId,
         linked
-          ? `Linked to ${linked.email}. Alerts and the evening summary will come here. ${HELP}`
-          : `This code is not valid; codes expire after 10 minutes. ${HOW_TO_LINK}`,
+          ? translate(language, 'telegram.linked', {
+              email: linked.email,
+              help: help(language),
+            })
+          : translate(language, 'telegram.badCode', {
+              howToLink: howToLink(language),
+            }),
       );
       return;
     }
     if (command === '/stop') {
+      const language =
+        (await this.links.accountForChat(chatId))?.language ?? app;
       await this.links.unlinkChat(chatId);
-      await this.send(chatId, `This chat is unlinked. ${HOW_TO_LINK}`);
+      await this.send(
+        chatId,
+        translate(language, 'telegram.unlinked', {
+          howToLink: howToLink(language),
+        }),
+      );
       return;
     }
-    const userId = await this.links.userForChat(chatId);
-    if (userId === null) {
-      await this.send(chatId, HOW_TO_LINK);
+    const account = await this.links.accountForChat(chatId);
+    if (account === null) {
+      await this.send(chatId, howToLink(app));
       return;
     }
-    const view = VIEWS.find((v) => `/${v.name}` === command);
+    const { userId } = account;
+    const language = account.language ?? app;
+    const view = VIEWS.find((name) => `/${name}` === command);
     if (command === '/chart') {
-      await this.sendCharts(chatId, userId);
+      await this.sendCharts(chatId, userId, language);
     } else if (view) {
       await this.send(
         chatId,
-        await this.render(view.name, userId),
-        this.viewOptions(view.name),
+        await this.render(view, userId, language),
+        this.viewOptions(view, language),
       );
     } else {
-      await this.send(chatId, HELP);
+      await this.send(chatId, help(language));
     }
   }
 
@@ -185,23 +199,26 @@ export class TelegramBot
       this.logger.warn(`Answering a button press failed: ${errorText(error)}`);
     });
     const message = press.message;
-    const view = VIEWS.find((v) => `v:${v.name}` === press.data);
+    const view = VIEWS.find((name) => `v:${name}` === press.data);
     const chart = press.data === 'chart';
     if (!message || (!view && !chart)) return;
     const chatId = String(message.chat.id);
-    const userId = await this.links.userForChat(chatId);
-    if (userId === null) {
-      await this.send(chatId, HOW_TO_LINK);
+    const app = appLanguage(press.from);
+    const account = await this.links.accountForChat(chatId);
+    if (account === null) {
+      await this.send(chatId, howToLink(app));
       return;
     }
+    const { userId } = account;
+    const language = account.language ?? app;
     // A photo can't replace a text message: the chart comes as a new one.
-    if (!view) return this.sendCharts(chatId, userId);
+    if (!view) return this.sendCharts(chatId, userId, language);
     try {
       await this.client?.editMessage(
         chatId,
         message.message_id,
-        await this.render(view.name, userId),
-        this.viewOptions(view.name),
+        await this.render(view, userId, language),
+        this.viewOptions(view, language),
       );
     } catch (error) {
       this.logger.warn(
@@ -211,28 +228,38 @@ export class TelegramBot
   }
 
   /** HTML, with buttons for every view and a refresh of this one. */
-  private viewOptions(current: ViewName): MessageOptions {
-    const button = (name: ViewName) => {
-      const view = VIEWS.find((v) => v.name === name)!;
-      return { text: view.button, data: `v:${name}` };
-    };
+  private viewOptions(current: ViewName, language: Language): MessageOptions {
+    const t = (key: string) => translate(language, `telegram.${key}`);
+    const button = (name: ViewName) => ({
+      text: t(`views.${name}.button`),
+      data: `v:${name}`,
+    });
     return {
       html: true,
       buttons: [
         [button('status'), button('battery'), button('faults')],
-        [button('energy'), button('week'), { text: '📈 Chart', data: 'chart' }],
-        [{ text: '🔄 Refresh', data: `v:${current}` }],
+        [
+          button('energy'),
+          button('week'),
+          { text: t('chartButton'), data: 'chart' },
+        ],
+        [{ text: t('refreshButton'), data: `v:${current}` }],
       ],
     };
   }
 
   /** One card per inverter of the user's households. */
-  private async render(view: ViewName, userId: number): Promise<string> {
+  private async render(
+    view: ViewName,
+    userId: number,
+    language: Language,
+  ): Promise<string> {
     const profiles = await this.profilesOf(userId);
-    if (profiles.length === 0) return 'No inverters in your households yet.';
+    if (profiles.length === 0)
+      return translate(language, 'telegram.noInverters');
     const now = new Date();
     const cards = await Promise.all(
-      profiles.map((p) => this.card(view, p, now)),
+      profiles.map((p) => this.card(view, p, now, language)),
     );
     return cards.join('\n\n');
   }
@@ -241,37 +268,50 @@ export class TelegramBot
     view: ViewName,
     profile: { id: number; name: string },
     now: Date,
+    language: Language,
   ): Promise<string> {
     if (view === 'energy')
       return energyCard(
         profile.name,
         await this.energyOn(profile.id, dayStart(now, this.timeZone)),
+        language,
       );
     if (view === 'week')
-      return weekCard(profile.name, await this.week(profile.id, now));
+      return weekCard(
+        profile.name,
+        await this.week(profile.id, now, language),
+        language,
+      );
     const latest = await this.telemetry.latest(profile.id);
     const payload = latest ? (latest.payload as Record<string, number>) : null;
-    if (view === 'faults') return faultsCard(profile.name, this.map, payload);
+    if (view === 'faults') return faultsCard(profile.name, payload, language);
     if (view === 'battery')
       return batteryCard(
         profile.name,
         payload,
         await this.bmsOf(profile.id),
         now,
+        language,
       );
     return statusCard(
       profile.name,
-      this.map,
       latest && payload ? { timestamp: latest.timestamp, payload } : null,
       now,
+      language,
     );
   }
 
   /** A power chart of the last 24 hours, one photo per inverter. */
-  private async sendCharts(chatId: string, userId: number): Promise<void> {
+  private async sendCharts(
+    chatId: string,
+    userId: number,
+    language: Language,
+  ): Promise<void> {
+    const t = (key: string, values?: Record<string, string>) =>
+      translate(language, `telegram.${key}`, values);
     const profiles = await this.profilesOf(userId);
     if (profiles.length === 0) {
-      await this.send(chatId, 'No inverters in your households yet.');
+      await this.send(chatId, t('noInverters'));
       return;
     }
     const to = Date.now();
@@ -297,22 +337,27 @@ export class TelegramBot
             const v = value(p.values);
             return v === undefined ? [] : [{ t: Date.parse(p.timestamp), v }];
           });
+        const title = t('chart.title', { name: profile.name });
         const svg = powerChartSvg(
-          `${profile.name} · last 24 h`,
+          title,
           [
-            { label: 'PV', color: '#f59e0b', points: series((v) => v.PVPower) },
             {
-              label: 'Load',
+              label: t('chart.pv'),
+              color: '#f59e0b',
+              points: series((v) => v.PVPower),
+            },
+            {
+              label: t('chart.load'),
               color: '#3b82f6',
               points: series((v) => v.OutputActivePower),
             },
             {
-              label: 'Grid',
+              label: t('chart.grid'),
               color: '#6b7280',
               points: series((v) => v.AverageMainsPower),
             },
             {
-              label: 'Battery (+charge)',
+              label: t('chart.battery'),
               color: '#10b981',
               points: series((v) =>
                 v.BatteryVoltage === undefined ||
@@ -327,14 +372,11 @@ export class TelegramBot
             from,
             to,
             timeZone: this.timeZone,
+            language,
             maxGapMs: Math.max(3 * history.bucketSeconds * 1000, 15 * 60_000),
           },
         );
-        await this.client?.sendPhoto(
-          chatId,
-          svgToPng(svg),
-          `${profile.name} · last 24 h`,
-        );
+        await this.client?.sendPhoto(chatId, svgToPng(svg), title);
       } catch (error) {
         this.logger.warn(
           `Sending a chart to chat ${chatId} failed: ${errorText(error)}`,
@@ -375,13 +417,13 @@ export class TelegramBot
   }
 
   /** Today and the 6 days before it, newest first. */
-  private async week(profileId: number, now: Date) {
+  private async week(profileId: number, now: Date, language: Language) {
     const starts: Date[] = [dayStart(now, this.timeZone)];
     while (starts.length < 7)
       starts.push(
         dayStart(new Date(starts.at(-1)!.getTime() - 1), this.timeZone),
       );
-    const label = new Intl.DateTimeFormat('en-GB', {
+    const label = new Intl.DateTimeFormat(LOCALES[language], {
       timeZone: this.timeZone,
       weekday: 'short',
       day: '2-digit',
@@ -406,13 +448,21 @@ export class TelegramBot
   }
 
   /** The day's energy so far, one line per inverter of the user's households. */
-  async energyLines(userId: number, now: Date): Promise<string[]> {
+  async energyLines(
+    userId: number,
+    now: Date,
+    language: Language,
+  ): Promise<string[]> {
     const profiles = await this.profilesOf(userId);
     const from = dayStart(now, this.timeZone);
     const to = new Date(from.getTime() + 24 * 3_600_000);
     return Promise.all(
       profiles.map(async (p) =>
-        formatEnergy(p.name, await this.telemetry.energy(p.id, { from, to })),
+        formatEnergy(
+          p.name,
+          await this.telemetry.energy(p.id, { from, to }),
+          language,
+        ),
       ),
     );
   }

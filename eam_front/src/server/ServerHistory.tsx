@@ -1,4 +1,6 @@
 import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { dateLocale, num, unit, withUnit } from '../i18n/format';
 import { useEffect, useState } from 'react';
 import { ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import axios from '../lib/apiClient';
@@ -17,10 +19,7 @@ interface Point {
 }
 
 type Range = '24h' | '7d';
-const RANGES: { value: Range; label: string }[] = [
-  { value: '24h', label: '24 h' },
-  { value: '7d', label: '7 d' },
-];
+const RANGES: Range[] = ['24h', '7d'];
 
 const axisTick = { fill: 'var(--muted)', fontSize: 11, fontFamily: 'var(--font-mono)' };
 const tooltipStyle = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 };
@@ -61,7 +60,7 @@ function Chart({ title, summary, rows, lines, unit, rightUnit, domain, show }: {
             <YAxis yAxisId="left" width={44} tick={axisTick} tickLine={false} axisLine={false} unit={unit} domain={domain ?? ['auto', 'auto']} tickCount={3} />
             {rightUnit && <YAxis yAxisId="right" orientation="right" width={52} tick={axisTick} tickLine={false} axisLine={false} unit={rightUnit} tickCount={3} />}
             <Tooltip
-              labelFormatter={(t) => format(Number(t), 'PPp')}
+              labelFormatter={(at) => format(Number(at), 'PPp', { locale: dateLocale() })}
               formatter={(v, _name, item) => (typeof v === 'number' ? show(item.dataKey as ChartLine['key'], v) : '--')}
               contentStyle={tooltipStyle}
             />
@@ -88,6 +87,7 @@ function Chart({ title, summary, rows, lines, unit, rightUnit, domain, show }: {
 
 /** CPU, memory, temperature, fan and network over the last day or week. */
 export default function ServerHistory() {
+  const { t } = useTranslation();
   const [range, setRange] = useState<Range>('24h');
   const [points, setPoints] = useState<Point[] | null>(null);
   const [failed, setFailed] = useState(false);
@@ -117,52 +117,58 @@ export default function ServerHistory() {
   const tx = peak(rows, 'txBytesPerSecond');
 
   return (
-    <section aria-label="History" className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
+    <section aria-label={t('server.history.title')} className="mt-4 rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-[15px] font-semibold">History</h2>
-        <Segmented ariaLabel="Range" size="sm" options={RANGES} value={range} onChange={setRange} />
+        <h2 className="text-[15px] font-semibold">{t('server.history.title')}</h2>
+        <Segmented
+          ariaLabel={t('server.history.range')}
+          size="sm"
+          options={RANGES.map((value) => ({ value, label: t(`ranges.${value}`) }))}
+          value={range}
+          onChange={setRange}
+        />
       </div>
       {failed && (
         <p role="alert" className="py-10 text-center text-sm text-crit-ink">
-          Couldn’t load the history.
+          {t('server.history.failed')}
         </p>
       )}
       {!failed && !points && <div className="mt-4 h-72 animate-pulse rounded-lg bg-surface-2" />}
-      {!failed && points?.length === 0 && <p className="py-10 text-center text-sm text-muted">No history yet.</p>}
+      {!failed && points?.length === 0 && <p className="py-10 text-center text-sm text-muted">{t('server.history.empty')}</p>}
       {!failed && rows.length > 0 && (
         <div className="mt-4 space-y-5">
           <Chart
-            title="CPU and memory"
-            summary={cpu === null ? '' : `Peak ${cpu} %`}
+            title={t('server.history.cpuMemory')}
+            summary={cpu === null ? '' : t('server.history.peak', { value: `${num(cpu, Number.isInteger(cpu) ? 0 : 1)} %` })}
             rows={rows}
             unit=" %"
             domain={[0, 100]}
             lines={[
-              { key: 'cpuPercent', label: 'CPU', colour: 'var(--load)' },
-              { key: 'memoryPercent', label: 'Memory', colour: 'var(--soc)' },
+              { key: 'cpuPercent', label: t('server.history.cpuLine'), colour: 'var(--load)' },
+              { key: 'memoryPercent', label: t('server.history.memoryLine'), colour: 'var(--soc)' },
             ]}
-            show={(_k, v) => `${v} %`}
+            show={(_k, v) => `${num(v, Number.isInteger(v) ? 0 : 1)} %`}
           />
           <Chart
-            title="Temperature and fan"
-            summary={temp === null ? '' : `Peak ${temp} °C`}
+            title={t('server.history.tempFan')}
+            summary={temp === null ? '' : t('server.history.peak', { value: `${num(temp, Number.isInteger(temp) ? 0 : 1)} °C` })}
             rows={rows}
             unit=" °C"
-            rightUnit=" rpm"
+            rightUnit={` ${unit('rpm')}`}
             lines={[
-              { key: 'temperatureMax', label: 'Hottest sensor', colour: 'var(--batt)' },
-              { key: 'fanRpm', label: 'Fan', colour: 'var(--muted)', right: true },
+              { key: 'temperatureMax', label: t('server.history.hottest'), colour: 'var(--batt)' },
+              { key: 'fanRpm', label: t('server.history.fanLine'), colour: 'var(--muted)', right: true },
             ]}
-            show={(k, v) => (k === 'fanRpm' ? `${Math.round(v).toLocaleString('en-US')} rpm` : `${v} °C`)}
+            show={(k, v) => (k === 'fanRpm' ? withUnit(Math.round(v), 'rpm') : `${num(v, Number.isInteger(v) ? 0 : 1)} °C`)}
           />
           <Chart
-            title="Network"
-            summary={rx === null && tx === null ? '' : `Peak ↓ ${rate(rx)} ↑ ${rate(tx)}`}
+            title={t('server.history.network')}
+            summary={rx === null && tx === null ? '' : t('server.history.peakNet', { rx: rate(rx), tx: rate(tx) })}
             rows={rows}
             unit=""
             lines={[
-              { key: 'rxBytesPerSecond', label: 'Received', colour: 'var(--grid)' },
-              { key: 'txBytesPerSecond', label: 'Sent', colour: 'var(--pv)' },
+              { key: 'rxBytesPerSecond', label: t('server.history.received'), colour: 'var(--grid)' },
+              { key: 'txBytesPerSecond', label: t('server.history.sent'), colour: 'var(--pv)' },
             ]}
             show={(_k, v) => rate(v)}
           />

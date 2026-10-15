@@ -1,51 +1,58 @@
 import type { BmsReading } from '../bms/types';
+import { alarmName } from '../bms/alarmName';
+import { useTranslation } from 'react-i18next';
+import { num, unit, withUnit } from '../i18n/format';
 
 /** Renders a set of table rows for a single BMS reading. */
 export default function BmsReadingRows({ reading }: { reading: BmsReading }) {
+  const { t } = useTranslation();
   const rows: [string, string][] = [];
 
   if (reading.stateOfChargePct !== null) {
-    rows.push(['State of charge', `${Math.round(reading.stateOfChargePct)}%`]);
+    rows.push([t('readings.bmsRows.soc'), `${Math.round(reading.stateOfChargePct)}%`]);
   }
   if (reading.packVoltageV !== null) {
-    rows.push(['Pack voltage', `${reading.packVoltageV.toFixed(2)} V`]);
+    rows.push([t('readings.bmsRows.packVoltage'), withUnit(reading.packVoltageV, 'V', 2)]);
   }
   if (reading.currentA !== null) {
-    rows.push(['Current', `${reading.currentA > 0 ? '+' : ''}${reading.currentA.toFixed(1)} A`]);
+    rows.push([t('readings.bmsRows.current'), `${reading.currentA > 0 ? '+' : ''}${withUnit(reading.currentA, 'A', 1)}`]);
   }
   if (reading.powerW !== null) {
-    rows.push(['Power', `${Math.round(reading.powerW).toLocaleString('en-US')} W`]);
+    rows.push([t('readings.bmsRows.power'), withUnit(Math.round(reading.powerW), 'W')]);
   }
   if (reading.remainingCapacityAh !== null && reading.nominalCapacityAh !== null) {
-    rows.push(['Remaining', `${reading.remainingCapacityAh} of ${reading.nominalCapacityAh} Ah`]);
+    rows.push([
+      t('readings.bmsRows.remaining'),
+      t('readings.bmsRows.remainingValue', { remaining: reading.remainingCapacityAh, nominal: `${reading.nominalCapacityAh} ${unit('Ah')}` }),
+    ]);
   }
   if (reading.cycleCount !== null) {
-    rows.push(['Cycles', String(reading.cycleCount)]);
+    rows.push([t('readings.bmsRows.cycles'), String(reading.cycleCount)]);
   }
   if (reading.cellDeltaV !== null) {
-    rows.push(['Cell spread', `${Math.round(reading.cellDeltaV * 1000)} mV`]);
+    rows.push([t('readings.bmsRows.cellSpread'), withUnit(Math.round(reading.cellDeltaV * 1000), 'mV')]);
   }
   if (reading.cellVoltagesV) {
     reading.cellVoltagesV.forEach((v, i) => {
-      rows.push([`Cell ${i + 1}`, `${v.toFixed(3)} V`]);
+      rows.push([t('readings.bmsRows.cell', { n: i + 1 }), withUnit(v, 'V', 3)]);
     });
   }
   if (reading.temperaturesC) {
-    reading.temperaturesC.forEach((t) => {
-      rows.push([t.name, `${t.celsius.toFixed(1)} °C`]);
+    reading.temperaturesC.forEach((temp) => {
+      rows.push([temp.name, `${num(temp.celsius, 1)} °C`]);
     });
   }
   if (reading.balancing !== null) {
-    rows.push(['Balancing', reading.balancing ? 'On' : 'Off']);
+    rows.push([t('readings.bmsRows.balancing'), t(reading.balancing ? 'readings.bmsRows.on' : 'readings.bmsRows.off')]);
   }
   if (reading.chargeMosfetOn !== null) {
-    rows.push(['Charge MOSFET', reading.chargeMosfetOn ? 'On' : 'Off']);
+    rows.push([t('readings.bmsRows.chargeMosfet'), t(reading.chargeMosfetOn ? 'readings.bmsRows.on' : 'readings.bmsRows.off')]);
   }
   if (reading.dischargeMosfetOn !== null) {
-    rows.push(['Discharge MOSFET', reading.dischargeMosfetOn ? 'On' : 'Off']);
+    rows.push([t('readings.bmsRows.dischargeMosfet'), t(reading.dischargeMosfetOn ? 'readings.bmsRows.on' : 'readings.bmsRows.off')]);
   }
   if (reading.alarms) {
-    rows.push(['Alarms', reading.alarms.length ? reading.alarms.join(', ') : 'None']);
+    rows.push([t('readings.bmsRows.alarms'), reading.alarms.length ? reading.alarms.map(alarmName).join(', ') : t('readings.bmsRows.none')]);
   }
 
   return (

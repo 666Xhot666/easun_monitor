@@ -38,6 +38,9 @@ model User {
   telegramLink         TelegramLink?
   telegramCodes        TelegramLinkCode[]
   notificationSettings NotificationSettings?
+  /// The app and Telegram language the user chose ("en" or "uk"); null: the
+  /// browser's.
+  language             String?
   /// May look at the server page; chosen by the server's owner.
   serverViewer         Boolean               @default(false)
   serverOwner          ServerOwner?
@@ -118,9 +121,14 @@ model ServerAlertSettings {
 model ServerAlertEvent {
   id   Int      @id @default(autoincrement())
   /// server-heat | server-storage | server-memory | server-agent | server-updates
-  kind String
-  text String
-  at   DateTime @default(now())
+  kind   String
+  /// In English; shown as is when there is no key (notices kept before keys).
+  text   String
+  /// The message key under "alerts" in src/i18n/locales, worded per reader.
+  key    String?
+  /// The message's values (see src/alerts/alert-message.ts).
+  params Json?
+  at     DateTime @default(now())
 
   @@index([at])
   @@map("server_alert_events")
@@ -466,7 +474,12 @@ model AlertEvent {
   id     Int      @id @default(autoincrement())
   /// fault | warning | grid | battery | connection
   kind   String
+  /// In English; shown as is when there is no key (alerts kept before keys).
   text   String
+  /// The message key under "alerts" in src/i18n/locales, worded per reader.
+  key    String?
+  /// The message's values (see src/alerts/alert-message.ts).
+  params Json?
   /// The BMS device's name, for BMS alerts.
   source String?
   at     DateTime @default(now())

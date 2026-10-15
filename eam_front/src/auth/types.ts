@@ -40,6 +40,8 @@ export interface AuthUser {
   households: { id: number; name: string; role: HouseholdRole }[];
   /** The inverters of all the user's households. */
   inverterProfiles: InverterProfile[];
+  /** The language the user chose ("en" or "uk"); null: the browser's. */
+  language: 'en' | 'uk' | null;
   /** The server page: its owner, someone the owner lets look, or neither. */
   server: ServerRole | null;
 }

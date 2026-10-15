@@ -117,6 +117,42 @@ describe('Telegram views (e2e)', () => {
       'stop',
     ]);
     expect(telegram.commands.every((c) => c.description.length > 0)).toBe(true);
+    expect(telegram.commandsIn.uk.map((c) => c.command)).toEqual(
+      telegram.commands.map((c) => c.command),
+    );
+    expect(telegram.commandsIn.uk[0].description).toBe(
+      'Режим, потоки енергії й акумулятор зараз',
+    );
+  });
+
+  it("answers in the account's language, else in the Telegram app's", async () => {
+    const prisma = app.get(PrismaService);
+    const fromUk = (text: string, chatId = CHAT) => ({
+      update_id: 3,
+      message: { chat: { id: chatId }, text, from: { language_code: 'uk' } },
+    });
+
+    await bot.handleUpdate(fromUk('/status', 999));
+    expect(telegram.sent[0].text).toMatch(/^Щоб під’єднати цей чат/);
+
+    await bot.handleUpdate(fromUk('/status'));
+    expect(telegram.sent[1].text).toMatch(
+      new RegExp(`^<b>🏠 ${profile.name}</b> · Автономний`),
+    );
+
+    await prisma.user.update({
+      where: { email: 'owner@example.com' },
+      data: { language: 'en' },
+    });
+    try {
+      await bot.handleUpdate(fromUk('/status'));
+      expect(telegram.sent[2].text).toMatch(/· Off-grid/);
+    } finally {
+      await prisma.user.update({
+        where: { email: 'owner@example.com' },
+        data: { language: null },
+      });
+    }
   });
 
   it('sends /status as an HTML card with buttons for the other views and a refresh', async () => {

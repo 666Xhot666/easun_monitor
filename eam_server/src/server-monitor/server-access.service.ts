@@ -6,6 +6,7 @@ import {
 } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { localized } from '../i18n/localized';
 
 /** What a user may do on the server page: the owner everything, a viewer look. */
 export type ServerRole = 'OWNER' | 'VIEWER';
@@ -30,14 +31,14 @@ export class ServerAccessService {
   /** For the owner's eyes and actions only. */
   async requireOwner(userId: number): Promise<void> {
     if ((await this.role(userId)) !== 'OWNER') {
-      throw new ForbiddenException('Only the server owner can do this');
+      throw new ForbiddenException(localized('ownerOnly'));
     }
   }
 
   /** For the owner and the viewers. */
   async requireViewer(userId: number): Promise<ServerRole> {
     const role = await this.role(userId);
-    if (!role) throw new ForbiddenException('No access to the server page');
+    if (!role) throw new ForbiddenException(localized('noServerAccess'));
     return role;
   }
 
@@ -78,7 +79,7 @@ export class ServerAccessService {
   async setViewer(ownerId: number, userId: number, viewer: boolean) {
     await this.requireOwner(ownerId);
     if (userId === ownerId) {
-      throw new BadRequestException('The owner always has access');
+      throw new BadRequestException(localized('ownerAlwaysAccess'));
     }
     const { count } = await this.prisma.user.updateMany({
       where: { id: userId },

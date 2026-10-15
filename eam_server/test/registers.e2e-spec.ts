@@ -44,6 +44,19 @@ describe('Register metadata and decoded alerts (e2e)', () => {
     expect(byProgram['10']).toMatchObject({ title: 'Auto bypass', default: 'Manual' });
   });
 
+  it('serves the register texts and panel settings in Ukrainian when asked, English for anything else', async () => {
+    const get = (path: string) =>
+      request(app.getHttpServer()).get(path).set('Authorization', `Bearer ${token}`).expect(200);
+
+    const uk = Object.fromEntries((await get('/api/inverter/registers?lang=uk')).body.map((d: { name: string }) => [d.name, d]));
+    expect(uk.MainsVoltage).toMatchObject({ label: 'Напруга мережі', unit: 'В', scale: 0.1 });
+    expect(uk.OutputPriority.options[2]).toBe('Сонце-акумулятор-мережа (SBU)');
+    expect((await get('/api/inverter/registers?lang=ru')).body[0].label).toBe('Faults');
+
+    const panel = (await get('/api/inverter/panel-settings?lang=uk')).body;
+    expect(panel[0]).toMatchObject({ program: '10', title: 'Автоматичний байпас', default: 'Вручну' });
+  });
+
   it('adds the active faults and warnings to the latest reading', async () => {
     const { id } = (
       await request(app.getHttpServer())
@@ -62,6 +75,16 @@ describe('Register metadata and decoded alerts (e2e)', () => {
     expect(res.body.alerts).toEqual({
       faults: ['Output overload'],
       warnings: ['Battery low voltage', 'Fan blocked'],
+    });
+
+    const uk = await request(app.getHttpServer())
+      .get(`/api/inverter/${id}/latest`)
+      .query({ lang: 'uk' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+    expect(uk.body.alerts).toEqual({
+      faults: ['Перевантаження виходу'],
+      warnings: ['Низька напруга акумулятора', 'Вентилятор заблоковано'],
     });
   });
 });

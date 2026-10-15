@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { Switch } from '../ui/Switch';
@@ -35,25 +37,26 @@ export interface NotificationSettingsValue {
 const LEAD = { min: 1, max: 120 };
 
 /** `server`: for the server's owner and viewers; in the app these are on the Server page. */
-const ROWS: { kind: NotificationKind; label: string; detail: string; server?: true }[] = [
-  { kind: 'fault', label: 'Faults', detail: 'Inverter faults and fault mode, as they happen' },
-  { kind: 'warning', label: 'Warnings', detail: 'Inverter warnings and BMS alarms' },
-  { kind: 'grid', label: 'Grid lost and restored', detail: 'With how long the outage lasted' },
-  { kind: 'battery', label: 'Battery low', detail: 'When the state of charge drops to the low level' },
-  { kind: 'connection', label: 'Logger or BMS reader offline', detail: 'When there are no readings for 5 minutes' },
-  { kind: 'schedule', label: 'Outage schedule updated', detail: 'A new or changed outage schedule for your address, old → new times' },
-  { kind: 'outage', label: 'Outage soon', detail: 'Before a scheduled outage starts, with the battery level' },
-  { kind: 'schedule-unavailable', label: 'Outage schedule unavailable', detail: 'When the DTEK site could not be checked for 12 hours' },
-  { kind: 'server-heat', label: 'Server overheating', detail: 'A sensor at the limit set on the Server page; also in quiet hours', server: true },
-  { kind: 'server-storage', label: 'Server storage low', detail: 'A filesystem under the free space limit', server: true },
-  { kind: 'server-memory', label: 'Server memory short', detail: 'Memory over the limit for 5 minutes', server: true },
-  { kind: 'server-agent', label: 'Server agent silent', detail: 'No report from the server agent for 5 minutes', server: true },
-  { kind: 'server-updates', label: 'Server updates', detail: 'Security updates waiting, or a restart required', server: true },
-  { kind: 'summary', label: 'Daily summary', detail: 'In the evening: solar, grid, load, self-sufficiency' },
+const ROWS: { kind: NotificationKind; server?: true }[] = [
+  { kind: 'fault' },
+  { kind: 'warning' },
+  { kind: 'grid' },
+  { kind: 'battery' },
+  { kind: 'connection' },
+  { kind: 'schedule' },
+  { kind: 'outage' },
+  { kind: 'schedule-unavailable' },
+  { kind: 'server-heat', server: true },
+  { kind: 'server-storage', server: true },
+  { kind: 'server-memory', server: true },
+  { kind: 'server-agent', server: true },
+  { kind: 'server-updates', server: true },
+  { kind: 'summary' },
 ];
 
 /** What reaches the signed-in user, per kind of alert, in the app and on Telegram. */
 export default function NotificationSettings({ showServer = false }: { showServer?: boolean }) {
+  const { t } = useTranslation();
   const [settings, setSettings] = useState<NotificationSettingsValue | null>(null);
   const [linked, setLinked] = useState(false);
   const [error, setError] = useState('');
@@ -72,7 +75,7 @@ export default function NotificationSettings({ showServer = false }: { showServe
         setLead(String(s.data.outageLeadMinutes));
         setLinked(link.data.linked);
       } catch (e) {
-        if (!cancelled) setError(extractErrorMessage(e, 'Couldn’t load the notification settings.'));
+        if (!cancelled) setError(extractErrorMessage(e, i18n.t('notify.loadFailed')));
       }
     })();
     return () => {
@@ -86,7 +89,7 @@ export default function NotificationSettings({ showServer = false }: { showServe
       const { data } = await axios.put<NotificationSettingsValue>('/api/notifications/settings', change);
       setSettings(data);
     } catch (e) {
-      setError(extractErrorMessage(e, 'Couldn’t save the change.'));
+      setError(extractErrorMessage(e, t('notify.saveFailed')));
     }
   }
 
@@ -94,7 +97,7 @@ export default function NotificationSettings({ showServer = false }: { showServe
     if (!settings) return;
     const minutes = Number(lead);
     if (!Number.isInteger(minutes) || minutes < LEAD.min || minutes > LEAD.max) {
-      setError(`From ${LEAD.min} to ${LEAD.max} minutes.`);
+      setError(t('notify.leadRange', { min: LEAD.min, max: LEAD.max }));
       return;
     }
     if (minutes === settings.outageLeadMinutes) return;
@@ -111,9 +114,9 @@ export default function NotificationSettings({ showServer = false }: { showServe
 
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">What to send, and where</h2>
+      <h2 className="text-[15px] font-semibold">{t('notify.title')}</h2>
       <p className="mt-1 text-[13px] leading-relaxed text-muted">
-        In the app: the bell in the top bar. The Alerts page always keeps the full history.
+        {t('notify.intro')}
       </p>
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
@@ -127,30 +130,32 @@ export default function NotificationSettings({ showServer = false }: { showServe
             <thead>
               <tr className="text-xs text-muted">
                 <th scope="col" className="pb-2 text-left font-normal" />
-                <th scope="col" className="w-16 pb-2 font-semibold">In app</th>
-                <th scope="col" className="w-20 pb-2 font-semibold">Telegram</th>
+                <th scope="col" className="w-16 pb-2 font-semibold">{t('notify.inApp')}</th>
+                <th scope="col" className="w-20 pb-2 font-semibold">{t('notify.telegram')}</th>
               </tr>
             </thead>
             <tbody>
-              {ROWS.filter((row) => showServer || !row.server).map(({ kind, label, detail, server }) => (
+              {ROWS.filter((row) => showServer || !row.server).map(({ kind, server }) => {
+                const label = t(`notify.rows.${kind}.label`);
+                return (
                 <tr key={kind} className="border-t border-line">
                   <th scope="row" className="py-3 pr-3 text-left font-normal">
                     <span className="block text-[15px]">{label}</span>
-                    <span className="block text-xs text-muted">{detail}</span>
+                    <span className="block text-xs text-muted">{t(`notify.rows.${kind}.detail`)}</span>
                   </th>
                   <td className="text-center">
                     {server ? (
-                      <span className="text-xs text-muted">Server page</span>
+                      <span className="text-xs text-muted">{t('notify.serverPage')}</span>
                     ) : (
                       <span className="inline-flex">
-                        <Switch label={`${label} in the app`} on={settings.channels[kind].inApp} onChange={(on) => set(kind, 'inApp', on)} />
+                        <Switch label={t('notify.inTheApp', { label })} on={settings.channels[kind].inApp} onChange={(on) => set(kind, 'inApp', on)} />
                       </span>
                     )}
                   </td>
                   <td className="text-center">
                     <span className="inline-flex">
                       <Switch
-                        label={`${label} on Telegram`}
+                        label={t('notify.onTelegram', { label })}
                         on={linked && settings.channels[kind].telegram}
                         disabled={!linked}
                         onChange={(on) => set(kind, 'telegram', on)}
@@ -158,17 +163,18 @@ export default function NotificationSettings({ showServer = false }: { showServe
                     </span>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
-          {!linked && <p className="mt-2 text-xs text-muted">Link Telegram above to use these.</p>}
+          {!linked && <p className="mt-2 text-xs text-muted">{t('notify.linkFirst')}</p>}
           <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
             <div className="flex-1">
-              <p className="text-[15px]">Quiet hours</p>
-              <p className="text-xs text-muted">23:00 to 07:00: only faults{showServer ? ' and server overheating' : ''} reach Telegram.</p>
+              <p className="text-[15px]">{t('notify.quietHours')}</p>
+              <p className="text-xs text-muted">{t(showServer ? 'notify.quietHintServer' : 'notify.quietHint')}</p>
             </div>
             <Switch
-              label="Quiet hours"
+              label={t('notify.quietHours')}
               on={settings.quietHours}
               onChange={(quietHours) => {
                 setSettings({ ...settings, quietHours });
@@ -179,10 +185,10 @@ export default function NotificationSettings({ showServer = false }: { showServe
           <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
             <div className="flex-1">
               <label htmlFor="outage-lead" className="block text-[15px]">
-                Minutes before an outage
+                {t('notify.lead')}
               </label>
               <p id="outage-lead-hint" className="text-xs text-muted">
-                When the &quot;Outage soon&quot; notice comes.
+                {t('notify.leadHint')}
               </p>
             </div>
             <input
@@ -200,11 +206,11 @@ export default function NotificationSettings({ showServer = false }: { showServe
           </div>
           <div className="mt-4 flex items-center gap-3 border-t border-line pt-4">
             <div className="flex-1">
-              <p className="text-[15px]">Also before possible outages</p>
-              <p className="text-xs text-muted">Slots the schedule marks as possible, and the weekly pattern on days not yet confirmed.</p>
+              <p className="text-[15px]">{t('notify.possible')}</p>
+              <p className="text-xs text-muted">{t('notify.possibleHint')}</p>
             </div>
             <Switch
-              label="Also before possible outages"
+              label={t('notify.possible')}
               on={settings.possibleOutages}
               onChange={(possibleOutages) => {
                 setSettings({ ...settings, possibleOutages });

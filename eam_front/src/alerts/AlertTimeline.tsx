@@ -1,4 +1,7 @@
 import { format, isSameDay, subDays } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
+import { dateLocale } from '../i18n/format';
 
 /** GET /api/inverter/:profileId/alerts item. */
 export interface AlertEvent {
@@ -19,25 +22,18 @@ const DOT: Record<AlertEvent['kind'], string> = {
   outage: 'bg-warn',
   'schedule-unavailable': 'bg-idle',
 };
-const LABEL: Record<AlertEvent['kind'], string> = {
-  fault: 'Fault',
-  warning: 'Warning',
-  battery: 'Battery',
-  grid: 'Grid',
-  connection: 'Connection',
-  schedule: 'Schedule',
-  outage: 'Outage soon',
-  'schedule-unavailable': 'Schedule check',
-};
+/** The kind's name, in the current language. */
+const kindLabel = (kind: AlertEvent['kind']) => i18n.t(`alerts.kinds.${kind}`);
 
 function dayHeading(day: Date, today: Date): string {
-  if (isSameDay(day, today)) return 'Today';
-  if (isSameDay(day, subDays(today, 1))) return 'Yesterday';
-  return format(day, 'EEE d MMM');
+  if (isSameDay(day, today)) return i18n.t('days.today');
+  if (isSameDay(day, subDays(today, 1))) return i18n.t('days.yesterday');
+  return format(day, 'EEE d MMM', { locale: dateLocale() });
 }
 
 /** Alerts grouped by day, newest first: time, kind, what happened and, for BMS alerts, which BMS. */
 export default function AlertTimeline({ events, today = new Date() }: { events: AlertEvent[]; today?: Date }) {
+  useTranslation();
   const groups: { day: Date; items: AlertEvent[] }[] = [];
   for (const event of events) {
     const at = new Date(event.at);
@@ -61,7 +57,7 @@ export default function AlertTimeline({ events, today = new Date() }: { events: 
                   <p className="flex flex-wrap items-center gap-2">
                     <span className={`h-2 w-2 rounded-full ${DOT[e.kind]}`} />
                     <span className="text-[15px] font-semibold">{e.text}</span>
-                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">{LABEL[e.kind]}</span>
+                    <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs text-muted">{kindLabel(e.kind)}</span>
                   </p>
                   {e.source && <p className="mt-0.5 text-[13px] text-muted">{e.source}</p>}
                 </div>

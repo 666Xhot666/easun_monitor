@@ -1,13 +1,16 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
-import { RegisterMap } from '../inverter/registers/register-map';
-import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
+import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { clockTime, duration } from './messages';
+import {
+  alertKindOf,
+  alertText,
+  type AlertMessage,
+} from '../alerts/alert-message';
+import { languageOr, type Language } from '../i18n/languages';
 import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
-import { alertKind } from '../alerts/alert-kind';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { sendsToTelegram } from '../notifications/notification-settings';
 
@@ -23,7 +26,6 @@ const DEFAULT_LOW_SOC = 20;
 @Injectable()
 export class TelegramAlerts {
   private readonly logger = new Logger(TelegramAlerts.name);
-  private readonly map = new RegisterMap(SMG_II_REGISTERS);
   private readonly lowSoc: number;
   private readonly inverterState = new Map<number, InverterAlertState>();
   private readonly bmsState = new Map<number, string[]>();
@@ -52,7 +54,6 @@ export class TelegramAlerts {
     const { state, messages } = inverterAlerts(
       this.inverterState.get(profileId),
       reading,
-      this.map,
       this.lowSoc,
     );
     this.inverterState.set(profileId, state);
@@ -77,10 +78,10 @@ export class TelegramAlerts {
     if (!down) return;
     this.loggerDown.delete(profileId);
     if (down.reported) {
-      await this.toHousehold(
-        profileId,
-        `Logger back online after ${duration(now.getTime() - down.since)}`,
-      );
+      await this.toHousehold(profileId, {
+        key: 'loggerBack',
+        params: { downMs: now.getTime() - down.since },
+      });
     }
   }
 
@@ -103,10 +104,10 @@ export class TelegramAlerts {
       for (const [profileId, down] of this.loggerDown) {
         if (!down.reported && now.getTime() - down.since >= OFFLINE_AFTER_MS) {
           down.reported = true;
-          await this.toHousehold(
-            profileId,
-            `Logger not answering since ${clockTime(new Date(down.since), this.bot.timeZone)}`,
-          );
+          await this.toHousehold(profileId, {
+            key: 'loggerDown',
+            params: { sinceAt: new Date(down.since).toISOString() },
+          });
         }
       }
       const devices = await this.prisma.bmsDevice.findMany({
@@ -126,14 +127,17 @@ export class TelegramAlerts {
           this.bmsOffline.set(device.id, lastSeen);
           await this.toHousehold(
             device.inverterProfileId,
-            `BMS reader silent since ${clockTime(device.lastSeenAt!, this.bot.timeZone)}`,
+            {
+              key: 'bmsSilent',
+              params: { sinceAt: device.lastSeenAt!.toISOString() },
+            },
             device.name,
           );
         } else if (!silent && silentSince !== undefined) {
           this.bmsOffline.delete(device.id);
           await this.toHousehold(
             device.inverterProfileId,
-            `BMS reader back online after ${duration(lastSeen - silentSince)}`,
+            { key: 'bmsBack', params: { silentMs: lastSeen - silentSince } },
             device.name,
           );
         }
@@ -151,7 +155,7 @@ export class TelegramAlerts {
    */
   async toHousehold(
     profileId: number,
-    message: string,
+    message: AlertMessage,
     bmsName?: string,
   ): Promise<void> {
     if (await this.record(profileId, message, bmsName)) {
@@ -162,7 +166,7 @@ export class TelegramAlerts {
   /** Keeps the alert for the Alerts page; false if the inverter is gone. */
   async record(
     profileId: number,
-    message: string,
+    message: AlertMessage,
     bmsName?: string,
   ): Promise<boolean> {
     const exists = await this.prisma.inverterProfile.count({
@@ -173,8 +177,10 @@ export class TelegramAlerts {
     await this.prisma.alertEvent.create({
       data: {
         inverterProfileId: profileId,
-        kind: alertKind(message),
-        text: message,
+        kind: alertKindOf(message.key),
+        text: this.word(message, 'en'),
+        key: message.key,
+        params: message.params as Prisma.InputJsonValue | undefined,
         source: bmsName ?? null,
       },
     });
@@ -187,7 +193,7 @@ export class TelegramAlerts {
    */
   async toChats(
     profileId: number,
-    message: string,
+    message: AlertMessage,
     options: { bmsName?: string; userIds?: number[] } = {},
   ): Promise<void> {
     const profile = await this.prisma.inverterProfile.findUnique({
@@ -201,21 +207,41 @@ export class TelegramAlerts {
         ...(options.userIds && { userId: { in: options.userIds } }),
       },
       orderBy: { userId: 'asc' },
-      select: { chatId: true, userId: true },
+      select: {
+        chatId: true,
+        userId: true,
+        user: { select: { language: true } },
+      },
     });
     const settings = await this.notifications.forUsers(
       links.map((l) => l.userId),
     );
-    const kind = alertKind(message);
+    const kind = alertKindOf(message.key);
     const now = new Date();
     const { bmsName } = options;
-    const text = `${profile.name}${bmsName ? ` (${bmsName})` : ''}: ${message}`;
-    for (const { chatId, userId } of links) {
+    const from = `${profile.name}${bmsName ? ` (${bmsName})` : ''}`;
+    for (const { chatId, userId, user } of links) {
       if (
         sendsToTelegram(settings.get(userId)!, kind, now, this.bot.timeZone)
       ) {
-        await this.bot.send(chatId, text);
+        const text = this.word(message, languageOr(user.language));
+        await this.bot.send(chatId, `${from}: ${text}`);
       }
     }
+  }
+
+  /** A recorded alert in `language`, for the Alerts page. */
+  wordRecorded(
+    alert: { text: string; key: string | null; params: unknown },
+    language: Language,
+  ): string {
+    if (alert.key === null) return alert.text;
+    const params = (alert.params ?? undefined) as AlertMessage['params'];
+    return this.word({ key: alert.key, params }, language);
+  }
+
+  /** The alert in `language`. */
+  private word(message: AlertMessage, language: Language): string {
+    return alertText(message, language, this.bot.timeZone);
   }
 }

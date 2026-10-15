@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { Badge } from '../ui';
@@ -14,6 +16,7 @@ interface ServerUser {
 
 /** The owner's choice of who may look at the server page; they only look, settings stay the owner's. */
 export default function ServerAccess() {
+  const { t } = useTranslation();
   const [users, setUsers] = useState<ServerUser[] | null>(null);
   const [error, setError] = useState('');
 
@@ -25,7 +28,7 @@ export default function ServerAccess() {
         if (!cancelled) setUsers(data);
       })
       .catch((e) => {
-        if (!cancelled) setError(extractErrorMessage(e, 'Couldn’t load the accounts.'));
+        if (!cancelled) setError(extractErrorMessage(e, i18n.t('server.access.loadFailed')));
       });
     return () => {
       cancelled = true;
@@ -41,14 +44,14 @@ export default function ServerAccess() {
       await axios.put(`/api/server/users/${user.id}`, { viewer });
     } catch (e) {
       mark(!viewer);
-      setError(extractErrorMessage(e, 'Couldn’t save the change.'));
+      setError(extractErrorMessage(e, t('server.access.saveFailed')));
     }
   };
 
   return (
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
-      <h2 className="text-[15px] font-semibold">Who may look at the server page</h2>
-      <p className="mt-1 text-[13px] text-muted">They see the server&apos;s state; its settings and the fan stay yours.</p>
+      <h2 className="text-[15px] font-semibold">{t('server.access.title')}</h2>
+      <p className="mt-1 text-[13px] text-muted">{t('server.access.hint')}</p>
       {error && (
         <p role="alert" className="mt-3 rounded-lg border border-crit-line bg-crit-bg px-3 py-2 text-sm text-crit-ink">
           {error}
@@ -61,9 +64,9 @@ export default function ServerAccess() {
             <li key={user.id} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <span className="truncate">{user.email}</span>
               {user.owner ? (
-                <Badge>Owner</Badge>
+                <Badge>{t('server.access.owner')}</Badge>
               ) : (
-                <Switch label={`${user.email} may look at the server page`} on={user.viewer} onChange={(on) => void setViewer(user, on)} />
+                <Switch label={t('server.access.mayLook', { email: user.email })} on={user.viewer} onChange={(on) => void setViewer(user, on)} />
               )}
             </li>
           ))}

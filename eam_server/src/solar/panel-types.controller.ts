@@ -21,6 +21,7 @@ import {
   HouseholdsService,
   type Access,
 } from '../households/households.service';
+import { localized } from '../i18n/localized';
 
 /** The user's list of solar panel types, shared by all their inverters. */
 @Controller('api/panel-types')
@@ -49,9 +50,7 @@ export class PanelTypesController {
     checkDatasheet(dto);
     const householdId = await this.households.adminHouseholdId(user.userId);
     if (householdId === null) {
-      throw new ForbiddenException(
-        'Only a household admin can add panel types, and you have no household of your own',
-      );
+      throw new ForbiddenException(localized('adminOnlyPanelTypes'));
     }
     return this.rejectDuplicateName(() =>
       this.prisma.panelType.create({
@@ -86,9 +85,7 @@ export class PanelTypesController {
       where: { pvPanelTypeId: id },
     });
     if (users > 0) {
-      throw new ConflictException(
-        'An inverter uses this panel type; choose another type for it first',
-      );
+      throw new ConflictException(localized('panelTypeInUse'));
     }
     await this.prisma.panelType.delete({ where: { id } });
     return { success: true as const };
@@ -104,9 +101,7 @@ export class PanelTypesController {
       return await write();
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
-        throw new ConflictException(
-          'You already have a panel type with this name',
-        );
+        throw new ConflictException(localized('panelTypeExists'));
       }
       throw error;
     }
@@ -116,9 +111,9 @@ export class PanelTypesController {
 /** The maximum power point lies inside the open-circuit and short-circuit limits. */
 function checkDatasheet(panel: PanelTypeDto): void {
   if (panel.vmpV > panel.vocV) {
-    throw new BadRequestException('Vmp must not exceed Voc');
+    throw new BadRequestException(localized('vmpAboveVoc'));
   }
   if (panel.impA > panel.iscA) {
-    throw new BadRequestException('Imp must not exceed Isc');
+    throw new BadRequestException(localized('impAboveIsc'));
   }
 }

@@ -53,6 +53,7 @@ describe('ReadingsExport', () => {
     expect(server.sent[0].params).toEqual({
       ...daysRange('2026-10-01', '2026-10-05'),
       tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      lang: 'en',
     });
     expect(server.sent[0].responseType).toBe('blob');
   });

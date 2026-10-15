@@ -7,6 +7,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Logger,
   NotFoundException,
   Param,
@@ -26,6 +27,13 @@ import { LoggerFrameError } from './protocol/logger-frame';
 import { SettingsRuleError, SettingsService } from './settings.service';
 import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { SMG_II_PANEL_SETTINGS } from './registers/smg-ii.panel-settings';
+import {
+  registerMapFor,
+  translatePanelSettings,
+  translateRegisters,
+} from './registers/register-translations';
+import { languageOr } from '../i18n/languages';
+import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { UpdateSettingsDto } from './dto/update-settings.dto';
 import { LoggerAddressPolicy } from './logger-address.policy';
 import { PollingService } from './polling.service';
@@ -47,6 +55,8 @@ import { SettingsHistory } from '../telemetry/settings-history';
 import { AuthGuard } from '@nestjs/passport';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
+import { localized, requestLanguage } from '../i18n/localized';
+import { wordConstraints } from './settings-rules/worded-constraints';
 
 /** The Wi-Fi Plug Pro's TCP port, used when none is given. */
 const DEFAULT_LOGGER_PORT = 8899;
@@ -74,6 +84,7 @@ export class InverterController {
     private readonly registers: RegisterMap,
     private readonly settings: SettingsService,
     private readonly settingsHistory: SettingsHistory,
+    private readonly alerts: TelegramAlerts,
   ) {}
 
   /**
@@ -82,14 +93,14 @@ export class InverterController {
    * readings and settings from this instead of its own copy.
    */
   @Get('registers')
-  listRegisters() {
-    return this.registers.list();
+  listRegisters(@Query('lang') lang?: string) {
+    return translateRegisters(this.registers.list(), languageOr(lang));
   }
 
   /** Settings that exist only on the inverter's panel (no register). */
   @Get('panel-settings')
-  listPanelSettings() {
-    return SMG_II_PANEL_SETTINGS;
+  listPanelSettings(@Query('lang') lang?: string) {
+    return translatePanelSettings(SMG_II_PANEL_SETTINGS, languageOr(lang));
   }
 
   // -----------------------------------------------------------------
@@ -131,9 +142,7 @@ export class InverterController {
     await this.addressPolicy.assertAllowed(dto.ipAddress);
     const householdId = await this.households.adminHouseholdId(user.userId);
     if (householdId === null) {
-      throw new ForbiddenException(
-        'Only a household admin can add an inverter, and you have no household of your own',
-      );
+      throw new ForbiddenException(localized('adminOnlyInverter'));
     }
     const profile = await this.rejectDuplicateAddress(() =>
       this.prisma.inverterProfile.create({
@@ -173,7 +182,7 @@ export class InverterController {
         where: { id: dto.pvPanelTypeId, householdId: current.householdId },
       });
       if (!owned) {
-        throw new BadRequestException('Unknown panel type');
+        throw new BadRequestException(localized('unknownPanelType'));
       }
     }
 
@@ -227,7 +236,10 @@ export class InverterController {
       // 400, not 500: a wrong or unreachable address is an expected,
       // user-actionable outcome of this endpoint, not a server fault.
       throw new BadRequestException(
-        `Couldn't verify the logger at ${dto.ipAddress}: ${message}`,
+        localized('loggerUnverified', {
+          address: dto.ipAddress,
+          reason: message,
+        }),
       );
     }
   }
@@ -246,24 +258,23 @@ export class InverterController {
   async getLatest(
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Query('lang') lang?: string,
   ) {
     await this.requireOwnedProfile(profileId, user.userId, 'read');
 
     const latest = await this.telemetry.latest(profileId);
 
     if (!latest) {
-      throw new NotFoundException('No inverter readings recorded yet');
+      throw new NotFoundException(localized('noReadingsYet'));
     }
 
     const payload = latest.payload as Record<string, number>;
+    const map = registerMapFor(languageOr(lang));
     return {
       ...latest,
       alerts: {
-        faults: this.registers.activeFlags('FaultCode', payload.FaultCode ?? 0),
-        warnings: this.registers.activeFlags(
-          'WarningCode',
-          payload.WarningCode ?? 0,
-        ),
+        faults: map.activeFlags('FaultCode', payload.FaultCode ?? 0),
+        warnings: map.activeFlags('WarningCode', payload.WarningCode ?? 0),
       },
     };
   }
@@ -306,12 +317,10 @@ export class InverterController {
     const from = query.from ?? new Date(to.getTime() - DEFAULT_HISTORY_SPAN_MS);
     const span = to.getTime() - from.getTime();
     if (span <= 0) {
-      throw new BadRequestException('`from` must be before `to`');
+      throw new BadRequestException(localized('fromBeforeTo'));
     }
     if (span > MAX_HISTORY_SPAN_MS) {
-      throw new BadRequestException(
-        'A history range can cover at most 5 years',
-      );
+      throw new BadRequestException(localized('historyTooLong', { years: 5 }));
     }
 
     return this.telemetry.history(profileId, {
@@ -330,15 +339,28 @@ export class InverterController {
     @CurrentUser() user: AuthenticatedUser,
   ) {
     await this.requireOwnedProfile(profileId, user.userId, 'read');
-    return this.prisma.alertEvent.findMany({
+    const language = languageOr(query.lang);
+    const rows = await this.prisma.alertEvent.findMany({
       where: {
         inverterProfileId: profileId,
         ...(query.before ? { id: { lt: query.before } } : {}),
       },
       orderBy: { id: 'desc' },
       take: query.limit ?? DEFAULT_ALERTS_PAGE,
-      select: { id: true, kind: true, text: true, source: true, at: true },
+      select: {
+        id: true,
+        kind: true,
+        text: true,
+        key: true,
+        params: true,
+        source: true,
+        at: true,
+      },
     });
+    return rows.map(({ key, params, ...row }) => ({
+      ...row,
+      text: this.alerts.wordRecorded({ text: row.text, key, params }, language),
+    }));
   }
 
   /** Raw readings in a range, newest first, a page at a time. */
@@ -386,9 +408,12 @@ export class InverterController {
     const timeZone = query.tz ?? 'UTC';
     let csv: ReadingsCsv;
     try {
-      csv = new ReadingsCsv(this.registers, timeZone);
+      const language = languageOr(query.lang);
+      csv = new ReadingsCsv(registerMapFor(language), timeZone, language);
     } catch {
-      throw new BadRequestException(`Unknown time zone "${timeZone}"`);
+      throw new BadRequestException(
+        localized('unknownTimeZone', { zone: timeZone }),
+      );
     }
 
     const day = (date: Date) => date.toISOString().slice(0, 10);
@@ -436,9 +461,13 @@ export class InverterController {
   async getSettingsConstraints(
     @Param('profileId', ParseIntPipe) profileId: number,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
-    return settingsConstraints(
-      await this.requireOwnedProfile(profileId, user.userId, 'read'),
+    return wordConstraints(
+      settingsConstraints(
+        await this.requireOwnedProfile(profileId, user.userId, 'read'),
+      ),
+      requestLanguage(acceptLanguage),
     );
   }
 
@@ -487,7 +516,9 @@ export class InverterController {
     @Param('profileId', ParseIntPipe) profileId: number,
     @Body() dto: UpdateSettingsDto,
     @CurrentUser() user: AuthenticatedUser,
+    @Headers('accept-language') acceptLanguage?: string,
   ) {
+    const language = requestLanguage(acceptLanguage);
     const profile = await this.requireOwnedProfile(
       profileId,
       user.userId,
@@ -495,14 +526,19 @@ export class InverterController {
     );
     const entries = Object.entries(dto.changes);
     if (entries.length === 0) {
-      throw new BadRequestException('No settings to change');
+      throw new BadRequestException(localized('noSettings'));
     }
     if (entries.some(([, value]) => typeof value !== 'number')) {
       throw new BadRequestException('Every setting value must be a number');
     }
     try {
       return await this.deviceCall(() =>
-        this.settings.apply(profile, dto.changes, dto.acknowledgeWarnings),
+        this.settings.apply(
+          profile,
+          dto.changes,
+          dto.acknowledgeWarnings,
+          language,
+        ),
       );
     } catch (error) {
       if (!(error instanceof SettingsRuleError)) throw error;
@@ -511,7 +547,7 @@ export class InverterController {
         Object.keys(errors).length ? errors : warnings,
       ).map(
         ([name, messages]) =>
-          `${this.registers.get(name)?.label ?? name}: ${messages.join('; ')}`,
+          `${registerMapFor(language).get(name)?.label ?? name}: ${messages.join('; ')}`,
       );
       throw new BadRequestException({
         message: lines.join('\n'),
@@ -543,7 +579,7 @@ export class InverterController {
     return this.deviceCall(async () => {
       const { OperationMode } = await link.read(['telemetry']);
       if (OperationMode !== faultMode) {
-        throw new ConflictException('The inverter is not in fault mode');
+        throw new ConflictException(localized('notInFaultMode'));
       }
       await link.command('ExitFaultMode', 1);
       return { success: true as const };
@@ -579,9 +615,7 @@ export class InverterController {
       return await write();
     } catch (error) {
       if ((error as { code?: string }).code === 'P2002') {
-        throw new ConflictException(
-          'This logger address and port is already paired with an inverter profile',
-        );
+        throw new ConflictException(localized('loggerPaired'));
       }
       throw error;
     }
@@ -609,9 +643,9 @@ export class InverterController {
 function checkReadingsSpan(from: Date, to: Date): void {
   const span = to.getTime() - from.getTime();
   if (span <= 0) {
-    throw new BadRequestException('`from` must be before `to`');
+    throw new BadRequestException(localized('fromBeforeTo'));
   }
   if (span > MAX_READINGS_SPAN_MS) {
-    throw new BadRequestException('A range can cover at most 31 days');
+    throw new BadRequestException(localized('rangeTooLong', { days: 31 }));
   }
 }

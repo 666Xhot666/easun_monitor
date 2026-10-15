@@ -1,3 +1,9 @@
+import i18n from '../i18n';
+import { plainUnit } from '../i18n/format';
+
+/** A voltage as written in the current language. */
+const v = (value: number) => plainUnit(value, 'V');
+
 /** A panel model from its datasheet (standard test conditions), as served by /api/panel-types. */
 export interface PanelType {
   id: number;
@@ -66,37 +72,37 @@ export function checkArray(array: PvArray, limits: PvLimits): ArrayWarning[] {
     if (array.vocV > maxVocV) {
       warnings.push({
         level: 'danger',
-        message: `Open-circuit voltage ${array.vocV} V is above the inverter maximum of ${maxVocV} V and can damage it.`,
+        message: i18n.t('solar.warn.vocAbove', { voc: v(array.vocV), max: v(maxVocV) }),
       });
     } else if (array.vocV > maxVocV * (1 - COLD_VOC_MARGIN)) {
       warnings.push({
         level: 'warning',
-        message: `Open-circuit voltage ${array.vocV} V is within 15% of the ${maxVocV} V maximum; it rises on cold mornings.`,
+        message: i18n.t('solar.warn.vocNear', { voc: v(array.vocV), max: v(maxVocV) }),
       });
     }
   }
   if (mpptMinV != null && array.vmpV < mpptMinV) {
     warnings.push({
       level: 'warning',
-      message: `Working voltage ${array.vmpV} V is below the MPPT range (from ${mpptMinV} V): the inverter cannot track the array well.`,
+      message: i18n.t('solar.warn.vmpBelow', { vmp: v(array.vmpV), min: v(mpptMinV) }),
     });
   }
   if (mpptMaxV != null && array.vmpV > mpptMaxV) {
     warnings.push({
       level: 'warning',
-      message: `Working voltage ${array.vmpV} V is above the MPPT range (up to ${mpptMaxV} V).`,
+      message: i18n.t('solar.warn.vmpAbove', { vmp: v(array.vmpV), max: v(mpptMaxV) }),
     });
   }
   if (maxPowerW != null && array.powerW > maxPowerW) {
     warnings.push({
       level: 'info',
-      message: `Array power ${array.powerW} W is above the ${maxPowerW} W PV input rating; the inverter caps what it takes.`,
+      message: i18n.t('solar.warn.powerAbove', { power: plainUnit(array.powerW, 'W'), max: plainUnit(maxPowerW, 'W') }),
     });
   }
   if (maxCurrentA != null && array.iscA > maxCurrentA) {
     warnings.push({
       level: 'warning',
-      message: `Short-circuit current ${array.iscA} A is above the ${maxCurrentA} A PV input limit.`,
+      message: i18n.t('solar.warn.currentAbove', { current: plainUnit(array.iscA, 'A'), max: plainUnit(maxCurrentA, 'A') }),
     });
   }
   return warnings;

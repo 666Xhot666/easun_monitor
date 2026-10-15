@@ -1,5 +1,7 @@
-import type { RegisterMap } from '../inverter/registers/register-map';
 import type { BmsReading } from '../bms/reading';
+import { LOCALES, type Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
+import { registerMapFor } from '../inverter/registers/register-translations';
 import type { EnergyTotals } from '../telemetry/telemetry.store';
 
 /** Escape characters that Telegram HTML treats as markup. */
@@ -18,105 +20,87 @@ function numberOrZero(value: unknown): number {
   return isNumber(value) ? value : 0;
 }
 
-function watts(value: unknown): string {
-  if (!isNumber(value)) {
-    return '--';
-  }
-  if (Math.abs(value) >= 1000) {
-    return (value / 1000).toFixed(2) + ' kW';
-  }
-  return Math.round(value) + ' W';
+/** The card texts and number format of one language. */
+function wording(language: Language) {
+  const t = (key: string, values?: Record<string, string | number>) =>
+    translate(language, key, values);
+  const card = (key: string) => t(`telegram.card.${key}`);
+  const unit = (key: string) => t(`units.${key}`);
+  /** `value` with exactly `decimals` decimals, without thousands separators. */
+  const fixed = (value: number, decimals: number) =>
+    new Intl.NumberFormat(LOCALES[language], {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+      useGrouping: false,
+    }).format(value);
+  const watts = (value: unknown) => {
+    if (!isNumber(value)) return '--';
+    if (Math.abs(value) >= 1000)
+      return `${fixed(value / 1000, 2)} ${unit('kW')}`;
+    return `${Math.round(value)} ${unit('W')}`;
+  };
+  const kWhValue = (value: unknown) => {
+    const v = numberOrZero(value);
+    return fixed(v, v < 10 ? 2 : 1);
+  };
+  const kWh = (value: unknown) => `${kWhValue(value)} ${unit('kWh')}`;
+  const map = registerMapFor(language);
+  const modeName = (value: unknown) => {
+    if (!isNumber(value)) return undefined;
+    const option = map.get('OperationMode')?.options?.[value];
+    return typeof option === 'string' && option.length > 0 ? option : undefined;
+  };
+  const ago = (key: string, count: number) => t(`units.${key}`, { count });
+  return { t, card, unit, fixed, watts, kWhValue, kWh, map, modeName, ago };
 }
 
-function kWhValue(value: unknown): string {
-  const v = numberOrZero(value);
-  return v.toFixed(v < 10 ? 2 : 1);
-}
-
-function kWh(value: unknown): string {
-  return kWhValue(value) + ' kWh';
-}
-
-function fixed1(value: unknown): string {
-  return numberOrZero(value).toFixed(1);
-}
-
-function modeName(map: RegisterMap, value: unknown): string | undefined {
-  if (!isNumber(value)) {
-    return undefined;
-  }
-  const option = map.get('OperationMode')?.options?.[value];
-  return typeof option === 'string' && option.length > 0 ? option : undefined;
-}
-
-function statusAge(timestamp: Date, now: Date): string {
-  const minutes = Math.max(
-    0,
-    Math.floor((now.getTime() - timestamp.getTime()) / 60000),
-  );
-  if (minutes < 1) {
-    return 'just now';
-  }
-  if (minutes < 60) {
-    return minutes + ' min ago';
-  }
-  return Math.floor(minutes / 60) + ' h ago';
-}
-
-function bmsAge(timestamp: string, now: Date): string {
-  const seconds = Math.max(
-    0,
-    Math.floor((now.getTime() - Date.parse(timestamp)) / 1000),
-  );
-  if (seconds < 60) {
-    return seconds + ' s ago';
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return minutes + ' min ago';
-  }
-  return Math.floor(minutes / 60) + ' h ago';
+/** A BMS alarm's name in `language` (the BMS gives it in English). */
+export function bmsAlarmName(alarm: string, language: Language): string {
+  return translate(language, `bmsAlarms.${alarm}`).replace(/^bmsAlarms\./, '');
 }
 
 /** Format the inverter status as a Telegram HTML card. */
 export function statusCard(
   name: string,
-  map: RegisterMap,
   reading: { timestamp: Date; payload: Record<string, number> } | null,
   now: Date,
+  language: Language,
 ): string {
+  const { card, unit, watts, modeName, ago } = wording(language);
   const header = '<b>🏠 ' + escapeHtml(name) + '</b>';
   if (!reading) {
-    return header + '\nNo readings yet';
+    return header + '\n' + card('noReadings');
   }
 
   const payload = reading.payload;
-  const mode = modeName(map, payload['OperationMode']);
+  const mode = modeName(payload['OperationMode']);
   const lines: string[] = [mode ? header + ' · ' + escapeHtml(mode) : header];
 
-  lines.push('☀️ PV <b>' + watts(payload['PVPower']) + '</b>');
-  lines.push('🏡 Load <b>' + watts(payload['OutputActivePower']) + '</b>');
+  lines.push(`☀️ ${card('pv')} <b>${watts(payload['PVPower'])}</b>`);
+  lines.push(
+    `🏡 ${card('load')} <b>${watts(payload['OutputActivePower'])}</b>`,
+  );
 
-  let grid = '🔌 Grid <b>' + watts(payload['AverageMainsPower']) + '</b>';
+  let grid = `🔌 ${card('grid')} <b>${watts(payload['AverageMainsPower'])}</b>`;
   const mainsVoltage = payload['MainsVoltage'];
   if (isNumber(mainsVoltage) && mainsVoltage <= 100) {
-    grid += ' · no grid';
+    grid += ' · ' + card('noGrid');
   }
   lines.push(grid);
 
   const soc = payload['BatterySoc'];
   if (isNumber(soc)) {
-    let battery = '🔋 Battery <b>' + Math.round(soc) + ' %</b>';
+    let battery = `🔋 ${card('battery')} <b>${Math.round(soc)} %</b>`;
     const voltage = payload['BatteryVoltage'];
     const current = payload['BatteryCurrentSigned'];
     if (isNumber(voltage) && isNumber(current)) {
       const power = voltage * current;
       if (Math.abs(power) <= 10) {
-        battery += ' · idle';
+        battery += ' · ' + card('idle');
       } else {
         battery +=
           ' · ' +
-          (power < 0 ? 'discharging' : 'charging') +
+          card(power < 0 ? 'discharging' : 'charging') +
           ' ' +
           watts(Math.abs(power));
       }
@@ -124,22 +108,36 @@ export function statusCard(
     lines.push(battery);
   }
 
-  lines.push('<i>Reading ' + statusAge(reading.timestamp, now) + '</i>');
+  const minutes = Math.max(
+    0,
+    Math.floor((now.getTime() - reading.timestamp.getTime()) / 60000),
+  );
+  const age =
+    minutes < 1
+      ? unit('justNow')
+      : minutes < 60
+        ? ago('minutesAgo', minutes)
+        : ago('hoursAgo', Math.floor(minutes / 60));
+  lines.push(
+    '<i>' + translate(language, 'telegram.card.readingAge', { age }) + '</i>',
+  );
   return lines.join('\n');
 }
 
 /** Format today's energy totals as a Telegram HTML card. */
-export function energyCard(name: string, totals: EnergyTotals): string {
+export function energyCard(
+  name: string,
+  totals: EnergyTotals,
+  language: Language,
+): string {
+  const { card, unit, kWh, kWhValue } = wording(language);
   const lines: string[] = [
-    '<b>⚡ ' + escapeHtml(name) + ' · today</b>',
-    '☀️ PV <b>' + kWh(totals.pvKWh) + '</b>',
-    '🔌 Grid <b>' + kWh(totals.gridKWh) + '</b>',
-    '🏡 Load <b>' + kWh(totals.outputKWh) + '</b>',
-    '🔋 Battery <b>+' +
-      kWhValue(totals.batteryChargeKWh) +
-      '</b> charged · <b>-' +
-      kWhValue(totals.batteryDischargeKWh) +
-      ' kWh</b> used',
+    `<b>⚡ ${escapeHtml(name)} · ${card('today')}</b>`,
+    `☀️ ${card('pv')} <b>${kWh(totals.pvKWh)}</b>`,
+    `🔌 ${card('grid')} <b>${kWh(totals.gridKWh)}</b>`,
+    `🏡 ${card('load')} <b>${kWh(totals.outputKWh)}</b>`,
+    `🔋 ${card('battery')} <b>+${kWhValue(totals.batteryChargeKWh)}</b> ${card('charged')} · ` +
+      `<b>-${kWhValue(totals.batteryDischargeKWh)} ${unit('kWh')}</b> ${card('used')}`,
   ];
   return lines.join('\n');
 }
@@ -150,21 +148,23 @@ export function batteryCard(
   payload: Record<string, number> | null,
   devices: { name: string; reading: BmsReading }[],
   now: Date,
+  language: Language,
 ): string {
+  const { card, unit, fixed, ago } = wording(language);
   const lines: string[] = ['<b>🔋 ' + escapeHtml(name) + '</b>'];
 
   const soc = payload?.['BatterySoc'];
   if (!isNumber(soc)) {
-    lines.push('Inverter: no reading');
+    lines.push(`${card('inverter')}: ${card('noReading')}`);
   } else {
-    let inverter = 'Inverter: <b>' + Math.round(soc) + ' %</b>';
+    let inverter = `${card('inverter')}: <b>${Math.round(soc)} %</b>`;
     const voltage = payload?.['BatteryVoltage'];
     if (isNumber(voltage)) {
-      inverter += ' · ' + voltage.toFixed(2) + ' V';
+      inverter += ` · ${fixed(voltage, 2)} ${unit('V')}`;
     }
     const current = payload?.['BatteryCurrentSigned'];
     if (isNumber(current)) {
-      inverter += ' · ' + current.toFixed(1) + ' A';
+      inverter += ` · ${fixed(current, 1)} ${unit('A')}`;
     }
     lines.push(inverter);
   }
@@ -172,7 +172,7 @@ export function batteryCard(
   lines.push('');
 
   if (devices.length === 0) {
-    lines.push('No BMS reporting.');
+    lines.push(card('noBms'));
   } else {
     devices.forEach((device, index) => {
       if (index > 0) {
@@ -180,12 +180,17 @@ export function batteryCard(
       }
 
       const reading = device.reading;
-      lines.push(
-        '<b>BMS ' +
-          escapeHtml(device.name) +
-          '</b> · ' +
-          bmsAge(reading.timestamp, now),
+      const seconds = Math.max(
+        0,
+        Math.floor((now.getTime() - Date.parse(reading.timestamp)) / 1000),
       );
+      const age =
+        seconds < 60
+          ? ago('secondsAgo', seconds)
+          : seconds < 3600
+            ? ago('minutesAgo', Math.floor(seconds / 60))
+            : ago('hoursAgo', Math.floor(seconds / 3600));
+      lines.push('<b>BMS ' + escapeHtml(device.name) + '</b> · ' + age);
 
       const parts: string[] = [];
       const stateOfCharge = reading.stateOfChargePct;
@@ -194,15 +199,15 @@ export function batteryCard(
       }
       const packVoltage = reading.packVoltageV;
       if (isNumber(packVoltage)) {
-        parts.push(packVoltage.toFixed(2) + ' V');
+        parts.push(`${fixed(packVoltage, 2)} ${unit('V')}`);
       }
       const current = reading.currentA;
       if (isNumber(current)) {
-        parts.push(current.toFixed(1) + ' A');
+        parts.push(`${fixed(current, 1)} ${unit('A')}`);
       }
       const power = reading.powerW;
       if (isNumber(power)) {
-        parts.push(Math.round(power) + ' W');
+        parts.push(`${Math.round(power)} ${unit('W')}`);
       }
       if (parts.length > 0) {
         lines.push(parts.join(' · '));
@@ -213,22 +218,12 @@ export function batteryCard(
       const cellDelta = reading.cellDeltaV;
       if (isNumber(cellMin) && isNumber(cellMax) && isNumber(cellDelta)) {
         let cells =
-          'Cells ' +
-          cellMin.toFixed(3) +
-          '–' +
-          cellMax.toFixed(3) +
-          ' V · Δ ' +
-          Math.round(cellDelta * 1000) +
-          ' mV';
+          `${card('cells')} ${fixed(cellMin, 3)}–${fixed(cellMax, 3)} ${unit('V')}` +
+          ` · Δ ${Math.round(cellDelta * 1000)} ${unit('mV')}`;
         const minIndex = reading.cellMinIndex;
         const maxIndex = reading.cellMaxIndex;
         if (isNumber(minIndex) && isNumber(maxIndex)) {
-          cells +=
-            ' (low #' +
-            Math.round(minIndex) +
-            ', high #' +
-            Math.round(maxIndex) +
-            ')';
+          cells += ` (${card('low')} #${Math.round(minIndex)}, ${card('high')} #${Math.round(maxIndex)})`;
         }
         lines.push(cells);
       }
@@ -240,23 +235,25 @@ export function batteryCard(
           temps.push(
             escapeHtml(String(temperature.name)) +
               ' ' +
-              temperature.celsius.toFixed(1) +
+              fixed(temperature.celsius, 1) +
               ' °C',
           );
         }
       }
       if (temps.length > 0) {
-        lines.push('Temp ' + temps.join(' · '));
+        lines.push(card('temp') + ' ' + temps.join(' · '));
       }
 
       const cycleCount = reading.cycleCount;
       const balancing = reading.balancing === true;
       if (isNumber(cycleCount) || balancing) {
         let cycleLine = isNumber(cycleCount)
-          ? 'Cycles ' + Math.round(cycleCount)
+          ? card('cycles') + ' ' + Math.round(cycleCount)
           : '';
         if (balancing) {
-          cycleLine = cycleLine ? cycleLine + ' · balancing' : 'balancing';
+          cycleLine = cycleLine
+            ? cycleLine + ' · ' + card('balancing')
+            : card('balancing');
         }
         lines.push(cycleLine);
       }
@@ -264,7 +261,7 @@ export function batteryCard(
       const alarms = reading.alarms ?? [];
       for (const alarm of alarms) {
         if (typeof alarm === 'string') {
-          lines.push('⚠️ ' + escapeHtml(alarm));
+          lines.push('⚠️ ' + escapeHtml(bmsAlarmName(alarm, language)));
         }
       }
     });
@@ -276,15 +273,16 @@ export function batteryCard(
 /** Format active faults and warnings as a Telegram HTML card. */
 export function faultsCard(
   name: string,
-  map: RegisterMap,
   payload: Record<string, number> | null,
+  language: Language,
 ): string {
+  const { card, map, modeName } = wording(language);
   const header = '<b>🚨 ' + escapeHtml(name) + '</b>';
   if (!payload) {
-    return header + '\nNo readings yet';
+    return header + '\n' + card('noReadings');
   }
 
-  const mode = modeName(map, payload['OperationMode']);
+  const mode = modeName(payload['OperationMode']);
   const fullHeader = mode ? header + ' · ' + escapeHtml(mode) : header;
   const faults = map.activeFlags(
     'FaultCode',
@@ -296,28 +294,30 @@ export function faultsCard(
   );
 
   if (faults.length === 0 && warnings.length === 0) {
-    return fullHeader + '\n✅ No faults or warnings';
+    return fullHeader + '\n✅ ' + card('noFaults');
   }
 
   const faultText =
-    faults.length > 0 ? faults.map(escapeHtml).join(', ') : 'none';
+    faults.length > 0 ? faults.map(escapeHtml).join(', ') : card('none');
   const warningText =
-    warnings.length > 0 ? warnings.map(escapeHtml).join(', ') : 'none';
-  return [fullHeader, 'Faults: ' + faultText, 'Warnings: ' + warningText].join(
-    '\n',
-  );
+    warnings.length > 0 ? warnings.map(escapeHtml).join(', ') : card('none');
+  return [
+    fullHeader,
+    `${card('faults')}: ${faultText}`,
+    `${card('warnings')}: ${warningText}`,
+  ].join('\n');
 }
+
+/** Columns of the week table: day, then PV, grid and load. */
+const WEEK_COLUMNS = [7, 7, 8, 8];
 
 /** Format a fixed-width weekly kWh table as a Telegram HTML card. */
 export function weekCard(
   name: string,
   days: { label: string; totals: EnergyTotals }[],
+  language: Language,
 ): string {
-  const header =
-    'Day'.padEnd(6) +
-    'PV'.padStart(7) +
-    'Grid'.padStart(6) +
-    'Load'.padStart(6);
+  const { card, fixed } = wording(language);
   const total = days.reduce(
     (acc, day) => ({
       pv: acc.pv + numberOrZero(day.totals.pvKWh),
@@ -326,39 +326,35 @@ export function weekCard(
     }),
     { pv: 0, grid: 0, load: 0 },
   );
+  const row = (cells: string[]) =>
+    cells
+      .map((cell, i) =>
+        i === 0
+          ? escapeHtml(cell).padEnd(WEEK_COLUMNS[i])
+          : cell.padStart(WEEK_COLUMNS[i]),
+      )
+      .join('');
+  const kWh = (v: unknown) => fixed(numberOrZero(v), 1);
 
   const lines: string[] = [
-    '<b>📅 ' + escapeHtml(name) + ' · kWh by day</b>',
+    `<b>📅 ${escapeHtml(name)} · ${card('kWhByDay')}</b>`,
     '<pre>',
-    header,
+    row([card('day'), card('pv'), card('colGrid'), card('colLoad')]),
   ];
-
   for (const day of days) {
     lines.push(
-      weekRow(
+      row([
         day.label,
-        day.totals.pvKWh,
-        day.totals.gridKWh,
-        day.totals.outputKWh,
-      ),
+        kWh(day.totals.pvKWh),
+        kWh(day.totals.gridKWh),
+        kWh(day.totals.outputKWh),
+      ]),
     );
   }
-  lines.push(weekRow('Total', total.pv, total.grid, total.load));
+  lines.push(
+    row([card('total'), kWh(total.pv), kWh(total.grid), kWh(total.load)]),
+  );
   lines.push('</pre>');
 
   return lines.join('\n');
-}
-
-function weekRow(
-  label: string,
-  pv: unknown,
-  grid: unknown,
-  load: unknown,
-): string {
-  return (
-    escapeHtml(label).padEnd(6) +
-    fixed1(pv).padStart(7) +
-    fixed1(grid).padStart(6) +
-    fixed1(load).padStart(6)
-  );
 }

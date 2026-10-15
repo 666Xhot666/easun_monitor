@@ -13,7 +13,6 @@ import {
   sampleProfile,
 } from './helpers';
 
-
 const MINUTE = 60_000;
 
 describe('Telegram alerts (e2e)', () => {
@@ -82,6 +81,36 @@ describe('Telegram alerts (e2e)', () => {
       { chatId: '1', text: `${profile.name}: Grid lost` },
       { chatId: '2', text: `${profile.name}: Grid lost` },
     ]);
+  });
+
+  it("words each member's alert in that member's language", async () => {
+    await prisma.user.update({
+      where: { email: 'reader@example.com' },
+      data: { language: 'uk' },
+    });
+    try {
+      await alerts.onReading(profile.id, { MainsVoltage: 230, FaultCode: 0 });
+      telegram.sent = [];
+      await alerts.onReading(profile.id, {
+        MainsVoltage: 0,
+        FaultCode: 1 << 3,
+      });
+
+      expect(telegram.sent).toEqual([
+        { chatId: '1', text: `${profile.name}: Fault: Battery over voltage` },
+        {
+          chatId: '2',
+          text: `${profile.name}: Несправність: Перенапруга акумулятора`,
+        },
+        { chatId: '1', text: `${profile.name}: Grid lost` },
+        { chatId: '2', text: `${profile.name}: Мережа зникла` },
+      ]);
+    } finally {
+      await prisma.user.update({
+        where: { email: 'reader@example.com' },
+        data: { language: null },
+      });
+    }
   });
 
   it('says a logger is offline after 5 minutes down, and when it is back', async () => {

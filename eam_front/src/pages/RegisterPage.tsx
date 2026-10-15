@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { useTranslation } from 'react-i18next';
+import LanguageSwitch from '../i18n/LanguageSwitch';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { extractErrorMessage } from '../lib/errors';
@@ -7,6 +9,7 @@ import { BrandMark } from '../ui/BrandMark';
 const MIN_PASSWORD_LENGTH = 8;
 
 export default function RegisterPage() {
+  const { t } = useTranslation();
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -21,11 +24,11 @@ export default function RegisterPage() {
     setError(null);
 
     if (password.length < MIN_PASSWORD_LENGTH) {
-      setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+      setError(t('auth.passwordTooShort', { count: MIN_PASSWORD_LENGTH }));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.');
+      setError(t('auth.passwordsDiffer'));
       return;
     }
 
@@ -36,7 +39,7 @@ export default function RegisterPage() {
       // inverter profile yet by definition right after registering.
       navigate('/setup', { replace: true });
     } catch (err) {
-      setError(extractErrorMessage(err, 'Could not create your account — please try again.'));
+      setError(extractErrorMessage(err, t('auth.registerFailed')));
     } finally {
       setIsSubmitting(false);
     }
@@ -45,12 +48,15 @@ export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-page px-4">
       <div className="w-full max-w-sm rounded-xl border border-line bg-surface p-8 shadow-sm">
-        <BrandMark />
+        <div className="flex items-start justify-between gap-3">
+          <BrandMark />
+          <LanguageSwitch />
+        </div>
         <h1 className="text-xl font-semibold text-ink">
-          Create your EAM account
+          {t('auth.registerTitle')}
         </h1>
         <p className="mt-1 text-sm text-muted">
-          You'll pair your inverter right after this.
+          {t('auth.registerSubtitle')}
         </p>
 
         <form className="mt-6 space-y-4" onSubmit={handleSubmit} noValidate>
@@ -59,7 +65,7 @@ export default function RegisterPage() {
               htmlFor="email"
               className="block text-sm font-medium text-ink"
             >
-              Email
+              {t('common.email')}
             </label>
             <input
               id="email"
@@ -77,7 +83,7 @@ export default function RegisterPage() {
               htmlFor="password"
               className="block text-sm font-medium text-ink"
             >
-              Password
+              {t('common.password')}
             </label>
             <input
               id="password"
@@ -90,7 +96,7 @@ export default function RegisterPage() {
               className="mt-1 block w-full rounded-lg border border-line-strong bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
             />
             <p className="mt-1 text-xs text-muted">
-              At least {MIN_PASSWORD_LENGTH} characters.
+              {t('auth.atLeast', { count: MIN_PASSWORD_LENGTH })}
             </p>
           </div>
 
@@ -99,7 +105,7 @@ export default function RegisterPage() {
               htmlFor="confirmPassword"
               className="block text-sm font-medium text-ink"
             >
-              Confirm password
+              {t('auth.confirmPassword')}
             </label>
             <input
               id="confirmPassword"
@@ -123,14 +129,14 @@ export default function RegisterPage() {
             disabled={isSubmitting}
             className="w-full rounded-lg bg-ink px-3 py-2 text-sm font-semibold text-page transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSubmitting ? 'Creating account…' : 'Create account'}
+            {isSubmitting ? t('auth.creatingAccount') : t('auth.createAccount')}
           </button>
         </form>
 
         <p className="mt-6 text-center text-sm text-muted">
-          Already have an account?{' '}
+          {t('auth.haveAccount')}{' '}
           <Link to="/login" className="font-medium text-accent hover:underline">
-            Sign in
+            {t('auth.signIn')}
           </Link>
         </p>
       </div>

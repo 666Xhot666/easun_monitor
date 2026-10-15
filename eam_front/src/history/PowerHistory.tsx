@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { dateLocale, unit, withUnit, type Unit } from '../i18n/format';
 import { format } from 'date-fns';
 import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import axios from '../lib/apiClient';
@@ -26,12 +28,12 @@ const kw = (v: Record<string, number>, name: string) => {
 };
 
 const SERIES: Series[] = [
-  { key: 'pv', label: 'Solar', colour: 'var(--pv)', power: true, unit: 'kW', value: (v) => kw(v, 'PVPower') },
-  { key: 'load', label: 'Load', colour: 'var(--load)', power: true, unit: 'kW', value: (v) => kw(v, 'OutputActivePower') },
-  { key: 'grid', label: 'Grid', colour: 'var(--grid)', power: true, unit: 'kW', value: (v) => kw(v, 'AverageMainsPower') },
+  { key: 'pv', label: 'history.series.pv', colour: 'var(--pv)', power: true, unit: 'kW', value: (v) => kw(v, 'PVPower') },
+  { key: 'load', label: 'history.series.load', colour: 'var(--load)', power: true, unit: 'kW', value: (v) => kw(v, 'OutputActivePower') },
+  { key: 'grid', label: 'history.series.grid', colour: 'var(--grid)', power: true, unit: 'kW', value: (v) => kw(v, 'AverageMainsPower') },
   {
     key: 'battery',
-    label: 'Battery ±',
+    label: 'history.series.battery',
     colour: 'var(--batt)',
     power: true,
     unit: 'kW',
@@ -41,10 +43,10 @@ const SERIES: Series[] = [
       return a === null || u === null ? null : (a * u) / 1000;
     },
   },
-  { key: 'soc', label: 'Battery SoC', colour: 'var(--soc)', power: false, unit: '%', domain: [0, 100], value: (v) => num(v, 'BatterySoc') },
-  { key: 'bv', label: 'Battery voltage', colour: 'var(--muted)', power: false, unit: 'V', value: (v) => num(v, 'BatteryVoltage') },
-  { key: 'pvv', label: 'PV voltage', colour: 'var(--pv)', power: false, unit: 'V', value: (v) => num(v, 'PVVoltage') },
-  { key: 'mains', label: 'Mains voltage', colour: 'var(--grid)', power: false, unit: 'V', value: (v) => num(v, 'MainsVoltage') },
+  { key: 'soc', label: 'history.series.soc', colour: 'var(--soc)', power: false, unit: '%', domain: [0, 100], value: (v) => num(v, 'BatterySoc') },
+  { key: 'bv', label: 'history.series.bv', colour: 'var(--muted)', power: false, unit: 'V', value: (v) => num(v, 'BatteryVoltage') },
+  { key: 'pvv', label: 'history.series.pvv', colour: 'var(--pv)', power: false, unit: 'V', value: (v) => num(v, 'PVVoltage') },
+  { key: 'mains', label: 'history.series.mains', colour: 'var(--grid)', power: false, unit: 'V', value: (v) => num(v, 'MainsVoltage') },
 ];
 
 const FIELDS = [
@@ -54,12 +56,22 @@ const DEFAULT_ON: Key[] = ['pv', 'load', 'grid', 'battery', 'soc'];
 
 type Row = { at: number } & Partial<Record<Key, number | null>>;
 
+/** A series' unit as written in the current language. */
+const unitText = (s: Series) => (s.unit === '%' ? '%' : unit(s.unit as Unit));
+
 const fmt = (s: Series, v: number | null | undefined) =>
-  v === null || v === undefined ? '--' : s.unit === 'kW' ? `${s.key === 'battery' && v > 0 ? '+' : ''}${v.toFixed(2)} kW` : `${s.unit === '%' ? Math.round(v) : v.toFixed(1)}${s.unit === '%' ? '%' : ` ${s.unit}`}`;
+  v === null || v === undefined
+    ? '--'
+    : s.unit === 'kW'
+      ? `${s.key === 'battery' && v > 0 ? '+' : ''}${withUnit(v, 'kW', 2)}`
+      : s.unit === '%'
+        ? `${Math.round(v)}%`
+        : withUnit(v, s.unit as Unit, 1);
 const axisTick = { fill: 'var(--muted)', fontSize: 11, fontFamily: 'var(--font-mono)' };
 
 /** Power by source and the battery, inverter and grid voltages over a chosen range. */
 export default function PowerHistory({ profileId }: { profileId: number }) {
+  const { t } = useTranslation();
   const [rangeId, setRangeId] = useState<HistoryRangeId>('24h');
   const [on, setOn] = useState<Set<Key>>(new Set(DEFAULT_ON));
   const [rows, setRows] = useState<Row[] | null>(null);
@@ -113,14 +125,14 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
     <section className="rounded-xl border border-line bg-surface p-4 sm:p-[18px]">
       <div className="flex flex-wrap items-center gap-3">
         <Segmented
-          ariaLabel="Range"
+          ariaLabel={t('history.range')}
           size="sm"
-          options={HISTORY_RANGES.map((r) => ({ value: r.id, label: r.label }))}
+          options={HISTORY_RANGES.map((r) => ({ value: r.id, label: t(`ranges.${r.id}`) }))}
           value={rangeId}
           onChange={setRangeId}
         />
       </div>
-      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Series">
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label={t('history.seriesGroup')}>
         {SERIES.map((s) => (
           <button
             key={s.key}
@@ -133,18 +145,18 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
             }
           >
             <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: s.colour, opacity: on.has(s.key) ? 1 : 0.4 }} />
-            {s.label}
+            {t(s.label)}
           </button>
         ))}
       </div>
-      {on.has('battery') && <p className="mt-2 text-xs text-muted">Battery: + charging, − discharging. Grid and solar are always ≥ 0.</p>}
+      {on.has('battery') && <p className="mt-2 text-xs text-muted">{t('history.batteryNote')}</p>}
       {rows && shown.length > 0 && (
         <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
-          <span className="font-mono text-xs text-muted">Latest</span>
+          <span className="font-mono text-xs text-muted">{t('history.latest')}</span>
           {shown.map((s) => (
             <span key={s.key} className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-[2px]" style={{ background: s.colour }} />
-              <span className="text-muted">{s.label}</span>
+              <span className="text-muted">{t(s.label)}</span>
               <b className="tabular-nums">{fmt(s, latest(s.key))}</b>
             </span>
           ))}
@@ -152,30 +164,30 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
       )}
       {failed && (
         <p role="alert" className="py-16 text-center text-sm text-crit-ink">
-          Couldn’t load the history.
+          {t('history.failed')}
         </p>
       )}
       {!failed && !rows && <div className="mt-4 h-72 animate-pulse rounded-lg bg-surface-2" />}
-      {rows && rows.length === 0 && <p className="py-16 text-center text-sm text-muted">No history in this range yet.</p>}
+      {rows && rows.length === 0 && <p className="py-16 text-center text-sm text-muted">{t('history.empty')}</p>}
       {rows && rows.length > 0 && (
         <div className="mt-4">
           {power.length > 0 && (
-            <div className="h-64" aria-label="Power" role="img">
+            <div className="h-64" aria-label={t('history.power')} role="img">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={rows} margin={{ top: 4, right: 4, bottom: 0, left: 0 }}>
                   <XAxis dataKey="at" type="number" scale="time" domain={['dataMin', 'dataMax']} hide />
-                  <YAxis width={48} tick={axisTick} tickLine={false} axisLine={false} unit=" kW" tickCount={5} />
+                  <YAxis width={48} tick={axisTick} tickLine={false} axisLine={false} unit={` ${unit('kW')}`} tickCount={5} />
                   <ReferenceLine y={0} stroke="var(--border2)" />
                   <Tooltip
-                    labelFormatter={(at) => format(Number(at), 'PPp')}
-                    formatter={(v) => (typeof v === 'number' ? `${v.toFixed(2)} kW` : '--')}
+                    labelFormatter={(at) => format(Number(at), 'PPp', { locale: dateLocale() })}
+                    formatter={(v) => (typeof v === 'number' ? withUnit(v, 'kW', 2) : '--')}
                     contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
                   />
                   {power.map((s) =>
                     s.key === 'pv' || s.key === 'grid' ? (
-                      <Area key={s.key} dataKey={s.key} name={s.label} type="monotone" stroke={s.colour} fill={s.key === 'pv' ? 'var(--pv-fill)' : 'var(--grid-fill)'} strokeWidth={1.5} isAnimationActive={false} />
+                      <Area key={s.key} dataKey={s.key} name={t(s.label)} type="monotone" stroke={s.colour} fill={s.key === 'pv' ? 'var(--pv-fill)' : 'var(--grid-fill)'} strokeWidth={1.5} isAnimationActive={false} />
                     ) : (
-                      <Line key={s.key} dataKey={s.key} name={s.label} type="monotone" stroke={s.colour} strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                      <Line key={s.key} dataKey={s.key} name={t(s.label)} type="monotone" stroke={s.colour} strokeWidth={1.6} dot={false} isAnimationActive={false} />
                     ),
                   )}
                 </ComposedChart>
@@ -185,8 +197,8 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
           {strips.map((s) => (
             <div key={s.key} className="mt-3">
               <p className="pl-[52px] text-xs text-muted">
-                {s.label}
-                {s.domain ? ` · ${s.domain[0]}–${s.domain[1]} ${s.unit}` : ` (${s.unit})`}
+                {t(s.label)}
+                {s.domain ? ` · ${s.domain[0]}–${s.domain[1]} ${unitText(s)}` : ` (${unitText(s)})`}
               </p>
               <div className="h-16">
                 <ResponsiveContainer width="100%" height="100%">
@@ -194,19 +206,19 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
                     <XAxis dataKey="at" type="number" scale="time" domain={['dataMin', 'dataMax']} hide />
                     <YAxis width={48} tick={axisTick} tickLine={false} axisLine={false} domain={s.domain ?? ['auto', 'auto']} tickCount={2} />
                     <Tooltip
-                      labelFormatter={(at) => format(Number(at), 'PPp')}
+                      labelFormatter={(at) => format(Number(at), 'PPp', { locale: dateLocale() })}
                       formatter={(v) => fmt(s, typeof v === 'number' ? v : null)}
                       contentStyle={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 8, fontSize: 12 }}
                     />
-                    <Line dataKey={s.key} name={s.label} type="monotone" stroke={s.colour} strokeWidth={1.6} dot={false} isAnimationActive={false} />
+                    <Line dataKey={s.key} name={t(s.label)} type="monotone" stroke={s.colour} strokeWidth={1.6} dot={false} isAnimationActive={false} />
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>
             </div>
           ))}
           <div className="mt-2 flex justify-between pl-[52px] font-mono text-[11px] text-muted">
-            {ticks.map((t, i) => (
-              <span key={t}>{i === ticks.length - 1 ? 'Now' : format(t, range.axisFormat)}</span>
+            {ticks.map((tick, i) => (
+              <span key={tick}>{i === ticks.length - 1 ? t('history.now') : format(tick, range.axisFormat, { locale: dateLocale() })}</span>
             ))}
           </div>
         </div>

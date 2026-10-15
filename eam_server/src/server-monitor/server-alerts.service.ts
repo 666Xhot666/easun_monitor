@@ -2,9 +2,11 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { sendsToTelegram } from '../notifications/notification-settings';
+import { alertText, type AlertMessage } from '../alerts/alert-message';
+import type { Prisma } from '../generated/prisma/client';
+import { languageOr, type Language } from '../i18n/languages';
 import { PrismaService } from '../prisma/prisma.service';
 import type { HostSample } from '../server-agent/sample';
-import { clockTime, duration } from '../telegram/messages';
 import { TelegramBot } from '../telegram/telegram-bot';
 import {
   serverAlerts,
@@ -13,6 +15,7 @@ import {
   type ServerNotice,
 } from './server-alerts';
 import { ServerAccessService } from './server-access.service';
+import { localized } from '../i18n/localized';
 
 export const DEFAULT_LIMITS: AlertThresholds = {
   heatC: 90,
@@ -43,7 +46,7 @@ export function parseLimits(body: unknown): AlertThresholds {
     const v = o[key];
     if (!Number.isInteger(v) || (v as number) < min || (v as number) > max) {
       throw new BadRequestException(
-        `${key} must be a whole number from ${min} to ${max}`,
+        localized('wholeNumber', { field: key, min, max }),
       );
     }
     limits[key] = v as number;
@@ -83,8 +86,8 @@ export class ServerAlertsService {
     return { heatC, storageFreePercent, memoryUsedPercent };
   }
 
-  /** The limits and the recent notices, for the owner and viewers. */
-  async get(userId: number) {
+  /** The limits and the recent notices in `language`, for the owner and viewers. */
+  async get(userId: number, language: Language) {
     await this.access.requireViewer(userId);
     const [limits, events] = await Promise.all([
       this.limits(),
@@ -93,7 +96,23 @@ export class ServerAlertsService {
         take: RECENT_EVENTS,
       }),
     ]);
-    return { limits, events };
+    return {
+      limits,
+      events: events.map(({ key, params, ...event }) => ({
+        ...event,
+        text:
+          key === null
+            ? event.text
+            : alertText(
+                {
+                  key,
+                  params: (params ?? undefined) as AlertMessage['params'],
+                },
+                language,
+                this.bot.timeZone,
+              ),
+      })),
+    };
   }
 
   async putLimits(ownerId: number, body: unknown): Promise<AlertThresholds> {
@@ -118,7 +137,8 @@ export class ServerAlertsService {
         if (reported)
           await this.send({
             kind: 'server-agent',
-            text: `Server: agent back after ${duration(Date.parse(sample.at) - since)}`,
+            key: 'serverAgentBack',
+            params: { silentMs: Date.parse(sample.at) - since },
           });
       }
       const { state, notices } = serverAlerts(
@@ -152,7 +172,8 @@ export class ServerAlertsService {
       this.silentReported = true;
       await this.send({
         kind: 'server-agent',
-        text: `Server: agent silent since ${clockTime(latest.at, this.bot.timeZone)}`,
+        key: 'serverAgentSilent',
+        params: { sinceAt: latest.at.toISOString() },
       });
     } catch (e) {
       this.logger.warn(
@@ -162,7 +183,14 @@ export class ServerAlertsService {
   }
 
   private async send(notice: ServerNotice): Promise<void> {
-    await this.prisma.serverAlertEvent.create({ data: notice });
+    await this.prisma.serverAlertEvent.create({
+      data: {
+        kind: notice.kind,
+        text: alertText(notice, 'en', this.bot.timeZone),
+        key: notice.key,
+        params: notice.params as Prisma.InputJsonValue | undefined,
+      },
+    });
     const links = await this.prisma.telegramLink.findMany({
       where: {
         user: {
@@ -170,13 +198,17 @@ export class ServerAlertsService {
         },
       },
       orderBy: { userId: 'asc' },
-      select: { chatId: true, userId: true },
+      select: {
+        chatId: true,
+        userId: true,
+        user: { select: { language: true } },
+      },
     });
     const settings = await this.notifications.forUsers(
       links.map((l) => l.userId),
     );
     const now = new Date();
-    for (const { chatId, userId } of links) {
+    for (const { chatId, userId, user } of links) {
       if (
         sendsToTelegram(
           settings.get(userId)!,
@@ -185,7 +217,11 @@ export class ServerAlertsService {
           this.bot.timeZone,
         )
       ) {
-        await this.bot.send(chatId, notice.text);
+        const language = languageOr(user.language);
+        await this.bot.send(
+          chatId,
+          alertText(notice, language, this.bot.timeZone),
+        );
       }
     }
   }

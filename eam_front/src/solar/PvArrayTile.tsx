@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { format } from 'date-fns';
+import { useTranslation } from 'react-i18next';
+import { clock, num, unit, withUnit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import type { InverterProfile } from '../auth/types';
 import type { LatestReading } from '../inverter/types';
@@ -10,7 +11,7 @@ import { computeArray, utilization, type PanelType } from './pvArray';
 /** 5-minute buckets over a day. */
 const PEAK_POINTS = 288;
 
-const kW = (watts: number) => `${(watts / 1000).toFixed(1)} kW`;
+const kW = (watts: number) => withUnit(watts / 1000, 'kW', 1);
 
 /** Highest 5-minute average PV power since local midnight, and when; undefined until known. */
 function useTodayPeakPv(profileId: number, today: Day): { watts: number; at: string } | undefined {
@@ -54,20 +55,21 @@ const card = 'flex h-full flex-col gap-2.5 rounded-xl border border-line bg-surf
 
 /** The solar array at a glance: how much of its rating is in use now and at today's peak. */
 export default function PvArrayTile({ profileId, profile, panelTypes, reading, today = toDay(new Date()) }: Props) {
+  const { t } = useTranslation();
   const peak = useTodayPeakPv(profileId, today);
   const panel = panelTypes.find((t) => t.id === profile.pvPanelTypeId);
   const { pvPanelsInSeries: inSeries, pvStrings: strings } = profile;
 
   if (!panel || !inSeries || !strings) {
     return (
-      <section aria-label="Solar now" className={card}>
-        <h2 className="text-[15px] font-semibold">Solar now</h2>
-        <p className="text-sm leading-relaxed text-muted">Add your panels and string layout to see utilisation and get wiring warnings.</p>
+      <section aria-label={t('solarNow.title')} className={card}>
+        <h2 className="text-[15px] font-semibold">{t('solarNow.title')}</h2>
+        <p className="text-sm leading-relaxed text-muted">{t('solarNow.setupHint')}</p>
         <Link
           to={`/dashboard/${profileId}/settings/solar`}
           className="mt-1 inline-flex h-10 w-fit items-center rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2"
         >
-          Set up solar array
+          {t('solarNow.setup')}
         </Link>
       </section>
     );
@@ -80,30 +82,30 @@ export default function PvArrayTile({ profileId, profile, panelTypes, reading, t
   const peakShare = utilization(peak?.watts, array.powerW);
 
   return (
-    <section aria-label="Solar now" className={card}>
-      <h2 className="text-[15px] font-semibold">Solar now</h2>
+    <section aria-label={t('solarNow.title')} className={card}>
+      <h2 className="text-[15px] font-semibold">{t('solarNow.title')}</h2>
       <p className="flex items-baseline gap-1.5">
         <span className="text-[28px] font-semibold tabular-nums">{share ?? '--'}%</span>
-        <span className="text-[13px] text-muted">utilisation</span>
+        <span className="text-[13px] text-muted">{t('solarNow.utilisation')}</span>
       </p>
       <div className="h-2 overflow-hidden rounded bg-surface-2">
         <div className="h-full rounded bg-pv" style={{ width: `${Math.min(100, share ?? 0)}%` }} />
       </div>
       <p className="text-[13px] text-muted">
-        {pvW === undefined ? '--' : kW(pvW)} of {kW(array.powerW)} array
+        {t('solarNow.ofArray', { power: pvW === undefined ? '--' : kW(pvW), array: kW(array.powerW) })}
       </p>
       <div className="mt-1 grid grid-cols-2 gap-3 border-t border-line pt-3 text-[13px]">
         <div>
-          <p className="text-xs text-muted">PV voltage</p>
-          <p className="text-[15px] font-semibold tabular-nums">{pvV === undefined ? '--' : `${pvV} V`}</p>
-          <p className="text-xs text-muted">Array Vmp {Math.round(array.vmpV)} V</p>
+          <p className="text-xs text-muted">{t('solarNow.pvVoltage')}</p>
+          <p className="text-[15px] font-semibold tabular-nums">{pvV === undefined ? '--' : `${num(pvV, 1)} ${unit('V')}`}</p>
+          <p className="text-xs text-muted">{t('solarNow.arrayVmp', { voltage: withUnit(Math.round(array.vmpV), 'V') })}</p>
         </div>
         <div>
-          <p className="text-xs text-muted">Today’s peak</p>
+          <p className="text-xs text-muted">{t('solarNow.todaysPeak')}</p>
           <p className="text-[15px] font-semibold tabular-nums">{peak ? kW(peak.watts) : '--'}</p>
           {peak && peakShare !== undefined && (
             <p className="text-xs text-muted">
-              {peakShare}% at {format(new Date(peak.at), 'HH:mm')}
+              {t('solarNow.peakAt', { share: peakShare, time: clock(peak.at) })}
             </p>
           )}
         </div>

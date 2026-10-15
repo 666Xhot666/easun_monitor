@@ -88,4 +88,19 @@ describe('BmsCsv', () => {
     expect(cells[26]).toBe('');
     expect(cells.at(-1)).toBe('Cell undervoltage; Charge overcurrent');
   });
+
+  it('names the columns, switches and alarms in Ukrainian', () => {
+    const uk = new BmsCsv('UTC', { cells: 1, temperatures: [] }, 'uk');
+    expect(uk.header()).toMatch(
+      /^Час \(UTC\),Рівень заряду \(%\),Напруга батареї \(В\),/,
+    );
+    expect(uk.header()).toContain(',Комірка 1 (В),Балансування,');
+    const row = uk.row({
+      ...reading,
+      balancing: true,
+      alarms: ['Charge overcurrent'],
+    });
+    expect(row).toContain(',увімк.,');
+    expect(row.trimEnd().endsWith(',Надструм заряду')).toBe(true);
+  });
 });

@@ -4,7 +4,6 @@ import { hashIngestToken } from '../bms/ingest-token';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import {
-  KYIV,
   dayWindows,
   mergeWindows,
   wallToUtc,
@@ -17,7 +16,7 @@ import {
   type IncomingEvent,
 } from './event-matching';
 import type { PostOutageCheckDto } from './dto/post-outage-check.dto';
-import { scheduleUpdateText, type ScheduleChange } from './notices';
+import { scheduleUpdateMessage, type ScheduleChange } from './notices';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
 
 type Tx = Prisma.TransactionClient;
@@ -93,16 +92,17 @@ export class OutageChecksService {
     return stored;
   }
 
-  /** "Outage schedule updated" to the household, once the check is stored; in Kyiv time, as the site's. */
+  /** "Outage schedule updated" to the household, once the check is stored. */
   private async tell(sourceId: number, changes: ScheduleChange[]) {
-    const text = scheduleUpdateText(changes, new Date(), KYIV);
-    if (!text) return;
+    const message = scheduleUpdateMessage(changes, new Date());
+    if (!message) return;
     try {
       const source = await this.prisma.outageSource.findUnique({
         where: { id: sourceId },
         select: { inverterProfileId: true },
       });
-      if (source) await this.alerts.toHousehold(source.inverterProfileId, text);
+      if (source)
+        await this.alerts.toHousehold(source.inverterProfileId, message);
     } catch (e) {
       this.logger.warn(
         `Schedule update not sent: ${e instanceof Error ? e.message : String(e)}`,

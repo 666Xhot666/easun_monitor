@@ -1,3 +1,5 @@
+import { LOCALES, type Language } from '../i18n/languages';
+import { translate } from '../i18n/translate';
 import { Resvg } from '@resvg/resvg-js';
 import { escapeHtml } from './cards';
 
@@ -12,6 +14,8 @@ export interface ChartRange {
   from: number;
   to: number;
   timeZone: string;
+  /** For the axis units and the empty chart's text. */
+  language: Language;
   /** Readings further apart than this are not joined by a line. */
   maxGapMs: number;
 }
@@ -22,10 +26,12 @@ const PLOT = { left: 70, right: 780, top: 60, bottom: 410 };
 const FONT = 'DejaVu Sans, Helvetica, Arial, sans-serif';
 const HOUR_MS = 3_600_000;
 
-const watts = (w: number) =>
+const watts = (w: number, language: Language) =>
   Math.abs(w) >= 1000
-    ? `${Number((w / 1000).toFixed(1))} kW`
-    : `${Math.round(w)} W`;
+    ? `${new Intl.NumberFormat(LOCALES[language], { maximumFractionDigits: 1 }).format(w / 1000)} ${translate(language, 'units.kW')}`
+    : `${Math.round(w)} ${translate(language, 'units.W')}`;
+/** Roughly how wide a legend label is drawn, in px. */
+const labelWidth = (label: string) => label.length * 7.5;
 
 /** A step of 1, 2 or 5 x 10^n that gives about `count` ticks over `span`. */
 function niceStep(span: number, count: number): number {
@@ -64,7 +70,12 @@ export function powerChartSvg(
   const values = series.flatMap((s) => s.points.map((p) => p.v));
   if (values.length === 0) {
     parts.push(
-      text(WIDTH / 2, HEIGHT / 2, 'No readings', 'text-anchor="middle"'),
+      text(
+        WIDTH / 2,
+        HEIGHT / 2,
+        translate(range.language, 'telegram.chart.empty'),
+        'text-anchor="middle"',
+      ),
       '</svg>',
     );
     return parts.join('');
@@ -89,7 +100,7 @@ export function powerChartSvg(
       text(
         PLOT.left - 8,
         y(v) + 4,
-        watts(Math.abs(v) < step / 2 ? 0 : v),
+        watts(Math.abs(v) < step / 2 ? 0 : v, range.language),
         'text-anchor="end"',
       ),
     );
@@ -115,7 +126,9 @@ export function powerChartSvg(
     );
   }
 
-  series.forEach((s, i) => {
+  // The legend: a row under the title, each entry as wide as its label.
+  let lx = PLOT.left;
+  series.forEach((s) => {
     for (const run of runs(s.points, range.maxGapMs)) {
       const coords = run
         .map((p) => `${x(p.t).toFixed(1)},${y(p.v).toFixed(1)}`)
@@ -124,11 +137,11 @@ export function powerChartSvg(
         `<polyline points="${coords}" fill="none" stroke="${s.color}" stroke-width="2"/>`,
       );
     }
-    const lx = PLOT.left + 330 + i * 110;
     parts.push(
-      `<rect x="${lx}" y="20" width="14" height="4" fill="${s.color}"/>`,
-      text(lx + 20, 27, escapeHtml(s.label)),
+      `<rect x="${lx}" y="43" width="14" height="4" fill="${s.color}"/>`,
+      text(lx + 20, 50, escapeHtml(s.label)),
     );
+    lx += 20 + labelWidth(s.label) + 18;
   });
 
   parts.push('</svg>');

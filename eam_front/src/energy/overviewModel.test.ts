@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
+import i18n from '../i18n';
 import { batteryEta, formatDuration, sceneValues, statusSentence } from './overviewModel';
 
 describe('statusSentence', () => {
@@ -84,5 +85,17 @@ describe('sceneValues', () => {
     expect(v.pv.value).toBe('--');
     expect(v.battery).toEqual({ value: '--', sub: '--' });
     expect(v.grid.sub).toBe('Not available');
+  });
+});
+
+describe('in Ukrainian', () => {
+  afterEach(() => void i18n.changeLanguage('en'));
+
+  it('says the same in Ukrainian, with a decimal comma and Ukrainian units', async () => {
+    await i18n.changeLanguage('uk');
+    expect(statusSentence({ pvW: 2840, gridW: 0, batteryW: 1580, gridAvailable: true })).toBe(
+      'Від сонця · акумулятор заряджається 1,58 кВт · мережа є',
+    );
+    expect(formatDuration(2 + 10 / 60)).toBe('2 год 10 хв');
   });
 });
