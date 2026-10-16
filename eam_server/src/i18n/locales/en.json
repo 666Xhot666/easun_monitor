@@ -219,6 +219,7 @@
     "runsHousehold": "You already run a household with inverters; you can join others only as a reader",
     "adminOnlyInverter": "Only a household admin can add an inverter, and you have no household of your own",
     "unknownPanelType": "Unknown panel type",
+    "locationUnavailable": "Couldn't find the location. Enter it by hand.",
     "loggerUnverified": "Couldn't verify the logger at {{address}}: {{reason}}",
     "loggerPaired": "This logger address and port is already paired with an inverter profile",
     "loggerNotPrivate": "The logger address {{host}} is not on a private network. Use the logger's LAN address, or set ALLOW_PUBLIC_LOGGER_HOSTS=true.",

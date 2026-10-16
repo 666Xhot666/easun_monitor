@@ -62,4 +62,10 @@ describe('Location on the inverter profile (e2e)', () => {
         .expect(400);
     }
   });
+
+  it('detects the location only for a signed-in user', async () => {
+    await request(app.getHttpServer())
+      .get('/api/location/detect')
+      .expect(401);
+  });
 });
