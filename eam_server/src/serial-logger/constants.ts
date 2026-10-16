@@ -9,11 +9,9 @@ export const ESP_RETRY_MAX_MS = 30_000;
 /** Modbus unit of the inverter. */
 export const INVERTER_UNIT = 1;
 
-/** A block the app reads is read again once its values are this old. */
-export const REFRESH_MS = 5000;
-/** A block the app has not asked for in this long is no longer read. */
-export const WANTED_FOR_MS = 10 * 60_000;
-/** A block whose read failed waits this long before the next try. */
+/** Values younger than this are answered from what was last heard. */
+export const FRESH_MS = 2000;
+/** The app waits 3 s for the logger; a read through the proxy gets at most this. */
+export const READ_THROUGH_MS = 2000;
+/** A block whose read failed is answered from what was last heard for this long. */
 export const FAILED_RETRY_MS = 10_000;
-/** How often the poller looks for a block to read. */
-export const POLL_TICK_MS = 200;

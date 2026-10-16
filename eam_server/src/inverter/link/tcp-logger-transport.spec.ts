@@ -28,6 +28,24 @@ describe('TcpLoggerTransport against a socket logger server', () => {
       ...overrides,
     });
 
+  it('answers once the logger has got ready for the request', async () => {
+    await server.close();
+    server = await startLoggerServer({
+      logger,
+      host: '127.0.0.1',
+      tcpPort: 0,
+      udpPort: 0,
+      prepare: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        logger.set(202, [1, 2]);
+      },
+    });
+    const t = transport();
+    await t.connect();
+    expect(decodeReply(read, await t.exchange(encodeRequest(read)))).toEqual([1, 2]);
+    t.close();
+  });
+
   it('handshakes, connects and exchanges frames', async () => {
     const t = transport();
     await t.connect();

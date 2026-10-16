@@ -9,9 +9,9 @@
  *   SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B npm run serial-logger
  *
  * With ESP_PORT set it runs on the ESP proxy instead of the two taps: it
- * hears the same conversation through the proxy and also reads, through it,
- * what the app asks for that the Wi-Fi logger does not read. Writes are
- * still refused.
+ * hears the same conversation through the proxy, and reads through it what
+ * the app asks for before answering, unless the Wi-Fi logger just read it.
+ * Writes are still refused.
  *
  *   ESP_PORT=/dev/cu.usbserial-C npm run serial-logger
  */
@@ -19,7 +19,7 @@ import { startLoggerServer } from '../inverter/link/logger-server';
 import { CaptureStore } from '../inverter/serial-sniff/capture-store';
 import type { PortStatus } from '../inverter/serial-sniff/serial-capture';
 import { openSerialTap } from '../inverter/serial-sniff/serial-port-tap';
-import { ESP_BAUD, POLL_TICK_MS } from './constants';
+import { ESP_BAUD } from './constants';
 import { EspLink } from './esp-link';
 import { openEspPort } from './esp-port';
 import { formatLogLine } from './log-line';
@@ -122,22 +122,15 @@ const runOnEsp = async (espPath: string): Promise<void> => {
       if (text !== 'timeout') log(`ESP: ${text}`);
     },
   });
-  const { logger, capture, poller } = createEspSerialLogger({
+  const { logger, capture, prepare } = createEspSerialLogger({
     link: esp,
     store: new CaptureStore(env.DEV_CAPTURE_DIR || '.dev-captures'),
   });
 
-  const server = await startLoggerServer({ logger, tcpPort, udpPort, log });
+  const server = await startLoggerServer({ logger, tcpPort, udpPort, log, prepare });
   await esp.start();
   await capture.start({ rxPath: 'rx', txPath: 'tx', rxBaud: 9600, txBaud: 9600 });
   log(`Listening on the ESP proxy at ${espPath}; serving as a logger on TCP ${server.tcpPort} / UDP ${server.udpPort}. Ctrl+C to stop.`);
-
-  let ours = 0;
-  const polling = setInterval(() => {
-    void poller.poll(Date.now()).then((read) => {
-      if (read) ours++;
-    });
-  }, POLL_TICK_MS);
 
   const status = setInterval(() => {
     const link = esp.status();
@@ -145,8 +138,7 @@ const runOnEsp = async (espPath: string): Promise<void> => {
     if (link.error !== null) text += ` (${link.error})`;
     if (link.reconnects > 0) text += `, ${link.reconnects} reconnects`;
     const pairs = capture.records(0).filter((record) => record.kind === 'pair').length;
-    log(`${text} | ${pairs} recent reads by the Wi-Fi logger, ${ours} by us`);
-    ours = 0;
+    log(`${text} | ${pairs} recent reads by the Wi-Fi logger`);
   }, 60000);
 
   let shuttingDown = false;
@@ -154,7 +146,6 @@ const runOnEsp = async (espPath: string): Promise<void> => {
     if (shuttingDown) return;
     shuttingDown = true;
     log('Shutting down');
-    clearInterval(polling);
     clearInterval(status);
     await capture.stop();
     await esp.stop();
