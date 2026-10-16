@@ -22,8 +22,6 @@ export interface InMemoryLoggerOptions {
   /** If set, a read touching a register that was never set answers this
    * exception code instead of inventing a value. */
   unsetReadException?: number;
-  /** Called with every read asked for, before it is answered. */
-  onRead?: (address: number, count: number) => void;
   /** Called after a write is stored, for logging. */
   onWrite?: (address: number, values: readonly number[]) => void;
 }
@@ -67,7 +65,6 @@ export class InMemoryLogger {
     const request: LoggerRequest = decodeRequest(frame);
 
     if (request.kind === 'read') {
-      this.options.onRead?.(request.address, request.count);
       const rejected = this.rejectedReads.get(request.address);
       if (rejected !== undefined) return encodeErrorReply(request, rejected);
       const unset = this.options.unsetReadException;
