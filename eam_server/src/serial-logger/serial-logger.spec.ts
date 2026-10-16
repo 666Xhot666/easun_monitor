@@ -8,7 +8,8 @@ import { RegisterMap } from '../inverter/registers/register-map';
 import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import { CaptureStore } from '../inverter/serial-sniff/capture-store';
 import type { SerialTap } from '../inverter/serial-sniff/serial-capture';
-import { createSerialLogger } from './serial-logger';
+import { EspLink, type DuplexPort } from './esp-link';
+import { createEspSerialLogger, createSerialLogger } from './serial-logger';
 
 class FakeTap implements SerialTap {
   private data: (chunk: Buffer) => void = () => {};
@@ -98,5 +99,98 @@ describe('Serial logger', () => {
     overhear(200, Array.from({ length: 22 }, () => 0));
     const [capture] = new CaptureStore(dir).list();
     expect(new CaptureStore(dir).read(capture.id)!.records.some((r) => r.kind === 'pair')).toBe(true);
+  });
+});
+
+class FakeEspPort implements DuplexPort {
+  written: string[] = [];
+  private data: (chunk: Buffer) => void = () => {};
+  onData(listener: (chunk: Buffer) => void) {
+    this.data = listener;
+  }
+  onError() {}
+  write(text: string) {
+    this.written.push(text);
+  }
+  async close() {}
+  say(text: string) {
+    this.data(Buffer.from(text));
+  }
+}
+
+describe('Serial logger on the ESP proxy', () => {
+  const map = new RegisterMap(SMG_II_REGISTERS);
+  const hex = (bytes: Buffer) => bytes.toString('hex').toUpperCase();
+  let dir: string;
+  let port: FakeEspPort;
+  let esp: EspLink;
+  let service: ReturnType<typeof createEspSerialLogger>;
+  let link: LoggerLink;
+
+  beforeEach(async () => {
+    dir = mkdtempSync(join(tmpdir(), 'serial-logger-'));
+    port = new FakeEspPort();
+    esp = new EspLink({ path: '/dev/esp', openPort: async () => port });
+    await esp.start();
+    service = createEspSerialLogger({ link: esp, store: new CaptureStore(dir) });
+    await service.capture.start({ rxPath: 'rx', txPath: 'tx', rxBaud: 9600, txBaud: 9600 });
+    const transport: LoggerTransport = {
+      connected: true,
+      connect: async () => {},
+      exchange: async (frame) => service.logger.handle(frame),
+      close: () => {},
+    };
+    link = new LoggerLink({ transport, registers: map });
+  });
+
+  afterEach(async () => {
+    await service.capture.stop();
+    await esp.stop();
+    rmSync(dir, { recursive: true, force: true });
+  });
+
+  /** The inverter answers our pending read with `wordAt` for each register. */
+  const inverterAnswers = (wordAt: (address: number) => number) => {
+    const request = Buffer.from(port.written[port.written.length - 1].trim(), 'hex');
+    const address = request.readUInt16BE(2);
+    const count = request.readUInt16BE(4);
+    const words = Array.from({ length: count }, (_, i) => wordAt(address + i));
+    port.say(`I>D 1 ${hex(readResponse(words))}\n`);
+  };
+
+  it('reads what the app asks for through the proxy, even registers the plug never reads', async () => {
+    await expect(link.read(['telemetry'])).resolves.toEqual({}); // nothing heard yet
+
+    const wordAt = (address: number) => (address === 202 ? 2305 : address === 215 ? 274 : 0);
+    for (let reads = 0; ; reads++) {
+      const polled = service.poller.poll(Date.now());
+      await Promise.resolve();
+      await Promise.resolve();
+      if (port.written.length === reads) break;
+      inverterAnswers(wordAt);
+      await polled;
+    }
+
+    expect(port.written.length).toBeGreaterThan(0);
+    await expect(link.read(['telemetry'])).resolves.toMatchObject({ MainsVoltage: 230.5, BatteryVoltage: 27.4 });
+  });
+
+  it("serves what the plug reads, and leaves those registers to the plug while they're fresh", async () => {
+    await link.read(['telemetry']); // the app asks
+    const block = Array.from({ length: 22 }, () => 0);
+    block[2] = 2201;
+    port.say(`P>I 10 ${hex(readRequest(200, 22))}\nI>P 40 ${hex(readResponse(block))}\n`);
+
+    await expect(link.read(['telemetry'])).resolves.toMatchObject({ MainsVoltage: 220.1 });
+    void service.poller.poll(Date.now());
+    await Promise.resolve();
+    await Promise.resolve();
+    const asked = port.written.map((line) => Buffer.from(line.trim(), 'hex').readUInt16BE(2));
+    expect(asked).not.toContain(200);
+  });
+
+  it('still refuses writes', async () => {
+    port.say(`P>I 10 ${hex(readRequest(300, 12))}\nI>P 40 ${hex(readResponse(Array.from({ length: 12 }, () => 0)))}\n`);
+    await expect(link.write({ OutputPriority: 1 })).rejects.toThrow(/Read-only register/);
   });
 });
