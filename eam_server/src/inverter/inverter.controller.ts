@@ -40,6 +40,7 @@ import { PollingService } from './polling.service';
 import { PairTestDto } from './dto/pair-test.dto';
 import { SetupInverterDto } from './dto/setup-inverter.dto';
 import { UpdateInverterDto } from './dto/update-inverter.dto';
+import { roundCoordinate } from '../location/round-location';
 import { HistoryQueryDto } from './dto/history-query.dto';
 import { AlertsQueryDto } from './dto/alerts-query.dto';
 import { ReadingsQueryDto } from './dto/readings-query.dto';
@@ -187,7 +188,14 @@ export class InverterController {
     }
 
     const profile = await this.rejectDuplicateAddress(() =>
-      this.prisma.inverterProfile.update({ where: { id }, data: dto }),
+      this.prisma.inverterProfile.update({
+        where: { id },
+        data: {
+          ...dto,
+          latitude: roundCoordinate(dto.latitude),
+          longitude: roundCoordinate(dto.longitude),
+        },
+      }),
     );
 
     await this.syncPollingBestEffort();

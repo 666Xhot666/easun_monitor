@@ -117,4 +117,17 @@ export class UpdateInverterDto {
   @IsNumber()
   @IsPositive()
   pvMaxCurrentA?: number | null;
+
+  /** Where the installation is, in degrees; stored rounded to 0.1. */
+  @IsOptional()
+  @IsNumber()
+  @Min(-90)
+  @Max(90)
+  latitude?: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(-180)
+  @Max(180)
+  longitude?: number | null;
 }

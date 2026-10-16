@@ -91,6 +91,8 @@ const PROFILE_FIELDS = {
   pvMpptMaxV: true,
   pvMaxPowerW: true,
   pvMaxCurrentA: true,
+  latitude: true,
+  longitude: true,
   householdId: true,
   createdAt: true,
   updatedAt: true,
