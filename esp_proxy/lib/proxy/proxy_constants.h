@@ -17,4 +17,7 @@ constexpr size_t QUEUE_DEPTH = 4;
 // Plug bytes held while our request is out.
 constexpr size_t HELD_MAX = 256;
 
+// How often the line's stats are reported.
+constexpr uint32_t STATS_MS = 60000;
+
 }  // namespace proxy

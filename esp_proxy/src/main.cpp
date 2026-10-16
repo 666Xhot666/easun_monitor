@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_task_wdt.h>
 
 #include "board.h"
 #include "proxy.h"
@@ -56,6 +57,8 @@ void setup() {
   Serial.begin(USB_BAUD);
   beginRs232(Serial1, INVERTER_RX_PIN, INVERTER_TX_PIN);
   beginRs232(Serial2, PLUG_RX_PIN, PLUG_TX_PIN);
+  esp_task_wdt_init(WATCHDOG_S, true);
+  esp_task_wdt_add(nullptr);
   digitalWrite(LED_PIN, HIGH);
   Serial.println("# ready esp_proxy");
 }
@@ -66,4 +69,5 @@ void loop() {
   while (Serial1.available()) px.inverterByte(Serial1.read(), now);
   readUsb(now);
   px.tick(now);
+  esp_task_wdt_reset();
 }

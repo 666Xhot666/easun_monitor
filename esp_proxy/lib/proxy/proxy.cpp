@@ -13,11 +13,13 @@ static const char* tagText(int tag) {
 }
 
 void Proxy::plugByte(uint8_t b, uint32_t now) {
+  stats_.plug++;
   if (state_ == State::Ours) {
+    if (heldLen_ == 0) stats_.held++;
     if (heldLen_ < HELD_MAX) {
       held_[heldLen_++] = b;
     } else {
-      io_.usbLine("# overflow");
+      stats_.overflow++;
     }
     return;
   }
@@ -27,6 +29,7 @@ void Proxy::plugByte(uint8_t b, uint32_t now) {
 }
 
 void Proxy::inverterByte(uint8_t b, uint32_t now) {
+  stats_.inverter++;
   lastInverterByte_ = now;
   if (state_ == State::Ours) {
     answered_ = true;
@@ -71,7 +74,10 @@ void Proxy::tick(uint32_t now) {
       const bool ignored = !answered_ && now - sentAt_ >= RESPONSE_TIMEOUT_MS;
       if (!replied && !ignored) break;
       flushBurst();
-      if (ignored) io_.usbLine("# timeout");
+      if (ignored) {
+        io_.usbLine("# timeout");
+        stats_.timeouts++;
+      }
       toIdle(now);
       if (heldLen_ > 0) {
         io_.toInverter(held_, heldLen_);
@@ -95,7 +101,22 @@ void Proxy::tick(uint32_t now) {
     state_ = State::Ours;
     sentAt_ = now;
     answered_ = false;
+    stats_.ours++;
   }
+
+  if (now - statsSince_ >= STATS_MS) {
+    reportStats();
+    statsSince_ = now;
+  }
+}
+
+void Proxy::reportStats() {
+  snprintf(line_, sizeof line_, "# stats plug=%lu inverter=%lu ours=%lu timeouts=%lu held=%lu overflow=%lu",
+           static_cast<unsigned long>(stats_.plug), static_cast<unsigned long>(stats_.inverter),
+           static_cast<unsigned long>(stats_.ours), static_cast<unsigned long>(stats_.timeouts),
+           static_cast<unsigned long>(stats_.held), static_cast<unsigned long>(stats_.overflow));
+  io_.usbLine(line_);
+  stats_ = {};
 }
 
 void Proxy::tap(Tag tag, uint8_t b, uint32_t now) {

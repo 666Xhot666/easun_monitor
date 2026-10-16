@@ -22,7 +22,8 @@ class ProxyIo {
  * plug's bytes that arrive meanwhile are held and sent right after. Every
  * burst on the line is reported over USB as "<tag> <ms> <hex>", the tag
  * telling who sent it to whom: P>I, I>P, D>I (ours), I>D (our reply).
- * Notes start with "# ".
+ * Notes start with "# "; every STATS_MS a "# stats ..." note counts what
+ * the line carried since the last one.
  */
 class Proxy {
  public:
@@ -39,6 +40,10 @@ class Proxy {
   enum class State { Idle, Plug, Ours };
   enum class Tag { None, PlugToInverter, InverterToPlug, Ours, OurReply };
 
+  struct Stats {
+    uint32_t plug, inverter, ours, timeouts, held, overflow;
+  };
+
   struct Frame {
     uint8_t data[MAX_FRAME];
     size_t len;
@@ -49,6 +54,7 @@ class Proxy {
   void report(Tag tag, uint32_t at, const uint8_t* data, size_t len);
   void toIdle(uint32_t now);
   void startPlug(uint32_t now);
+  void reportStats();
 
   ProxyIo& io_;
   State state_ = State::Idle;
@@ -70,6 +76,9 @@ class Proxy {
   Frame queue_[QUEUE_DEPTH];
   size_t queueHead_ = 0;
   size_t queueLen_ = 0;
+
+  Stats stats_ = {};
+  uint32_t statsSince_ = 0;
 
   char line_[16 + 2 * MAX_FRAME];
 };

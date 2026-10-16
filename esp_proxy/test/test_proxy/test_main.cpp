@@ -144,6 +144,24 @@ static void a_long_burst_splits_into_lines() {
   TEST_ASSERT_EQUAL_STRING("I>P 10 AAAAAA", io->lines[1].c_str());
 }
 
+static void reports_a_minute_of_line_stats() {
+  fromPlug(REQUEST, 0);
+  fromInverter(REPLY, 30);
+  ticks(0, 100);
+  px->usbLine("01030000000AC5CD", 100);
+  ticks(100, 150);           // ours goes out at 150
+  fromPlug(REQUEST, 160);    // held
+  ticks(160, 150 + RESPONSE_TIMEOUT_MS);  // no reply to ours
+  io->lines.clear();
+
+  ticks(150 + RESPONSE_TIMEOUT_MS + 1, STATS_MS);
+  TEST_ASSERT_EQUAL(1, io->lines.size());
+  TEST_ASSERT_EQUAL_STRING("# stats plug=16 inverter=7 ours=1 timeouts=1 held=1 overflow=0", io->lines[0].c_str());
+
+  ticks(STATS_MS + 1, 2 * STATS_MS);  // a quiet minute
+  TEST_ASSERT_EQUAL_STRING("# stats plug=0 inverter=0 ours=0 timeouts=0 held=0 overflow=0", io->lines[1].c_str());
+}
+
 int main() {
   UNITY_BEGIN();
   RUN_TEST(passes_the_plugs_exchange_through_and_taps_it);
@@ -154,5 +172,6 @@ int main() {
   RUN_TEST(frees_the_line_when_the_inverter_ignores_the_plug);
   RUN_TEST(refuses_bad_lines_and_a_full_queue);
   RUN_TEST(a_long_burst_splits_into_lines);
+  RUN_TEST(reports_a_minute_of_line_stats);
   return UNITY_END();
 }

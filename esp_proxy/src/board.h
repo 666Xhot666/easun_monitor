@@ -16,5 +16,8 @@ constexpr unsigned long RS232_BAUD = 9600;
 constexpr unsigned long USB_BAUD = 460800;
 constexpr size_t USB_TX_BUFFER = 8192;
 constexpr size_t RS232_RX_BUFFER = 1024;
+// The board restarts if the loop stalls this long, so a hang never keeps
+// the plug off the line.
+constexpr uint32_t WATCHDOG_S = 5;
 // Longest request line accepted from USB (hex digits).
 constexpr size_t USB_LINE_MAX = 600;
