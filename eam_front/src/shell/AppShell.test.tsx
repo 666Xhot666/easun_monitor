@@ -13,7 +13,7 @@ const profile = (id: number, name: string, role: HouseholdRole): InverterProfile
   batteryNominalVoltage: 48, batteryCapacityAh: 200, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, latitude: null, longitude: null,
   householdId: 5, role, createdAt: '', updatedAt: '',
 });
 

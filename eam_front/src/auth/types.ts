@@ -22,6 +22,9 @@ export interface InverterProfile {
   pvMpptMaxV: number | null;
   pvMaxPowerW: number | null;
   pvMaxCurrentA: number | null;
+  /** Where the installation is, for the weather; rounded to 0.1 degree. */
+  latitude: number | null;
+  longitude: number | null;
   householdId: number;
   /** The user's role in this inverter's household: readers cannot change anything. */
   role: HouseholdRole;

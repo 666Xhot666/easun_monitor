@@ -14,7 +14,7 @@ const profile = (overrides: Partial<InverterProfile> = {}): InverterProfile => (
   batteryNominalVoltage: 24, batteryCapacityAh: 100, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, latitude: null, longitude: null,
   householdId: 1, role: 'ADMIN', createdAt: '', updatedAt: '',
   ...overrides,
 });
