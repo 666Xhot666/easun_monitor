@@ -5,6 +5,7 @@
 #
 #   SERIAL_RX_PORT=/dev/serial/by-id/A SERIAL_TX_PORT=/dev/serial/by-id/B \
 #     scripts/install-linux-service.sh serial-logger
+#   ESP_PORT=/dev/serial/by-path/C scripts/install-linux-service.sh serial-logger
 #   scripts/install-linux-service.sh bms-reader
 #   scripts/install-linux-service.sh outage-reader
 #   scripts/install-linux-service.sh server-agent
@@ -56,14 +57,19 @@ fi
 
 case "$NAME" in
     serial-logger)
-        : "${SERIAL_RX_PORT:?SERIAL_RX_PORT is required}"
-        : "${SERIAL_TX_PORT:?SERIAL_TX_PORT is required}"
-        RX_BAUD="${SERIAL_RX_BAUD:-9600}"
-        TX_BAUD="${SERIAL_TX_BAUD:-9600}"
-        EXTRA="Environment=SERIAL_RX_PORT=$SERIAL_RX_PORT
+        if [ -n "${ESP_PORT:-}" ]; then
+            # on the ESP proxy instead of the two taps
+            EXTRA="Environment=ESP_PORT=$ESP_PORT"
+        else
+            : "${SERIAL_RX_PORT:?SERIAL_RX_PORT (or ESP_PORT) is required}"
+            : "${SERIAL_TX_PORT:?SERIAL_TX_PORT is required}"
+            RX_BAUD="${SERIAL_RX_BAUD:-9600}"
+            TX_BAUD="${SERIAL_TX_BAUD:-9600}"
+            EXTRA="Environment=SERIAL_RX_PORT=$SERIAL_RX_PORT
 Environment=SERIAL_TX_PORT=$SERIAL_TX_PORT
 Environment=SERIAL_RX_BAUD=$RX_BAUD
 Environment=SERIAL_TX_BAUD=$TX_BAUD"
+        fi
         ;;
     bms-reader)
         # raw Bluetooth (HCI) access for this service only
