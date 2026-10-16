@@ -266,6 +266,16 @@ the default 5 seconds. Until the logger has read a register at least once, the
 service answers it with an error instead of a made-up value, so nothing false
 is stored.
 
+With the ESP32 proxy (`esp_proxy/`) between the inverter and the Wi-Fi logger,
+set `ESP_PORT` to the proxy's USB device instead of the two taps. The service
+then reads the inverter itself through the proxy before answering, so the
+values are live: `POLLING_INTERVAL_MS=2500` gives a new reading on every poll
+(values younger than 2 seconds are reused). Writes are still refused.
+
+```bash
+ESP_PORT=/dev/cu.usbserial-C npm run serial-logger
+```
+
 To run it as a launchd agent (starts at login, restarts when it exits, keeps
 the Mac awake on AC power), build it (`npx nest build` in `eam_server`) and
 run from the repository root:

@@ -49,6 +49,11 @@ export class InMemoryLogger {
     this.rejectedReads.set(address, exceptionCode);
   }
 
+  /** Answer reads starting at `address` normally again. */
+  acceptReadsAt(address: number): void {
+    this.rejectedReads.delete(address);
+  }
+
   /** Answer writes starting at `address` with a device exception. */
   rejectWritesAt(address: number, exceptionCode: number): void {
     this.rejectedWrites.set(address, exceptionCode);

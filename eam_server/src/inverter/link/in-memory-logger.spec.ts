@@ -20,4 +20,12 @@ describe('InMemoryLogger', () => {
     logger.set(400, [1]);
     expect(() => exchange(logger, { kind: 'read', address: 400, count: 2 })).toThrow(/exception code 6/);
   });
+
+  it('can take back a refusal to read', () => {
+    const logger = new InMemoryLogger({ isWritable: () => false });
+    logger.rejectReadsAt(300, 2);
+    expect(() => exchange(logger, { kind: 'read', address: 300, count: 1 })).toThrow(/exception code 2/);
+    logger.acceptReadsAt(300);
+    expect(exchange(logger, { kind: 'read', address: 300, count: 1 })).toEqual([0]);
+  });
 });

@@ -21,6 +21,9 @@ export interface LoggerServerOptions {
   tcpPort: number;
   udpPort: number;
   log?: (message: string) => void;
+  /** Awaited before each request is answered, in order, e.g. to fetch fresh
+   * values first. A failure is logged and the request answered anyway. */
+  prepare?: (frame: Buffer) => Promise<void>;
 }
 
 export interface LoggerServer {
@@ -54,6 +57,16 @@ export async function startLoggerServer(options: LoggerServerOptions): Promise<L
     const remote = `${socket.remoteAddress}:${socket.remotePort}`;
     log(`TCP client connected: ${remote}`);
     let buffer = Buffer.alloc(0);
+    let replies = Promise.resolve();
+
+    const reply = (frame: Buffer): void => {
+      try {
+        socket.write(options.logger.handle(frame));
+      } catch (error) {
+        if (!(error instanceof LoggerFrameError)) throw error;
+        log(`Dropping malformed frame from ${remote}: ${error.message}`);
+      }
+    };
 
     socket.on('data', (chunk) => {
       buffer = Buffer.concat([buffer, chunk]);
@@ -61,12 +74,17 @@ export async function startLoggerServer(options: LoggerServerOptions): Promise<L
         const frame = buffer.subarray(0, length);
         buffer = buffer.subarray(length);
         if (paused) continue;
-        try {
-          socket.write(options.logger.handle(frame));
-        } catch (error) {
-          if (!(error instanceof LoggerFrameError)) throw error;
-          log(`Dropping malformed frame from ${remote}: ${error.message}`);
+        const prepare = options.prepare;
+        if (!prepare) {
+          reply(frame);
+          continue;
         }
+        replies = replies.then(async () => {
+          await prepare(frame).catch((error: unknown) => {
+            log(`Answering from what is known: ${error instanceof Error ? error.message : String(error)}`);
+          });
+          if (!socket.destroyed) reply(frame);
+        });
       }
     });
     socket.on('error', (error) => log(`TCP socket error (${remote}): ${error.message}`));
