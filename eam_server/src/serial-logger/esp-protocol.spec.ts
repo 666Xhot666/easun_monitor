@@ -1,5 +1,5 @@
 import { crc16 } from '../inverter/protocol/logger-frame';
-import { parseEspLine, parseReadReply, readRequestLine } from './esp-protocol';
+import { parseEspLine, parseReadReply, parseWriteReply, readRequestLine, writeRequestLine } from './esp-protocol';
 
 const withCrc = (bytes: number[]) => Buffer.concat([Buffer.from(bytes), crc16(Buffer.from(bytes))]);
 
@@ -55,5 +55,32 @@ describe('parseReadReply', () => {
     broken[broken.length - 1] ^= 0xff;
     expect(parseReadReply(request, broken)).toBeNull();
     expect(parseReadReply(request, Buffer.alloc(0))).toBeNull();
+  });
+});
+
+describe('writeRequestLine', () => {
+  it('asks for a Modbus write of the values, high byte first, with its CRC', () => {
+    expect(writeRequestLine(1, 0x0141, [0x0001, 0x012c])).toBe('011001410002040001012C6A4E\n');
+  });
+});
+
+describe('parseWriteReply', () => {
+  const request = { unit: 1, address: 0x0141, count: 2 };
+
+  it('reads the echo of a write the inverter took', () => {
+    expect(parseWriteReply(request, Buffer.from('0110014100021020', 'hex'))).toEqual({ kind: 'written' });
+  });
+
+  it('reads the exception of a write the inverter refused', () => {
+    expect(parseWriteReply(request, Buffer.from('019002CDC1', 'hex'))).toEqual({ kind: 'exception', code: 2 });
+  });
+
+  it('is null for anything else', () => {
+    expect(parseWriteReply(request, Buffer.from('0110014100021021', 'hex'))).toBeNull();
+    expect(parseWriteReply({ ...request, unit: 2 }, Buffer.from('0110014100021020', 'hex'))).toBeNull();
+    expect(parseWriteReply({ ...request, count: 1 }, withCrc([1, 0x10, 0x01, 0x41, 0, 2]))).toBeNull();
+    expect(parseWriteReply({ ...request, address: 0x0142 }, withCrc([1, 0x10, 0x01, 0x41, 0, 2]))).toBeNull();
+    expect(parseWriteReply(request, withCrc([1, 0x03, 2, 0, 1]))).toBeNull();
+    expect(parseWriteReply(request, Buffer.from('0110', 'hex'))).toBeNull();
   });
 });

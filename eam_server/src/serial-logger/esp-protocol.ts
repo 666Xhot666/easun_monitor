@@ -57,3 +57,45 @@ export function parseReadReply(request: { unit: number; count: number }, bytes: 
   }
   return { kind: 'words', words };
 }
+
+/** The line asking the proxy to send a Modbus write of `values` (function 16): unit, 16, address, count, byte count, the values high byte first, CRC; then "\n". */
+export function writeRequestLine(unit: number, address: number, values: readonly number[]): string {
+  const count = values.length;
+  const byteCount = count * 2;
+  const payload = Buffer.alloc(7 + byteCount);
+  payload[0] = unit;
+  payload[1] = 0x10;
+  payload[2] = (address >> 8) & 0xff;
+  payload[3] = address & 0xff;
+  payload[4] = (count >> 8) & 0xff;
+  payload[5] = count & 0xff;
+  payload[6] = byteCount;
+  for (let i = 0; i < count; i++) {
+    const v = values[i] & 0xffff;
+    payload[7 + i * 2] = (v >> 8) & 0xff;
+    payload[8 + i * 2] = v & 0xff;
+  }
+  const frame = Buffer.concat([payload, crc16(payload)]);
+  return frame.toString('hex').toUpperCase() + '\n';
+}
+
+export type WriteReply = { kind: 'written' } | { kind: 'exception'; code: number };
+
+/** The inverter's reply to a write of `count` registers at `address` on `unit`, or null when the bytes are not that reply (wrong unit, size, echo or CRC). */
+export function parseWriteReply(request: { unit: number; address: number; count: number }, bytes: Buffer): WriteReply | null {
+  if (bytes.length < 4) return null;
+  const crc = crc16(bytes.subarray(0, bytes.length - 2));
+  if (!crc.equals(bytes.subarray(bytes.length - 2))) return null;
+  if (bytes[0] !== request.unit) return null;
+  if (bytes.length === 5 && bytes[1] === 0x90) {
+    return { kind: 'exception', code: bytes[2] };
+  }
+  if (bytes.length === 8 && bytes[1] === 0x10) {
+    const addr = (bytes[2] << 8) | bytes[3];
+    const cnt = (bytes[4] << 8) | bytes[5];
+    if (addr === request.address && cnt === request.count) {
+      return { kind: 'written' };
+    }
+  }
+  return null;
+}
