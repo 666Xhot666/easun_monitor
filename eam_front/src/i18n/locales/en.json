@@ -1136,5 +1136,18 @@
     "Discharge OCP III": "Discharge OCP III",
     "Discharge undertemperature alarm": "Discharge undertemperature alarm",
     "GPS remote lock": "GPS remote lock"
+  },
+  "sunForecast": {
+    "title": "Sun forecast",
+    "tomorrow": "Tomorrow",
+    "tomorrowCloud": "Tomorrow · {{cloud}}% cloud",
+    "today": "Today so far",
+    "ofExpected": "{{actual}} of {{expected}} expected",
+    "pastWeek": "Past week",
+    "ofAllowed": "of what the weather allowed",
+    "assumed": "Tilt and facing not set: assumed 30° towards the equator.",
+    "setMounting": "Set the mounting",
+    "setup": "Set up",
+    "unavailable": "The weather forecast is not available right now."
   }
 }

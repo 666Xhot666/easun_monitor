@@ -1154,5 +1154,18 @@
     "Discharge OCP III": "Захист від надструму розряду III",
     "Discharge undertemperature alarm": "Замала температура для розряду",
     "GPS remote lock": "Дистанційне блокування через GPS"
+  },
+  "sunForecast": {
+    "title": "Прогноз сонця",
+    "tomorrow": "Завтра",
+    "tomorrowCloud": "Завтра · хмарність {{cloud}}%",
+    "today": "Сьогодні поки що",
+    "ofExpected": "{{actual}} з {{expected}} очікуваних",
+    "pastWeek": "Минулий тиждень",
+    "ofAllowed": "від того, що дозволила погода",
+    "assumed": "Нахил і напрямок не вказано: прийнято 30° до екватора.",
+    "setMounting": "Вказати кріплення",
+    "setup": "Налаштувати",
+    "unavailable": "Прогноз погоди зараз недоступний."
   }
 }

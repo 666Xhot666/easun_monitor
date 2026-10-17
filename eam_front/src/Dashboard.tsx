@@ -8,6 +8,7 @@ import { sceneValues } from './energy/overviewModel';
 import { describeDeviceStatus } from './inverter/useDeviceStatus';
 import OutageCard from './outage/OutageCard';
 import PvArrayTile from './solar/PvArrayTile';
+import SunForecastTile from './solar/SunForecastTile';
 import { computeArray } from './solar/pvArray';
 import { usePanelTypes } from './solar/usePanelTypes';
 import { useBmsDevices } from './bms/useBmsDevices';
@@ -116,6 +117,7 @@ export default function Dashboard() {
           <Last24Hours profileId={profile.id} historyHref={`${base}/history`} />
         </div>
         <OutageCard profileId={profile.id} />
+        <SunForecastTile profileId={profile.id} />
       </div>
     </>
   );
