@@ -1,4 +1,4 @@
-import { clockTime, dayStart, formatEnergy } from './messages';
+import { clockTime, dayStart, formatEnergy, formatTomorrow } from './messages';
 
 const NOW = new Date('2026-10-06T19:00:00Z');
 
@@ -19,6 +19,17 @@ describe('formatEnergy', () => {
       ),
     ).toBe(
       'Home today: PV 3.46 kWh · Grid 0.80 kWh · Load 12.3 kWh · Battery +1.44 / -0.99 kWh',
+    );
+  });
+});
+
+describe('formatTomorrow', () => {
+  it("says how much sun tomorrow's weather allows", () => {
+    expect(formatTomorrow({ expectedKWh: 6.24, cloudCover: 12 }, 'en')).toBe(
+      '☀️ Tomorrow: about 6.2 kWh of sun expected · 12% cloud',
+    );
+    expect(formatTomorrow({ expectedKWh: 6.24, cloudCover: null }, 'uk')).toBe(
+      '☀️ Завтра: очікується близько 6,2 кВт·год сонця',
     );
   });
 });

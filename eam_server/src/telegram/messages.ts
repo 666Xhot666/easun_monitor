@@ -27,6 +27,23 @@ export function formatEnergy(
   });
 }
 
+/** Tomorrow's expected PV from the weather, for the evening summary. */
+export function formatTomorrow(
+  day: { expectedKWh: number; cloudCover: number | null },
+  language: Language,
+): string {
+  const kWh = `${new Intl.NumberFormat(LOCALES[language], {
+    minimumFractionDigits: 1,
+    maximumFractionDigits: 1,
+  }).format(day.expectedKWh)} ${translate(language, 'units.kWh')}`;
+  return day.cloudCover === null
+    ? translate(language, 'telegram.tomorrowLine', { kWh })
+    : translate(language, 'telegram.tomorrowCloudLine', {
+        kWh,
+        cloud: day.cloudCover,
+      });
+}
+
 /** The wall-clock time in `timeZone`, read as if it were UTC (ms). */
 function wallClockAsUtc(at: Date, timeZone: string): number {
   const parts = Object.fromEntries(

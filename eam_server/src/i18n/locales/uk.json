@@ -147,7 +147,9 @@
       "total": "Разом",
       "colGrid": "Мережа",
       "colLoad": "Навант."
-    }
+    },
+    "tomorrowLine": "☀️ Завтра: очікується близько {{kWh}} сонця",
+    "tomorrowCloudLine": "☀️ Завтра: очікується близько {{kWh}} сонця · хмарність {{cloud}}%"
   },
   "bmsAlarms": {
     "Wire resistance": "Опір дротів",
