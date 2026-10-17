@@ -126,4 +126,28 @@ describe('Solar array on the inverter profile (e2e)', () => {
       .expect(200);
     await call('delete', `/api/panel-types/${panelTypeId}`).expect(200);
   });
+
+  it('stores how the panels are mounted: tilt and compass facing', async () => {
+    const { body } = await call('patch', `/api/inverter/profiles/${profileId}`)
+      .send({ pvTiltDeg: 35, pvFacingDeg: 180 })
+      .expect(200);
+    expect(body).toMatchObject({ pvTiltDeg: 35, pvFacingDeg: 180 });
+
+    const me = await call('get', '/api/auth/me').expect(200);
+    expect(me.body.inverterProfiles[0]).toMatchObject({
+      pvTiltDeg: 35,
+      pvFacingDeg: 180,
+    });
+
+    for (const mount of [
+      { pvTiltDeg: -1 },
+      { pvTiltDeg: 91 },
+      { pvFacingDeg: -1 },
+      { pvFacingDeg: 360 },
+    ]) {
+      await call('patch', `/api/inverter/profiles/${profileId}`)
+        .send(mount)
+        .expect(400);
+    }
+  });
 });

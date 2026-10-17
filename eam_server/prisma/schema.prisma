@@ -285,6 +285,11 @@ model InverterProfile {
   pvMaxPowerW   Float?
   pvMaxCurrentA Float?
 
+  /// How the panels are mounted: tilt from flat (0-90 degrees) and the
+  /// compass bearing they face (0 N, 90 E, 180 S, 270 W). Null: not known.
+  pvTiltDeg   Float?
+  pvFacingDeg Float?
+
   /// Where the installation is, for the weather; entered or detected in the
   /// app, rounded to 0.1 degree (about 10 km). Null until set.
   latitude  Float?

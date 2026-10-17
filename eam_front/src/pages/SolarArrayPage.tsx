@@ -32,6 +32,8 @@ export default function SolarArrayPage() {
             profileId={profile.id}
             latitude={profile.latitude}
             longitude={profile.longitude}
+            pvTiltDeg={profile.pvTiltDeg}
+            pvFacingDeg={profile.pvFacingDeg}
             onSaved={() => void refreshUser()}
             readOnly={readOnly}
           />

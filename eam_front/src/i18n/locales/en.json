@@ -815,7 +815,7 @@
     "arrayOf": "{{name}}'s array",
     "location": {
       "title": "Location",
-      "hint": "For the weather forecast. Rounded to about 10 km when saved.",
+      "hint": "For the weather forecast. The location is rounded to about 10 km when saved.",
       "latitude": "Latitude",
       "longitude": "Longitude",
       "detect": "Detect location",
@@ -823,7 +823,20 @@
       "detectFailed": "Couldn't find the location. Enter it by hand.",
       "save": "Save location",
       "saved": "Saved.",
-      "saveFailed": "Couldn't save the location."
+      "saveFailed": "Couldn't save the location.",
+      "pvTiltDeg": "Panel tilt (°)",
+      "pvFacingDeg": "Panels face",
+      "facingUnknown": "Not set (towards the equator)",
+      "facings": {
+        "north": "North",
+        "northEast": "North-east",
+        "east": "East",
+        "southEast": "South-east",
+        "south": "South",
+        "southWest": "South-west",
+        "west": "West",
+        "northWest": "North-west"
+      }
     }
   },
   "bmsSetup": {

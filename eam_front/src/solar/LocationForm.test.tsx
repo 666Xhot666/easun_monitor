@@ -5,14 +5,16 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import LocationForm from './LocationForm';
 
+type Mount = { latitude: number | null; longitude: number | null; pvTiltDeg?: number | null; pvFacingDeg?: number | null };
+
 function renderForm(
-  location: { latitude: number | null; longitude: number | null },
+  location: Mount,
   handler: (config: InternalAxiosRequestConfig) => Reply = () => ({ status: 200, data: {} }),
   readOnly = false,
 ) {
   const onSaved = vi.fn();
   const server = fakeServer(handler);
-  render(<LocationForm profileId={7} {...location} onSaved={onSaved} readOnly={readOnly} />);
+  render(<LocationForm profileId={7} pvTiltDeg={null} pvFacingDeg={null} {...location} onSaved={onSaved} readOnly={readOnly} />);
   return { ...server, onSaved };
 }
 
@@ -43,8 +45,23 @@ describe('LocationForm', () => {
 
     expect(sent[1].method).toBe('patch');
     expect(sent[1].url).toBe('/api/inverter/profiles/7');
-    expect(JSON.parse(sent[1].data)).toEqual({ latitude: 12.3, longitude: -45.7 });
+    expect(JSON.parse(sent[1].data)).toEqual({ latitude: 12.3, longitude: -45.7, pvTiltDeg: null, pvFacingDeg: null });
     expect(onSaved).toHaveBeenCalled();
+  });
+
+  it('saves how the panels are mounted', async () => {
+    const { sent, restore: r } = renderForm({ latitude: 12.3, longitude: -45.7, pvTiltDeg: 30, pvFacingDeg: 180 });
+    restore = r;
+
+    expect(screen.getByLabelText('Panel tilt (°)')).toHaveValue(30);
+    expect(screen.getByLabelText('Panels face')).toHaveValue('180');
+
+    await userEvent.clear(screen.getByLabelText('Panel tilt (°)'));
+    await userEvent.type(screen.getByLabelText('Panel tilt (°)'), '0');
+    await userEvent.selectOptions(screen.getByLabelText('Panels face'), 'North-east');
+    await userEvent.click(screen.getByRole('button', { name: 'Save location' }));
+
+    expect(JSON.parse(sent[0].data)).toEqual({ latitude: 12.3, longitude: -45.7, pvTiltDeg: 0, pvFacingDeg: 45 });
   });
 
   it('saves blanks as cleared', async () => {
@@ -55,7 +72,7 @@ describe('LocationForm', () => {
     await userEvent.clear(screen.getByLabelText('Longitude'));
     await userEvent.click(screen.getByRole('button', { name: 'Save location' }));
 
-    expect(JSON.parse(sent[0].data)).toEqual({ latitude: null, longitude: null });
+    expect(JSON.parse(sent[0].data)).toEqual({ latitude: null, longitude: null, pvTiltDeg: null, pvFacingDeg: null });
   });
 
   it("shows the server's reason when the location can't be found", async () => {

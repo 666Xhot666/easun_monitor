@@ -7,6 +7,8 @@ interface Props {
   profileId: number;
   latitude: number | null;
   longitude: number | null;
+  pvTiltDeg: number | null;
+  pvFacingDeg: number | null;
   /** Called after a save, so the profile can be reloaded. */
   onSaved: () => void;
   /** Readers: the values only, no changes. */
@@ -21,15 +23,34 @@ const toCoordinate = (text: string): number | null => {
 
 const toText = (value: number | null) => (value === null ? '' : String(value));
 
-/** Where the installation is, for the weather: typed in, or detected by the server. */
-export default function LocationForm({ profileId, latitude, longitude, onSaved, readOnly = false }: Props) {
+/** Compass bearings the panels can face, as offered. */
+const FACINGS = [
+  ['north', 0],
+  ['northEast', 45],
+  ['east', 90],
+  ['southEast', 135],
+  ['south', 180],
+  ['southWest', 225],
+  ['west', 270],
+  ['northWest', 315],
+] as const;
+
+type Field = 'latitude' | 'longitude' | 'pvTiltDeg' | 'pvFacingDeg';
+
+/** Where the installation is and how its panels are mounted, for the weather. */
+export default function LocationForm({ profileId, latitude, longitude, pvTiltDeg, pvFacingDeg, onSaved, readOnly = false }: Props) {
   const { t } = useTranslation();
-  const [form, setForm] = useState({ latitude: toText(latitude), longitude: toText(longitude) });
+  const [form, setForm] = useState<Record<Field, string>>({
+    latitude: toText(latitude),
+    longitude: toText(longitude),
+    pvTiltDeg: toText(pvTiltDeg),
+    pvFacingDeg: toText(pvFacingDeg),
+  });
   const [busy, setBusy] = useState<'detecting' | 'saving' | null>(null);
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
 
-  const update = (field: 'latitude' | 'longitude') => (text: string) => {
+  const update = (field: Field) => (text: string) => {
     setForm((f) => ({ ...f, [field]: text }));
     setSaved(false);
   };
@@ -39,7 +60,7 @@ export default function LocationForm({ profileId, latitude, longitude, onSaved, 
     setError('');
     try {
       const { data } = await axios.get<{ latitude: number; longitude: number }>('/api/location/detect');
-      setForm({ latitude: String(data.latitude), longitude: String(data.longitude) });
+      setForm((f) => ({ ...f, latitude: String(data.latitude), longitude: String(data.longitude) }));
       setSaved(false);
     } catch (e) {
       setError(extractErrorMessage(e, t('solar.location.detectFailed')));
@@ -56,6 +77,8 @@ export default function LocationForm({ profileId, latitude, longitude, onSaved, 
       await axios.patch(`/api/inverter/profiles/${profileId}`, {
         latitude: toCoordinate(form.latitude),
         longitude: toCoordinate(form.longitude),
+        pvTiltDeg: toCoordinate(form.pvTiltDeg),
+        pvFacingDeg: toCoordinate(form.pvFacingDeg),
       });
       setSaved(true);
       onSaved();
@@ -67,7 +90,7 @@ export default function LocationForm({ profileId, latitude, longitude, onSaved, 
   }
 
   const inputClass = 'mt-1 h-10 w-full rounded-lg border border-line-strong bg-surface px-3 text-sm text-ink disabled:opacity-60';
-  const coordinate = (field: 'latitude' | 'longitude', min: number, max: number) => (
+  const coordinate = (field: 'latitude' | 'longitude' | 'pvTiltDeg', min: number, max: number) => (
     <label className="block text-sm font-medium">
       {t(`solar.location.${field}`)}
       <input
@@ -90,6 +113,23 @@ export default function LocationForm({ profileId, latitude, longitude, onSaved, 
       <div className="mt-3 grid gap-4 sm:grid-cols-2">
         {coordinate('latitude', -90, 90)}
         {coordinate('longitude', -180, 180)}
+        {coordinate('pvTiltDeg', 0, 90)}
+        <label className="block text-sm font-medium">
+          {t('solar.location.pvFacingDeg')}
+          <select
+            value={form.pvFacingDeg}
+            disabled={readOnly}
+            onChange={(e) => update('pvFacingDeg')(e.target.value)}
+            className={inputClass}
+          >
+            <option value="">{t('solar.location.facingUnknown')}</option>
+            {FACINGS.map(([name, bearing]) => (
+              <option key={name} value={String(bearing)}>
+                {t(`solar.location.facings.${name}`)}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
         {saved && <span className="text-sm text-good-ink">{t('solar.location.saved')}</span>}

@@ -118,6 +118,20 @@ export class UpdateInverterDto {
   @IsPositive()
   pvMaxCurrentA?: number | null;
 
+  /** Panel tilt from flat, degrees. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(90)
+  pvTiltDeg?: number | null;
+
+  /** Compass bearing the panels face: 0 north, 90 east, 180 south. */
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(359.9)
+  pvFacingDeg?: number | null;
+
   /** Where the installation is, in degrees; stored rounded to 0.1. */
   @IsOptional()
   @IsNumber()
