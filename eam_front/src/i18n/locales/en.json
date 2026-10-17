@@ -812,7 +812,32 @@
       "deleteTitle": "Delete the panel type “{{name}}”?",
       "deleteBody": "Panel types an inverter still uses can’t be deleted."
     },
-    "arrayOf": "{{name}}'s array"
+    "arrayOf": "{{name}}'s array",
+    "location": {
+      "title": "Location",
+      "hint": "For the weather forecast. The location is rounded to about 10 km when saved.",
+      "latitude": "Latitude",
+      "longitude": "Longitude",
+      "detect": "Detect location",
+      "detecting": "Detecting…",
+      "detectFailed": "Couldn't find the location. Enter it by hand.",
+      "save": "Save location",
+      "saved": "Saved.",
+      "saveFailed": "Couldn't save the location.",
+      "pvTiltDeg": "Panel tilt (°)",
+      "pvFacingDeg": "Panels face",
+      "facingUnknown": "Not set (towards the equator)",
+      "facings": {
+        "north": "North",
+        "northEast": "North-east",
+        "east": "East",
+        "southEast": "South-east",
+        "south": "South",
+        "southWest": "South-west",
+        "west": "West",
+        "northWest": "North-west"
+      }
+    }
   },
   "bmsSetup": {
     "sources": {
@@ -1111,5 +1136,18 @@
     "Discharge OCP III": "Discharge OCP III",
     "Discharge undertemperature alarm": "Discharge undertemperature alarm",
     "GPS remote lock": "GPS remote lock"
+  },
+  "sunForecast": {
+    "title": "Sun forecast",
+    "tomorrow": "Tomorrow",
+    "tomorrowCloud": "Tomorrow · {{cloud}}% cloud",
+    "today": "Today so far",
+    "ofExpected": "{{actual}} of {{expected}} expected",
+    "pastWeek": "Past week",
+    "ofAllowed": "of what the weather allowed",
+    "assumed": "Tilt and facing not set: assumed 30° towards the equator.",
+    "setMounting": "Set the mounting",
+    "setup": "Set up",
+    "unavailable": "The weather forecast is not available right now."
   }
 }

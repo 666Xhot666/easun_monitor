@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { TelemetryModule } from '../telemetry/telemetry.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { WeatherModule } from '../weather/weather.module';
 import { ConfigService } from '@nestjs/config';
 import { TelegramAlerts } from './telegram-alerts';
 import { TelegramBot } from './telegram-bot';
@@ -10,7 +11,7 @@ import { TelegramController } from './telegram.controller';
 import { TelegramLinksService } from './telegram-links.service';
 
 @Module({
-  imports: [TelemetryModule, NotificationsModule],
+  imports: [TelemetryModule, NotificationsModule, WeatherModule],
   controllers: [TelegramController],
   providers: [
     TelegramLinksService,

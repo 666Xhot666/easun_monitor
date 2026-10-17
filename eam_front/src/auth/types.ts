@@ -22,6 +22,12 @@ export interface InverterProfile {
   pvMpptMaxV: number | null;
   pvMaxPowerW: number | null;
   pvMaxCurrentA: number | null;
+  /** Panel tilt from flat and the compass bearing they face (180 = south). */
+  pvTiltDeg: number | null;
+  pvFacingDeg: number | null;
+  /** Where the installation is, for the weather; rounded to 0.1 degree. */
+  latitude: number | null;
+  longitude: number | null;
   householdId: number;
   /** The user's role in this inverter's household: readers cannot change anything. */
   role: HouseholdRole;

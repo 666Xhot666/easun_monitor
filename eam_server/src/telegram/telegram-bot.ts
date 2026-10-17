@@ -30,7 +30,8 @@ import {
   weekCard,
 } from './cards';
 import { powerChartSvg, svgToPng } from './chart';
-import { dayStart, formatEnergy } from './messages';
+import { dayStart, formatEnergy, formatTomorrow } from './messages';
+import { WeatherService } from '../weather/weather.service';
 
 const POLL_TIMEOUT_SECONDS = 30;
 const RETRY_AFTER_ERROR_MS = 5_000;
@@ -89,6 +90,7 @@ export class TelegramBot
     private readonly prisma: PrismaService,
     private readonly telemetry: TelemetryStore,
     private readonly bmsLatest: BmsLatest,
+    private readonly weather: WeatherService,
   ) {}
 
   /** The IANA time zone that defines "today" (TIME_ZONE, default UTC). */
@@ -456,15 +458,39 @@ export class TelegramBot
     const profiles = await this.profilesOf(userId);
     const from = dayStart(now, this.timeZone);
     const to = new Date(from.getTime() + 24 * 3_600_000);
-    return Promise.all(
-      profiles.map(async (p) =>
-        formatEnergy(
+    const lines = await Promise.all(
+      profiles.map(async (p) => {
+        const energy = formatEnergy(
           p.name,
           await this.telemetry.energy(p.id, { from, to }),
           language,
-        ),
-      ),
+        );
+        const tomorrow = await this.tomorrow(p.id, now);
+        return tomorrow
+          ? [energy, formatTomorrow(tomorrow, language)]
+          : [energy];
+      }),
     );
+    return lines.flat();
+  }
+
+  /** Tomorrow's expected PV, or null without a forecast (no location, no array, source down). */
+  private async tomorrow(
+    profileId: number,
+    now: Date,
+  ): Promise<{ expectedKWh: number; cloudCover: number | null } | null> {
+    try {
+      const { days } = await this.weather.solarForecast(profileId, now);
+      const today = dayStart(now, this.timeZone);
+      const next = days.find(
+        (d) => dayStart(new Date(`${d.date}T12:00:00Z`), this.timeZone) > today,
+      );
+      return next?.expectedKWh == null
+        ? null
+        : { expectedKWh: next.expectedKWh, cloudCover: next.cloudCover };
+    } catch {
+      return null;
+    }
   }
 
   private async poll(): Promise<void> {

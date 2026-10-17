@@ -12,7 +12,7 @@ const profile: InverterProfile = {
   batteryNominalVoltage: 24, batteryCapacityAh: 100, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null,
   householdId: 1, role: 'ADMIN', createdAt: '', updatedAt: '',
 };
 const longi = { id: 1, name: 'Longi 450W', maxPowerW: 450, vmpV: 41.5, impA: 10.85, vocV: 49.5, iscA: 11.5 };
@@ -41,6 +41,7 @@ describe('SolarArrayPage', () => {
 
     expect(await screen.findByRole('region', { name: 'Array ratings' })).toHaveTextContent('6 panels (3S2P)');
     expect(screen.getByRole('row', { name: /Longi 450W/ })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Location' })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: 'Save array' }));
     expect(refreshUser).toHaveBeenCalled();
@@ -73,5 +74,6 @@ describe('SolarArrayPage', () => {
     expect(screen.getByRole('row', { name: /Longi 450W/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Add panel type' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Edit Longi 450W' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Detect location' })).not.toBeInTheDocument();
   });
 });

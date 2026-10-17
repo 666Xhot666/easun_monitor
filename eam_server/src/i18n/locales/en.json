@@ -145,7 +145,9 @@
       "total": "Total",
       "colGrid": "Grid",
       "colLoad": "Load"
-    }
+    },
+    "tomorrowLine": "☀️ Tomorrow: about {{kWh}} of sun expected",
+    "tomorrowCloudLine": "☀️ Tomorrow: about {{kWh}} of sun expected · {{cloud}}% cloud"
   },
   "bmsAlarms": {
     "Wire resistance": "Wire resistance",
@@ -219,6 +221,7 @@
     "runsHousehold": "You already run a household with inverters; you can join others only as a reader",
     "adminOnlyInverter": "Only a household admin can add an inverter, and you have no household of your own",
     "unknownPanelType": "Unknown panel type",
+    "locationUnavailable": "Couldn't find the location. Enter it by hand.",
     "loggerUnverified": "Couldn't verify the logger at {{address}}: {{reason}}",
     "loggerPaired": "This logger address and port is already paired with an inverter profile",
     "loggerNotPrivate": "The logger address {{host}} is not on a private network. Use the logger's LAN address, or set ALLOW_PUBLIC_LOGGER_HOSTS=true.",
@@ -246,7 +249,10 @@
     "ownerAlwaysAccess": "The owner always has access",
     "wholeNumber": "{{field}} must be a whole number from {{min}} to {{max}}",
     "bmsNotFound": "BMS not found",
-    "noBmsReading": "No BMS reading yet"
+    "noBmsReading": "No BMS reading yet",
+    "weatherNeedsLocation": "Set the inverter's location on the solar array page to see the forecast.",
+    "weatherNeedsArray": "Set up the solar array to see the forecast.",
+    "weatherUnavailable": "The weather forecast is not available right now."
   },
   "settingsRules": {
     "bulkAboveFloat": "Bulk charging voltage must be at least the float charging voltage",
