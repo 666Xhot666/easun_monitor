@@ -19,3 +19,5 @@ export const WEATHER_PAST_DAYS = 7;
 export const WEATHER_FORECAST_DAYS = 2;
 /** Panel tilt assumed when it is not set. */
 export const DEFAULT_TILT_DEG = 30;
+/** A forecast is asked for again after this long. */
+export const WEATHER_CACHE_MS = 60 * 60_000;

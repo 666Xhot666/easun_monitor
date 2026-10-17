@@ -247,7 +247,10 @@
     "ownerAlwaysAccess": "The owner always has access",
     "wholeNumber": "{{field}} must be a whole number from {{min}} to {{max}}",
     "bmsNotFound": "BMS not found",
-    "noBmsReading": "No BMS reading yet"
+    "noBmsReading": "No BMS reading yet",
+    "weatherNeedsLocation": "Set the inverter's location on the solar array page to see the forecast.",
+    "weatherNeedsArray": "Set up the solar array to see the forecast.",
+    "weatherUnavailable": "The weather forecast is not available right now."
   },
   "settingsRules": {
     "bulkAboveFloat": "Bulk charging voltage must be at least the float charging voltage",

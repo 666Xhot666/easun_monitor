@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
 import { SolarModule } from './solar/solar.module';
 import { LocationModule } from './location/location.module';
+import { WeatherModule } from './weather/weather.module';
 import { HouseholdsModule } from './households/households.module';
 import { ServerMonitorModule } from './server-monitor/server-monitor.module';
 import { BmsLatestModule } from './bms/bms-latest';
@@ -39,6 +40,7 @@ import { SerialSniffModule } from './inverter/serial-sniff/serial-sniff.module';
     InverterModule,
     SolarModule,
     LocationModule,
+    WeatherModule,
     BmsLatestModule,
     BmsModule,
     OutageModule,
