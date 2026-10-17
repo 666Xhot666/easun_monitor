@@ -24,7 +24,7 @@ describe('LocationService', () => {
   it('says the location is unavailable when the lookup fails or knows nothing', async () => {
     for (const fail of [
       () => answer({ error: true, reason: 'RateLimited' }, 429),
-      () => answer({ error: true, reason: 'Reserved IP Address' }),
+      () => answer({ success: false, message: 'Reserved range' }),
       () => answer({ latitude: 'x' }),
       () => jest.spyOn(global, 'fetch').mockRejectedValue(new Error('offline')),
     ]) {
