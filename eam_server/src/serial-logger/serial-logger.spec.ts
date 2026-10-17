@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { LoggerLink } from '../inverter/link/logger-link';
 import type { LoggerTransport } from '../inverter/link/logger-transport';
-import { crc16 } from '../inverter/protocol/logger-frame';
+import { crc16, decodeReply, encodeRequest } from '../inverter/protocol/logger-frame';
 import { RegisterMap } from '../inverter/registers/register-map';
 import { SMG_II_REGISTERS } from '../inverter/registers/smg-ii.registers';
 import { CaptureStore } from '../inverter/serial-sniff/capture-store';
@@ -106,7 +106,8 @@ describe('Serial logger', () => {
 /** The ESP's port; `inverter` answers our reads as the inverter would. */
 class FakeEspPort implements DuplexPort {
   written: string[] = [];
-  inverter: ((address: number, count: number) => Buffer | null) | null = null;
+  /** Answers each frame sent through the proxy: its address, count and the whole request. */
+  inverter: ((address: number, count: number, request: Buffer) => Buffer | null) | null = null;
   private data: (chunk: Buffer) => void = () => {};
   onData(listener: (chunk: Buffer) => void) {
     this.data = listener;
@@ -115,7 +116,7 @@ class FakeEspPort implements DuplexPort {
   write(text: string) {
     this.written.push(text);
     const request = Buffer.from(text.trim(), 'hex');
-    const reply = this.inverter?.(request.readUInt16BE(2), request.readUInt16BE(4));
+    const reply = this.inverter?.(request.readUInt16BE(2), request.readUInt16BE(4), request);
     setImmediate(() => this.say(reply ? `I>D 1 ${reply.toString('hex')}\n` : '# timeout\n'));
   }
   async close() {}
@@ -124,7 +125,14 @@ class FakeEspPort implements DuplexPort {
   }
   /** Addresses of the reads sent through the proxy. */
   asked() {
-    return this.written.map((line) => Buffer.from(line.trim(), 'hex').readUInt16BE(2));
+    return this.frames().filter((f) => f[1] === 0x03).map((f) => f.readUInt16BE(2));
+  }
+  /** Addresses of the writes sent through the proxy. */
+  wrote() {
+    return this.frames().filter((f) => f[1] === 0x10).map((f) => f.readUInt16BE(2));
+  }
+  private frames() {
+    return this.written.map((line) => Buffer.from(line.trim(), 'hex'));
   }
 }
 
@@ -136,13 +144,15 @@ describe('Serial logger on the ESP proxy', () => {
   let esp: EspLink;
   let service: ReturnType<typeof createEspSerialLogger>;
   let link: LoggerLink;
+  let logged: string[];
 
   beforeEach(async () => {
     dir = mkdtempSync(join(tmpdir(), 'serial-logger-'));
     port = new FakeEspPort();
     esp = new EspLink({ path: '/dev/esp', openPort: async () => port });
     await esp.start();
-    service = createEspSerialLogger({ link: esp, store: new CaptureStore(dir) });
+    logged = [];
+    service = createEspSerialLogger({ link: esp, store: new CaptureStore(dir), log: (m) => logged.push(m) });
     await service.capture.start({ rxPath: 'rx', txPath: 'tx', rxBaud: 9600, txBaud: 9600 });
     // The main app's side, through the logger server's order: prepare, then answer.
     const transport: LoggerTransport = {
@@ -203,8 +213,47 @@ describe('Serial logger on the ESP proxy', () => {
     expect(reading).not.toHaveProperty('MainsVoltage');
   });
 
-  it('still refuses writes', async () => {
-    port.say(`P>I 10 ${hex(readRequest(300, 12))}\nI>P 40 ${hex(readResponse(Array.from({ length: 12 }, () => 0)))}\n`);
-    await expect(link.write({ OutputPriority: 1 })).rejects.toThrow(/Read-only register/);
+  /** A fake inverter holding registers: reads answer them, writes change them. */
+  const inverterWith = (registers: Map<number, number>) => (address: number, count: number, request: Buffer) => {
+    if (request[1] !== 0x10) return wordsAt(address, count, (a) => registers.get(a) ?? 0);
+    for (let i = 0; i < count; i++) registers.set(address + i, request.readUInt16BE(7 + i * 2));
+    return withCrc([1, 0x10, address >> 8, address & 0xff, count >> 8, count & 0xff]);
+  };
+
+  it("writes a setting through the proxy, and confirms it from the inverter's own reading", async () => {
+    const registers = new Map([[301, 0]]);
+    port.inverter = inverterWith(registers);
+
+    await expect(link.write({ OutputPriority: 2 })).resolves.toEqual({ OutputPriority: 2 });
+    expect(registers.get(301)).toBe(2);
+    expect(logged).toContain('The inverter took a write of [2] at 301');
+    expect(port.wrote()).toEqual([301]);
+    // The read-back went to the inverter, not to what the app had just sent.
+    expect(port.asked()).toContain(301);
+  });
+
+  it("passes on the inverter's refusal of a write, and keeps the old value", async () => {
+    port.inverter = (address, count, request) =>
+      request[1] === 0x10 ? withCrc([1, 0x90, 7]) : wordsAt(address, count, () => 0);
+
+    await expect(link.write({ OutputPriority: 2 })).rejects.toThrow(/not allowed to be modified in the current working mode/);
+    await expect(link.read(['settings'])).resolves.toMatchObject({ OutputPriority: 0 });
+  });
+
+  it('says so when the inverter does not answer a write', async () => {
+    port.inverter = (address, count, request) => (request[1] === 0x10 ? null : wordsAt(address, count, () => 0));
+
+    await expect(link.write({ OutputPriority: 2 })).rejects.toThrow(/inverter did not answer/);
+    expect(logged).toContain('The inverter did not answer a write of [2] at 301');
+  });
+
+  it('refuses a write the register map does not allow, without sending it to the inverter', async () => {
+    port.inverter = inverterWith(new Map());
+    const request = { kind: 'write', address: 202, values: [1] } as const; // mains voltage, a reading
+    const frame = encodeRequest(request);
+
+    await service.prepare(frame);
+    expect(() => decodeReply(request, service.logger.handle(frame))).toThrow(/Read-only register/);
+    expect(port.wrote()).toEqual([]);
   });
 });

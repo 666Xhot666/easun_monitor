@@ -15,3 +15,5 @@ export const FRESH_MS = 2000;
 export const READ_THROUGH_MS = 2000;
 /** A block whose read failed is answered from what was last heard for this long. */
 export const FAILED_RETRY_MS = 10_000;
+/** A write through the proxy gets at most this, so the app hears back before its 3 s. */
+export const WRITE_THROUGH_MS = 2500;
