@@ -474,7 +474,8 @@ function StatusBanner() {
           icon={<CircleAlert className="h-5 w-5" />}
           title={fault ? t('shell.fault.title', { fault }) : t('shell.fault.titleUnknown')}
           action={
-            isAdmin && (
+            isAdmin &&
+            !profile.writesLocked && (
               <Button variant="danger" onClick={() => setConfirming(true)}>
                 {t('shell.fault.exit')}
               </Button>
@@ -482,7 +483,7 @@ function StatusBanner() {
           }
         >
           {fault ? `${t('shell.fault.inFaultMode')} ` : ''}
-          {t('shell.fault.exitOnceFixed')}
+          {t(profile.writesLocked ? 'shell.fault.writesLocked' : 'shell.fault.exitOnceFixed')}
           {error && ` ${error}`}
         </Banner>
         <Dialog

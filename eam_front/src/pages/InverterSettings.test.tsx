@@ -34,6 +34,7 @@ function renderPage(
   constraints: unknown = noConstraints,
   panelSettings: unknown[] = [],
   role: 'ADMIN' | 'READER' = 'ADMIN',
+  writesLocked = false,
 ) {
   const server = fakeServer((config) =>
     config.url === '/api/inverter/registers'
@@ -46,7 +47,7 @@ function renderPage(
         ? { status: 200, data: constraints }
         : handler(config.method ?? 'get', config.url ?? '', config.data ? JSON.parse(config.data) : undefined),
   );
-  const auth = { user: { inverterProfiles: [{ id: 7, role }] } } as unknown as AuthContextValue;
+  const auth = { user: { inverterProfiles: [{ id: 7, role, writesLocked }] } } as unknown as AuthContextValue;
   render(
     <AuthContext.Provider value={auth}>
       <MemoryRouter initialEntries={['/dashboard/7/settings']}>
@@ -368,5 +369,13 @@ describe('InverterSettings page', () => {
     expect(screen.getByLabelText('Output voltage')).toBeDisabled();
     expect(screen.queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument();
     expect(screen.getByText('Read-only: only a household admin can change settings.')).toBeInTheDocument();
+  });
+
+  it('shows an admin the settings read-only while writes to the inverter are locked', async () => {
+    restore = renderPage(() => ({ status: 200, data: snapshot({ OutputPriority: 2, OutputVoltageSet: 230 }) }), noConstraints, [], 'ADMIN', true).restore;
+
+    expect(await screen.findByLabelText('Output priority')).toBeDisabled();
+    expect(screen.queryByRole('button', { name: 'Review and save' })).not.toBeInTheDocument();
+    expect(screen.getByText(/Writes to the inverter are locked/)).toBeInTheDocument();
   });
 });
