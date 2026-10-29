@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { dateLocale, withUnit } from '../i18n/format';
 import { format, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import axios from '../lib/apiClient';
 import { loadSources, selfSufficiency, type EnergyTotals } from '../energy/energyMix';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
 import { Segmented } from '../ui';
+import { api } from '../lib/api';
 
 type Span = 7 | 30;
 const SPANS: ('7' | '30')[] = ['7', '30'];
@@ -40,7 +40,7 @@ export default function DailyEnergy({ profileId, today = toDay(new Date()) }: { 
       const results = await Promise.all(
         range.map(async (day) => {
           try {
-            const { data: totals } = await axios.get<EnergyTotals>(`/api/inverter/${profileId}/energy`, { params: dayRange(day) });
+            const totals = await api.energy(profileId, dayRange(day));
             return { day, totals };
           } catch {
             return { day, totals: null };

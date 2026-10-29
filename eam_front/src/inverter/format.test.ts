@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { formatRegisterValue } from './format';
-import type { RegisterDefinition } from './types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 
 const def = (overrides: Partial<RegisterDefinition>): RegisterDefinition => ({
   name: 'X',

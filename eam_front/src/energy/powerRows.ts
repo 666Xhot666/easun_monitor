@@ -1,5 +1,5 @@
 import type { History } from '../history/historyRange';
-import type { CommonReading } from '../inverter/commonReadings';
+import type { CommonReading } from '@eam/shared/readings';
 
 export interface PowerRow {
   at: number;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RegisterDefinition } from '../inverter/types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 import { collectChanges, groupIntoSections, toFormValues } from './settingsForm';
 
 const defs: RegisterDefinition[] = [

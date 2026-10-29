@@ -1,4 +1,4 @@
-import { DEFAULT_LANGUAGE, LANGUAGES, type Language } from './languages';
+import { DEFAULT_LANGUAGE, LANGUAGES, type Language } from '@eam/shared/languages';
 
 export const isLanguage = (value: unknown): value is Language =>
   typeof value === 'string' && (LANGUAGES as readonly string[]).includes(value);

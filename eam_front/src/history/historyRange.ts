@@ -1,9 +1,6 @@
-/** Response of GET /api/inverter/:profileId/history. */
-export interface History {
-  source: 'raw' | 'hourly';
-  bucketSeconds: number;
-  points: { timestamp: string; values: Record<string, number> }[];
-}
+import type { History } from '@eam/shared/history';
+
+export type { History };
 
 export type HistoryRangeId = '1h' | '24h' | '7d' | '30d' | '1y' | '2y';
 

@@ -21,7 +21,7 @@ import { currentLocale } from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { describeDeviceStatus } from '../inverter/useDeviceStatus';
 import { Button, Dot } from '../ui';
 import { Dialog } from '../ui/Dialog';

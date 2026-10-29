@@ -1,13 +1,23 @@
 /// <reference types="vitest/config" />
+import { fileURLToPath } from 'node:url'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+
+// Types, API client, formatting and texts shared with the mobile app; beside
+// this app in the repository and in the containers (docker-compose.yml).
+const shared = fileURLToPath(new URL('../eam_shared/src', import.meta.url))
 
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  resolve: {
+    alias: { '@eam/shared': shared },
+  },
   test: {
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // The shared package's own tests run with the app's.
+    include: ['src/**/*.test.{ts,tsx}', '../eam_shared/src/**/*.test.ts'],
   },
   server: {
     // Lets the dev server bind to 0.0.0.0 so it's reachable from outside
@@ -15,6 +25,8 @@ export default defineConfig({
     // the Dockerfile's CMD, this just keeps the config file itself honest
     // about it too).
     host: true,
+    // Serve the shared sources, which are outside this app's folder.
+    fs: { allow: ['.', shared] },
     proxy: {
       // Any request the browser makes to /api/* is proxied server-side
       // from inside this container to the NestJS backend, so the React

@@ -15,6 +15,8 @@ FROM base AS development
 ENV NODE_ENV=development
 RUN npm install
 COPY . .
+# eam_shared sits beside the app, as in the repository (vite.config.ts).
+COPY --from=shared . /usr/src/eam_shared
 EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
@@ -24,6 +26,7 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 FROM base AS build
 RUN npm ci
 COPY . .
+COPY --from=shared . /usr/src/eam_shared
 RUN npm run build
 
 # =============================================================================

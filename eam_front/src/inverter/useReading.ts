@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { currentLanguage } from '../i18n';
 import axios from '../lib/apiClient';
-import type { LatestReading } from './types';
+import type { LatestReading } from '@eam/shared/inverter';
 import { DEFAULT_POLL_MS, DEFAULT_STALE_AFTER_MS } from './constants';
+import { api } from '../lib/api';
 
 /**
  * loading: first request for this profile in flight.
@@ -38,7 +39,7 @@ export function useReading(profileId: number, options: UseReadingOptions = {}) {
   const fetchLatest = useCallback(async () => {
     const id = profileId;
     try {
-      const { data } = await axios.get<LatestReading>(`/api/inverter/${id}/latest`, { params: { lang: currentLanguage() } });
+      const data = await api.latest(id, currentLanguage());
       if (currentProfile.current !== id) return;
       // A server from before common readings sends none: show dashes, not a crash.
       setReading({ ...data, readings: data.readings ?? {} });

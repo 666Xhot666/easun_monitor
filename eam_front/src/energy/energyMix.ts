@@ -1,14 +1,6 @@
-/** GET /api/inverter/:profileId/energy response. */
-export interface EnergyTotals {
-  pvKWh: number;
-  gridKWh: number;
-  outputKWh: number;
-  /** Energy into and out of the battery, at its terminals. */
-  batteryChargeKWh: number;
-  batteryDischargeKWh: number;
-  /** How much of the range had readings close enough together to integrate. */
-  coveredSeconds: number;
-}
+import type { EnergyTotals } from '@eam/shared/energy';
+
+export type { EnergyTotals };
 
 /** Where the load's energy came from, in kWh: grid first, then battery, the rest solar used directly. */
 export function loadSources(t: Pick<EnergyTotals, 'gridKWh' | 'outputKWh' | 'batteryDischargeKWh'>): {

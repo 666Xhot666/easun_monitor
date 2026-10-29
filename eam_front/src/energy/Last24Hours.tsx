@@ -4,10 +4,10 @@ import { unit, withUnit } from '../i18n/format';
 import { Link } from 'react-router-dom';
 import { format } from 'date-fns';
 import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from 'recharts';
-import axios from '../lib/apiClient';
-import { rangeQuery, type History } from '../history/historyRange';
+import { rangeQuery } from '../history/historyRange';
 import { POWER_READINGS, toPowerRows, type PowerRow } from './powerRows';
 import { LAST_24H_REFRESH_MS } from './constants';
+import { api } from '../lib/api';
 
 const LEGEND = [
   { name: 'last24.solar', swatch: 'h-2.5 w-2.5 rounded-[2px] bg-pv' },
@@ -29,9 +29,7 @@ export default function Last24Hours({ profileId, historyHref }: { profileId: num
     let cancelled = false;
     const load = async () => {
       try {
-        const { data } = await axios.get<History>(`/api/inverter/${profileId}/history`, {
-          params: { ...rangeQuery('24h'), readings: POWER_READINGS.join(',') },
-        });
+        const data = await api.history(profileId, { ...rangeQuery('24h'), readings: POWER_READINGS });
         if (!cancelled) {
           setRows(toPowerRows(data));
           setFailed(false);

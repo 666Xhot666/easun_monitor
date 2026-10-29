@@ -1,6 +1,6 @@
 import type { DeviceStatus } from '../inverter/useDeviceStatus';
 import type { ReadingStatus } from '../inverter/useReading';
-import type { LatestReading } from '../inverter/types';
+import type { LatestReading } from '@eam/shared/inverter';
 
 /**
  * One word for the whole system, shown by the status pill and banner on

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/context';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { LiveDataProvider } from '../shell/LiveData';
 import { fakeServer } from '../test/fakeServer';
 import InverterProfileSettings from './InverterProfileSettings';

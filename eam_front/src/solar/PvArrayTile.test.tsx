@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer } from '../test/fakeServer';
-import type { LatestReading } from '../inverter/types';
+import type { LatestReading } from '@eam/shared/inverter';
 import PvArrayTile from './PvArrayTile';
 import type { PanelType } from './pvArray';
 import { dayRange } from '../readings/days';

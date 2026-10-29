@@ -1,6 +1,6 @@
 import i18n from '../i18n';
 import { decimalsFor } from '../inverter/format';
-import type { RegisterDefinition } from '../inverter/types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 
 /** Form state: register name -> the text in its input (enum: option index). */
 export type FormValues = Record<string, string>;

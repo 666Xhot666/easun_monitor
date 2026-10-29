@@ -8,7 +8,7 @@ import {
 import axios, { clearAccessToken, setAccessToken } from '../lib/apiClient';
 import { applyLanguage } from '../i18n';
 import { AuthContext, type AuthContextValue } from './context';
-import type { AuthResponse, AuthUser } from './types';
+import type { AuthResponse, AuthUser } from '@eam/shared/auth';
 
 async function fetchCurrentUser(): Promise<AuthUser> {
   const { data } = await axios.get<AuthUser>('/api/auth/me');

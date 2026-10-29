@@ -82,6 +82,9 @@ services:
   frontend:
     build:
       context: ./eam_front
+      # Types, API client, formatting and texts shared with the mobile app.
+      additional_contexts:
+        shared: ./eam_shared
       target: ${BUILD_TARGET:-development}
     container_name: eam_front
     restart: unless-stopped
@@ -93,6 +96,7 @@ services:
       - "${FRONTEND_PORT:-5173}:5173"
     volumes:
       - ./eam_front:/usr/src/app
+      - ./eam_shared:/usr/src/eam_shared
       - eam_front_node_modules:/usr/src/app/node_modules
     depends_on:
       - server

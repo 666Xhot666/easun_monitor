@@ -2,12 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { clock, num, unit, withUnit } from '../i18n/format';
-import axios from '../lib/apiClient';
-import type { InverterProfile } from '../auth/types';
-import type { LatestReading } from '../inverter/types';
+import type { InverterProfile } from '@eam/shared/auth';
+import type { LatestReading } from '@eam/shared/inverter';
 import { dayRange, toDay, type Day } from '../readings/days';
 import { computeArray, utilization, type PanelType } from './pvArray';
 import { PEAK_POINTS } from './constants';
+import { api } from '../lib/api';
 
 const kW = (watts: number) => withUnit(watts / 1000, 'kW', 1);
 
@@ -18,12 +18,7 @@ function useTodayPeakPv(profileId: number, today: Day): { watts: number; at: str
     let cancelled = false;
     void (async () => {
       try {
-        const { data } = await axios.get<{ points: { timestamp: string; values: Record<string, number> }[] }>(
-          `/api/inverter/${profileId}/history`,
-          {
-            params: { from: dayRange(today).from, to: new Date().toISOString(), points: PEAK_POINTS, readings: 'pvPower' },
-          },
-        );
+        const data = await api.history(profileId, { from: dayRange(today).from, to: new Date().toISOString(), points: PEAK_POINTS, readings: ['pvPower'] });
         let best: { watts: number; at: string } | undefined;
         for (const point of data.points) {
           const watts = point.values.pvPower;

@@ -1,4 +1,4 @@
-import type { RegisterDefinition } from './types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 
 /** Decimals that match a register's resolution: 0.1 -> 1, 0.01 -> 2. */
 export function decimalsFor(definition: RegisterDefinition): number {
