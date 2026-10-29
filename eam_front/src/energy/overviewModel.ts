@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import { num, unit } from '../i18n/format';
+import type { CommonReading, CommonSnapshot } from '../inverter/commonReadings';
 import { DEADBAND_W, GRID_PRESENT_MIN_V, IDLE_A } from './constants';
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
@@ -99,21 +100,19 @@ export interface BmsNow {
 }
 
 /** What the Overview's energy flow shows for one reading. */
-export function sceneValues(payload: Record<string, number>, options: { pvRatedW?: number; bms?: BmsNow }): SceneValues {
-  const read = (name: string): number | undefined => {
-    const value = payload[name];
+export function sceneValues(readings: CommonSnapshot, options: { pvRatedW?: number; bms?: BmsNow }): SceneValues {
+  const read = (name: CommonReading): number | undefined => {
+    const value = readings[name];
     return typeof value === 'number' && !Number.isNaN(value) ? value : undefined;
   };
-  const pvW = read('PVPower');
-  const gridW = read('AverageMainsPower');
-  const loadW = read('OutputActivePower');
-  const mainsV = read('MainsVoltage');
-  const gridAvailable = mainsV === undefined ? undefined : mainsV > GRID_PRESENT_MIN_V;
+  const pvW = read('pvPower');
+  const gridW = read('gridPower');
+  const loadW = read('loadPower');
+  const gridV = read('gridVoltage');
+  const gridAvailable = gridV === undefined ? undefined : gridV > GRID_PRESENT_MIN_V;
   const { bms } = options;
-  const amps = read('BatteryCurrentSigned');
-  const volts = read('BatteryVoltage');
-  const batteryW = bms ? (bms.powerW ?? undefined) : amps !== undefined && volts !== undefined ? amps * volts : undefined;
-  const soc = bms ? (bms.stateOfChargePct ?? undefined) : read('BatterySoc');
+  const batteryW = bms ? (bms.powerW ?? undefined) : read('batteryPower');
+  const soc = bms ? (bms.stateOfChargePct ?? undefined) : read('batterySoc');
 
   const pvShare = pvW !== undefined && options.pvRatedW ? Math.round((Math.max(0, pvW) / options.pvRatedW) * 100) : undefined;
   const sources = [

@@ -6,10 +6,8 @@ import { format } from 'date-fns';
 import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, ReferenceLine } from 'recharts';
 import axios from '../lib/apiClient';
 import { rangeQuery, type History } from '../history/historyRange';
-import { toPowerRows, type PowerRow } from './powerRows';
+import { POWER_READINGS, toPowerRows, type PowerRow } from './powerRows';
 import { LAST_24H_REFRESH_MS } from './constants';
-
-const FIELDS = ['PVPower', 'OutputActivePower', 'AverageMainsPower', 'BatteryCurrentSigned', 'BatteryVoltage', 'BatterySoc'];
 
 const LEGEND = [
   { name: 'last24.solar', swatch: 'h-2.5 w-2.5 rounded-[2px] bg-pv' },
@@ -32,7 +30,7 @@ export default function Last24Hours({ profileId, historyHref }: { profileId: num
     const load = async () => {
       try {
         const { data } = await axios.get<History>(`/api/inverter/${profileId}/history`, {
-          params: { ...rangeQuery('24h'), fields: FIELDS.join(',') },
+          params: { ...rangeQuery('24h'), readings: POWER_READINGS.join(',') },
         });
         if (!cancelled) {
           setRows(toPowerRows(data));

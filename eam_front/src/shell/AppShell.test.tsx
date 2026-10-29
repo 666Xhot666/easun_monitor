@@ -19,6 +19,8 @@ const profile = (id: number, name: string, role: HouseholdRole): InverterProfile
 
 const modeRegister = [{ name: 'OperationMode', label: 'Operating mode', address: 201, type: 'uint16', group: 'telemetry', options: ['Power on', 'Standby', 'Mains', 'Off-grid', 'Bypass', 'Charging', 'Fault'] }];
 
+/** OperationMode's raw values, as the server names them in common terms. */
+const STATES = ['starting', 'standby', 'grid', 'off-grid', 'bypass', 'charging', 'fault'];
 type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean; server?: 'OWNER' | 'VIEWER' | null };
 
 function Where() {
@@ -30,7 +32,7 @@ function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dash
   const server = fakeServer((config) => {
     if (config.url === '/api/inverter/registers') return { status: 200, data: modeRegister };
     if (config.url === '/api/inverter/1/latest') {
-      return { status: 200, data: { id: 1, timestamp: new Date(Date.now() - ageMs).toISOString(), payload: { OperationMode: mode } } };
+      return { status: 200, data: { id: 1, timestamp: new Date(Date.now() - ageMs).toISOString(), payload: { OperationMode: mode }, readings: { state: STATES[mode] } } };
     }
     if (config.url === '/api/inverter/1/status') {
       return { status: 200, data: { state: device, lastSuccessAt: null, lastError: device === 'online' ? null : 'timeout', retryAt: null } };

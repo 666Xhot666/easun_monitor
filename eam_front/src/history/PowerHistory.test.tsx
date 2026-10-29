@@ -8,8 +8,8 @@ const history = {
   source: 'raw',
   bucketSeconds: 300,
   points: [
-    { timestamp: '2026-10-07T10:00:00.000Z', values: { PVPower: 2000, OutputActivePower: 900, AverageMainsPower: 0, BatteryCurrentSigned: 20, BatteryVoltage: 52, BatterySoc: 60 } },
-    { timestamp: '2026-10-07T10:05:00.000Z', values: { PVPower: 2840, OutputActivePower: 1260, AverageMainsPower: 0, BatteryCurrentSigned: 30, BatteryVoltage: 52.7, BatterySoc: 72, MainsVoltage: 231 } },
+    { timestamp: '2026-10-07T10:00:00.000Z', values: { pvPower: 2000, loadPower: 900, gridPower: 0, batteryPower: 1040, batteryVoltage: 52, batterySoc: 60 } },
+    { timestamp: '2026-10-07T10:05:00.000Z', values: { pvPower: 2840, loadPower: 1260, gridPower: 0, batteryPower: 1581, batteryVoltage: 52.7, batterySoc: 72, gridVoltage: 231 } },
   ],
 };
 
@@ -30,7 +30,7 @@ describe('PowerHistory', () => {
     expect(screen.getByText(/Battery: \+ charging, − discharging/)).toBeInTheDocument();
     expect(server.sent[0].url).toBe('/api/inverter/7/history');
     expect(server.sent[0].params).toMatchObject({ points: 288 });
-    expect(server.sent[0].params.fields.split(',')).toEqual(expect.arrayContaining(['PVPower', 'BatterySoc', 'MainsVoltage']));
+    expect(server.sent[0].params.readings.split(',')).toEqual(expect.arrayContaining(['pvPower', 'batterySoc', 'gridVoltage']));
   });
 
   it('adds and removes series', async () => {
