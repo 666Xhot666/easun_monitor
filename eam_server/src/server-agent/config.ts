@@ -52,6 +52,7 @@ export function serverAgentConfig(
       'easun-serial-logger',
       'easun-bms-reader',
       'easun-outage-reader',
+      'easun-server-agent',
     ];
   } else if (servicesRaw === 'none') {
     services = [];
