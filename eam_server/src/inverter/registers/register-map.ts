@@ -1,4 +1,4 @@
-import { MAX_BRIDGED_GAP } from '../constants';
+import { MAX_BRIDGED_GAP } from '../constants.ts';
 /**
  * The Register map: everything the app knows about the inverter's
  * registers (name, address, width, signedness, scale, unit, enum options,
