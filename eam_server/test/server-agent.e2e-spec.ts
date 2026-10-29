@@ -145,6 +145,73 @@ describe('Server agent (e2e)', () => {
     ).expect(202);
   });
 
+  it('keeps the batteries, and what each service and container takes', async () => {
+    const token = await newToken();
+    const power = {
+      onMains: true,
+      batteries: [
+        {
+          name: 'BAT0',
+          model: 'DELL GD1JP65',
+          status: 'Full',
+          percent: 100,
+          healthPercent: 39.7,
+          nowWh: 27,
+          fullWh: 27,
+          designWh: 68,
+          voltageV: 8.16,
+          powerW: 0,
+          cycles: null,
+        },
+      ],
+    };
+    const services = [
+      {
+        name: 'easun-bms-reader',
+        active: true,
+        memoryBytes: 2.2e7,
+        cpuPercent: 0.6,
+        diskBytes: 7.9e9,
+      },
+    ];
+    const containers = [
+      {
+        name: 'eam_db',
+        state: 'running',
+        status: 'Up 2 days',
+        memoryBytes: 1.8e8,
+        cpuPercent: null,
+        diskBytes: 9.4e8,
+      },
+    ];
+    await report(token, {
+      ...sample(new Date()),
+      power,
+      services,
+      containers,
+    }).expect(202);
+    const { body } = await as(owner).get('/api/server/status').expect(200);
+    expect(body.sample).toMatchObject({ power, services, containers });
+
+    const later = (s: number) => sample(new Date(Date.now() + s * 1000));
+    await report(token, {
+      ...later(1),
+      power: { onMains: 'yes', batteries: [] },
+    }).expect(400);
+    await report(token, {
+      ...later(2),
+      services: [{ ...services[0], memoryBytes: -1 }],
+    }).expect(400);
+    // Discharging: power out of the battery is below zero.
+    await report(token, {
+      ...later(3),
+      power: {
+        onMains: false,
+        batteries: [{ ...power.batteries[0], powerW: -7.4 }],
+      },
+    }).expect(202);
+  });
+
   it('keeps what the agent found about package updates', async () => {
     const token = await newToken();
     const updates = {

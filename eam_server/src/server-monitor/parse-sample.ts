@@ -22,8 +22,16 @@ function num(v: unknown, s: Shape, min = 0): number {
     s.fail(`expected a number ≥ ${min}`);
   return v as number;
 }
-function numOrNull(v: unknown, s: Shape): number | null {
-  return v === null ? null : num(v, s);
+function numOrNull(v: unknown, s: Shape, min = 0): number | null {
+  return v === null ? null : num(v, s, min);
+}
+function textOrNull(v: unknown, s: Shape): string | null {
+  return v === null ? null : text(v, s);
+}
+function boolOrNull(v: unknown, s: Shape): boolean | null {
+  if (v !== null && typeof v !== 'boolean')
+    s.fail('expected true, false or null');
+  return v as boolean | null;
 }
 function text(v: unknown, s: Shape): string {
   if (typeof v !== 'string' || v.length > MAX_TEXT)
@@ -77,6 +85,47 @@ function updates(v: unknown, s: Shape): HostSample['updates'] {
     names: list(o.names, at(s, 'names'), text),
     listsUpdatedAt: lists,
     rebootRequired: o.rebootRequired as boolean,
+  };
+}
+
+/** What a service or container takes; older agents send none of it. */
+function usage(o: Record<string, unknown>, s: Shape) {
+  return {
+    ...(o.memoryBytes !== undefined && {
+      memoryBytes: numOrNull(o.memoryBytes, at(s, 'memoryBytes')),
+    }),
+    ...(o.cpuPercent !== undefined && {
+      cpuPercent: numOrNull(o.cpuPercent, at(s, 'cpuPercent')),
+    }),
+    ...(o.diskBytes !== undefined && {
+      diskBytes: numOrNull(o.diskBytes, at(s, 'diskBytes')),
+    }),
+  };
+}
+
+function power(v: unknown, s: Shape): NonNullable<HostSample['power']> {
+  const o = object(v, s);
+  return {
+    onMains: boolOrNull(o.onMains, at(s, 'onMains')),
+    batteries: list(o.batteries, at(s, 'batteries'), (x, b) => {
+      const battery = object(x, b);
+      const n = (key: string, min = 0) =>
+        numOrNull(battery[key], at(b, key), min);
+      return {
+        name: text(battery.name, at(b, 'name')),
+        model: textOrNull(battery.model, at(b, 'model')),
+        status: textOrNull(battery.status, at(b, 'status')),
+        percent: n('percent'),
+        healthPercent: n('healthPercent'),
+        nowWh: n('nowWh'),
+        fullWh: n('fullWh'),
+        designWh: n('designWh'),
+        voltageV: n('voltageV'),
+        // Below zero while discharging.
+        powerW: n('powerW', -Infinity),
+        cycles: n('cycles'),
+      };
+    }),
   };
 }
 
@@ -155,8 +204,10 @@ export function parseHostSample(body: unknown): HostSample {
       return {
         name: text(service.name, at(v, 'name')),
         active: service.active as boolean,
+        ...usage(service, v),
       };
     }),
+    ...(o.power != null && { power: power(o.power, at(s, 'power')) }),
     ...(o.updates != null && {
       updates: updates(o.updates, at(s, 'updates')),
     }),
@@ -170,6 +221,7 @@ export function parseHostSample(body: unknown): HostSample {
         name: text(container.name, at(c, 'name')),
         state: text(container.state, at(c, 'state')),
         status: text(container.status, at(c, 'status')),
+        ...usage(container, c),
       };
     }),
   };
