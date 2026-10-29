@@ -3,6 +3,7 @@ import { openInChromium } from '../chromium';
 import { SiteError } from './site-error';
 import { parseSchedulePage, type SchedulePage } from './schedule-page';
 import { wallToUtc } from './windows';
+import { BROWSER_TIMEOUT_MS } from './constants';
 
 export interface HouseOutage {
   description: string;
@@ -24,9 +25,6 @@ export interface SiteClientOptions {
   /** Opens the page in a real browser; Chromium by default. */
   openBrowser?: OpenBrowser;
 }
-
-/** The browser loads a page and runs its firewall check; it gets longer. */
-const BROWSER_TIMEOUT_MS = 60_000;
 
 export const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36';
