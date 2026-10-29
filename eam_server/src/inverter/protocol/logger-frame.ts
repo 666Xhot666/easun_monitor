@@ -42,6 +42,9 @@ const EXCEPTION_MESSAGES: Record<number, string> = {
   1: 'Read-only register',
   3: 'Write data beyond the acceptable range',
   7: 'Registers are not allowed to be modified in the current working mode',
+  // Not in the document: the standard Modbus "gateway target failed to
+  // respond", answered by the serial logger when the inverter is silent.
+  11: 'The inverter did not answer',
 };
 
 export class LoggerFrameError extends Error {

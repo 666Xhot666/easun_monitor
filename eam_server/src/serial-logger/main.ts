@@ -3,15 +3,16 @@
  * TTL pads (two USB-serial taps), it answers the main app as if it were the
  * Wi-Fi logger itself, with the values the real logger last read from the
  * inverter. Pair it in the setup wizard at this machine's address (from
- * Docker: host.docker.internal), port 8899. Read-only; nothing is written to
- * the taps or the inverter.
+ * Docker: host.docker.internal), port 8899. Read-only on the taps; nothing
+ * is written to them or the inverter.
  *
  *   SERIAL_RX_PORT=/dev/cu.usbserial-A SERIAL_TX_PORT=/dev/cu.usbserial-B npm run serial-logger
  *
  * With ESP_PORT set it runs on the ESP proxy instead of the two taps: it
  * hears the same conversation through the proxy, and reads through it what
  * the app asks for before answering, unless the Wi-Fi logger just read it.
- * Writes are still refused.
+ * Settings the app writes go to the inverter through the proxy; each one is
+ * logged.
  *
  *   ESP_PORT=/dev/cu.usbserial-C npm run serial-logger
  */
@@ -125,6 +126,7 @@ const runOnEsp = async (espPath: string): Promise<void> => {
   const { logger, capture, prepare } = createEspSerialLogger({
     link: esp,
     store: new CaptureStore(env.DEV_CAPTURE_DIR || '.dev-captures'),
+    log,
   });
 
   const server = await startLoggerServer({ logger, tcpPort, udpPort, log, prepare });

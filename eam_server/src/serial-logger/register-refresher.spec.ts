@@ -40,6 +40,21 @@ describe('RegisterRefresher', () => {
     expect(reads).toHaveLength(2);
   });
 
+  it('reads a block again once a write has made its values stale', async () => {
+    refresher.heard(301, 1, 0);
+    refresher.stale(301, 1);
+    await refresher.refresh(301, 1, 1);
+    expect(reads).toHaveLength(1);
+  });
+
+  it('reads a block again after a write even when its last read failed', async () => {
+    answer = async () => null;
+    await refresher.refresh(300, 12, 0);
+    refresher.stale(301, 1);
+    await refresher.refresh(300, 12, 1);
+    expect(reads).toHaveLength(2);
+  });
+
   it('reads a block when only part of it is fresh', async () => {
     refresher.heard(200, 2, 0);
     await refresher.refresh(200, 3, 0);

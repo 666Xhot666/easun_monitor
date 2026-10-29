@@ -1,6 +1,6 @@
 import type { SerialTap } from '../inverter/serial-sniff/serial-capture';
 import { ESP_BAUD, ESP_REQUEST_TIMEOUT_MS, ESP_RETRY_INITIAL_MS, ESP_RETRY_MAX_MS } from './constants';
-import { parseEspLine, parseReadReply, readRequestLine, type ReadReply } from './esp-protocol';
+import { parseEspLine, parseReadReply, parseWriteReply, readRequestLine, writeRequestLine, type ReadReply, type WriteReply } from './esp-protocol';
 
 /** A serial port opened for reading and writing; the seam to the hardware. */
 export interface DuplexPort {
@@ -22,12 +22,15 @@ export interface EspLinkStatus {
 
 type TapName = 'tx' | 'rx';
 
+type Reply = ReadReply | WriteReply;
+
 interface Pending {
-  unit: number;
-  count: number;
+  /** Our reply so far, as the proxy reported it. */
   bytes: Buffer;
+  /** The reply once `bytes` is all of it, else null. */
+  parse: (bytes: Buffer) => Reply | null;
   timer: ReturnType<typeof setTimeout>;
-  resolve: (reply: ReadReply | null) => void;
+  resolve: (reply: Reply | null) => void;
 }
 
 /** The proxy's notes that end our read without a reply. */
@@ -37,8 +40,8 @@ const FAILED_NOTES = new Set(['timeout', 'busy', 'bad']);
  * The USB link to the ESP proxy between the inverter and its Wi-Fi plug.
  * The plug's conversation the proxy reports comes out of two taps, as from
  * the old pair of serial taps: "tx" carries the plug's requests, "rx" the
- * inverter's replies. Our own reads go out one at a time and are answered
- * with the inverter's reply, or null when there is none. A port that fails
+ * inverter's replies. Our own reads and writes go out one at a time and are
+ * answered with the inverter's reply, or null when there is none. A port that fails
  * is reopened with backoff (1 s doubling to 30 s); the taps stay.
  */
 export class EspLink {
@@ -104,22 +107,33 @@ export class EspLink {
 
   /** Reads `count` registers from `address` through the proxy. */
   read(unit: number, address: number, count: number): Promise<ReadReply | null> {
-    const result = this.queue.then(() => this.exchange(unit, address, count));
+    const parse = (bytes: Buffer) => parseReadReply({ unit, count }, bytes);
+    return this.enqueue(readRequestLine(unit, address, count), parse);
+  }
+
+  /** Writes `values` from `address` through the proxy. */
+  write(unit: number, address: number, values: readonly number[]): Promise<WriteReply | null> {
+    const parse = (bytes: Buffer) => parseWriteReply({ unit, address, count: values.length }, bytes);
+    return this.enqueue(writeRequestLine(unit, address, values), parse);
+  }
+
+  private enqueue<R extends Reply>(line: string, parse: (bytes: Buffer) => R | null): Promise<R | null> {
+    const result = this.queue.then(() => this.exchange(line, parse));
     this.queue = result;
     return result;
   }
 
-  private exchange(unit: number, address: number, count: number): Promise<ReadReply | null> {
+  private exchange<R extends Reply>(line: string, parse: (bytes: Buffer) => R | null): Promise<R | null> {
     const port = this.port;
     if (!port) return Promise.resolve(null);
     return new Promise((resolve) => {
       const timer = setTimeout(() => this.finish(null), ESP_REQUEST_TIMEOUT_MS);
-      this.pending = { unit, count, bytes: Buffer.alloc(0), timer, resolve };
-      port.write(readRequestLine(unit, address, count));
+      this.pending = { bytes: Buffer.alloc(0), parse, timer, resolve: resolve as (reply: Reply | null) => void };
+      port.write(line);
     });
   }
 
-  private finish(reply: ReadReply | null): void {
+  private finish(reply: Reply | null): void {
     const pending = this.pending;
     if (!pending) return;
     this.pending = null;
@@ -190,7 +204,7 @@ export class EspLink {
     const pending = this.pending;
     if (!pending) return;
     pending.bytes = Buffer.concat([pending.bytes, bytes]);
-    const reply = parseReadReply(pending, pending.bytes);
+    const reply = pending.parse(pending.bytes);
     if (reply) this.finish(reply);
   }
 }

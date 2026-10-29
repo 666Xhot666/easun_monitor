@@ -34,6 +34,17 @@ export class RegisterRefresher {
     for (let i = 0; i < count; i++) this.heardAt.set(address + i, now);
   }
 
+  /** These registers may have changed (we wrote them): read them again next time. */
+  stale(address: number, count: number): void {
+    for (let i = 0; i < count; i++) this.heardAt.delete(address + i);
+    for (const memo of [this.failedAt, this.refusedAt]) {
+      for (const key of memo.keys()) {
+        const [start, length] = key.split(':').map(Number);
+        if (start < address + count && address < start + length) memo.delete(key);
+      }
+    }
+  }
+
   /** Makes the block fresh if it is not, as far as the inverter answers. */
   refresh(address: number, count: number, now: number): Promise<void> {
     const key = `${address}:${count}`;

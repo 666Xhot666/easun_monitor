@@ -119,6 +119,38 @@ describe('EspLink', () => {
     await expect(second).resolves.toEqual({ kind: 'words', words: [2] });
   });
 
+  it("sends our write and answers it with the inverter's echo or refusal", async () => {
+    const taken = link.write(1, 0x141, [1, 300]);
+    await Promise.resolve();
+    expect(port().written).toEqual(['011001410002040001012C6A4E\n']);
+    port().say('I>D 30 0110014100021020\n');
+    await expect(taken).resolves.toEqual({ kind: 'written' });
+
+    const refused = link.write(1, 0x141, [1, 300]);
+    await Promise.resolve();
+    port().say('I>D 60 019002CDC1\n');
+    await expect(refused).resolves.toEqual({ kind: 'exception', code: 2 });
+
+    const unanswered = link.write(1, 0x141, [1, 300]);
+    await Promise.resolve();
+    port().say('# timeout\n');
+    await expect(unanswered).resolves.toBeNull();
+  });
+
+  it('waits for a read to finish before sending a write', async () => {
+    const read = link.read(1, 0, 1);
+    const write = link.write(1, 0x141, [1, 300]);
+    await Promise.resolve();
+    expect(port().written).toHaveLength(1);
+
+    port().say(`I>D 1 ${hex(withCrc([1, 3, 2, 0, 1]))}\n`);
+    await expect(read).resolves.toEqual({ kind: 'words', words: [1] });
+    await Promise.resolve();
+    expect(port().written[1]).toBe('011001410002040001012C6A4E\n');
+    port().say('I>D 2 0110014100021020\n');
+    await expect(write).resolves.toEqual({ kind: 'written' });
+  });
+
   it('reopens the port after it fails, and the taps keep working', async () => {
     const requests: Buffer[] = [];
     (await link.openTap('tx', 0)).onData((chunk) => requests.push(chunk));

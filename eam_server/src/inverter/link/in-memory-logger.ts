@@ -59,6 +59,11 @@ export class InMemoryLogger {
     this.rejectedWrites.set(address, exceptionCode);
   }
 
+  /** Answer writes starting at `address` normally again. */
+  acceptWritesAt(address: number): void {
+    this.rejectedWrites.delete(address);
+  }
+
   /** Handles one request frame and returns the reply frame. Throws
    * LoggerFrameError for a frame the device would drop. */
   handle(frame: Buffer): Buffer {
