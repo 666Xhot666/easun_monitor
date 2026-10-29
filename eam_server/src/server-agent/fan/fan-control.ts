@@ -1,3 +1,4 @@
+import { HYSTERESIS_C } from '../constants';
 /** The owner's fan settings, as the server keeps them. */
 export interface FanSettings {
   /** FIRMWARE: the machine decides. AUTO: the rules. MANUAL: a fixed speed. */
@@ -15,9 +16,6 @@ export type FanTarget =
   | { mode: 'firmware' }
   /** `rule`: the threshold of the AUTO rule in force, if any. */
   | { mode: 'manual'; percent: number; rule: number | null };
-
-/** A rule is left only this far below its threshold, so the fan does not flap. */
-export const HYSTERESIS_C = 3;
 
 /**
  * The fan speed for `temperature` (the hottest sensor; null when none could

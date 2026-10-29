@@ -1,6 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Run } from './commands';
+import { UPDATES_MAX_NAMES } from '../constants';
 
 /** Packages apt can update, as of its last package list refresh. */
 export interface Updates {
@@ -15,8 +16,6 @@ export interface Updates {
   /** The system asks for a restart (after updates already installed). */
   rebootRequired: boolean;
 }
-
-const MAX_NAMES = 100;
 
 const mtime = (path: string): string | null => {
   try {
@@ -47,7 +46,7 @@ export async function readUpdates(
     checkedAt: now.toISOString(),
     packages: lines.length,
     security: lines.filter((line) => /^\S+\/\S*-security/.test(line)).length,
-    names: lines.slice(0, MAX_NAMES).map((line) => line.split('/')[0]),
+    names: lines.slice(0, UPDATES_MAX_NAMES).map((line) => line.split('/')[0]),
     listsUpdatedAt:
       mtime(join(root, 'var/lib/apt/periodic/update-success-stamp')) ??
       mtime(join(root, 'var/lib/apt/lists/partial')),
