@@ -11,14 +11,12 @@ import { hashIngestToken } from './ingest-token';
 import type { BmsReading } from './reading';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { BmsLatest, type LatestBmsReading } from './bms-latest';
-
-const DEFAULT_STORE_INTERVAL_MS = 30_000;
-/** Clock skew allowed for a producer's timestamp. */
-const MAX_FUTURE_MS = 60_000;
-/** Oldest reading accepted: the reader queues a few minutes while the server is down. */
-const MAX_AGE_MS = 3_600_000;
-/** Per device: twice what a producer posting every second would send. */
-const RATE_LIMIT = { requests: 120, windowMs: 60_000 };
+import {
+  DEFAULT_STORE_INTERVAL_MS,
+  INGEST_RATE_LIMIT,
+  MAX_AGE_MS,
+  MAX_FUTURE_MS,
+} from './constants';
 
 /**
  * Takes readings from BMS producers. The BMS streams about one frame a
@@ -99,9 +97,9 @@ export class BmsIngestService {
 
   private limitRate(deviceId: number, nowMs: number): void {
     const recent = (this.recentPosts.get(deviceId) ?? []).filter(
-      (t) => nowMs - t < RATE_LIMIT.windowMs,
+      (t) => nowMs - t < INGEST_RATE_LIMIT.windowMs,
     );
-    if (recent.length >= RATE_LIMIT.requests) {
+    if (recent.length >= INGEST_RATE_LIMIT.requests) {
       this.recentPosts.set(deviceId, recent);
       throw new HttpException(
         'Too many readings from this device',

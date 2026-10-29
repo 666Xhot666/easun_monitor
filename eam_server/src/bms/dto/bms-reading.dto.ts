@@ -16,12 +16,7 @@ import {
 } from 'class-validator';
 import { BMS_PROTOCOLS, type BmsProtocol } from '../jk/variants';
 import { BMS_SOURCES, type BmsReading, type BmsSource } from '../reading';
-
-/** Plausible limits: up to 32 LiFePO4 cells, a few hundred amperes. */
-const MAX_PACK_V = 150;
-const MAX_CURRENT_A = 1000;
-const MAX_CELL_V = 5;
-const MAX_CELLS = 32;
+import { MAX_CELLS, MAX_CELL_V, MAX_CURRENT_A, MAX_PACK_V } from '../constants';
 
 class BmsTemperatureDto {
   @IsString()
