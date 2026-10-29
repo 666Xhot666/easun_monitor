@@ -12,6 +12,7 @@ import {
   type RegisterGroup,
 } from '../registers/register-map';
 import { TransportError, type LoggerTransport } from './logger-transport';
+import { LOGGER_BACKOFF } from '../constants';
 
 export interface LoggerLinkOptions {
   transport: LoggerTransport;
@@ -41,8 +42,6 @@ export class LoggerUnavailableError extends Error {
   }
 }
 
-const DEFAULT_BACKOFF = { initialMs: 5_000, maxMs: 5 * 60_000 };
-
 /**
  * Everything the app does with one physical logger goes through its
  * Logger link: the handshake and connection, one request at a time (the
@@ -66,7 +65,7 @@ export class LoggerLink {
   constructor(options: LoggerLinkOptions) {
     this.transport = options.transport;
     this.registers = options.registers;
-    this.backoff = options.backoff ?? DEFAULT_BACKOFF;
+    this.backoff = options.backoff ?? LOGGER_BACKOFF;
     this.now = options.now ?? Date.now;
   }
 
@@ -79,7 +78,9 @@ export class LoggerLink {
     return this.serialize(async () => {
       await this.ensureConnected();
       const reading: Reading = {};
-      for (const block of groups.flatMap((group) => this.registers.blocks(group))) {
+      for (const block of groups.flatMap((group) =>
+        this.registers.blocks(group),
+      )) {
         try {
           const words = await this.request({ kind: 'read', ...block });
           Object.assign(reading, this.registers.decodeBlock(block, words));
@@ -112,7 +113,10 @@ export class LoggerLink {
       const confirmed: Reading = {};
       for (const { name } of writes) {
         const definition = this.registers.get(name)!;
-        const block: RegisterBlock = { address: definition.address, count: wordCount(definition) };
+        const block: RegisterBlock = {
+          address: definition.address,
+          count: wordCount(definition),
+        };
         const words = await this.request({ kind: 'read', ...block });
         confirmed[name] = this.registers.decodeBlock(block, words)[name];
       }
@@ -137,13 +141,22 @@ export class LoggerLink {
   /** One full round trip (handshake, connect, one CRC-checked register
    * read), used to verify a logger before pairing it. */
   probe(): Promise<{ latencyMs: number; sampledRegister: string }> {
-    const sample = this.registers.list('telemetry').find((d) => d.verified !== false)!;
+    const sample = this.registers
+      .list('telemetry')
+      .find((d) => d.verified !== false)!;
     return this.serialize(async () => {
       const startedAt = this.now();
       await this.ensureConnected();
-      await this.request({ kind: 'read', address: sample.address, count: wordCount(sample) });
+      await this.request({
+        kind: 'read',
+        address: sample.address,
+        count: wordCount(sample),
+      });
       this.markSuccess();
-      return { latencyMs: this.now() - startedAt, sampledRegister: sample.name };
+      return {
+        latencyMs: this.now() - startedAt,
+        sampledRegister: sample.name,
+      };
     });
   }
 
@@ -152,7 +165,10 @@ export class LoggerLink {
     if (this.lastError === null) {
       state = this.lastSuccessAt === null ? 'offline' : 'online';
     } else {
-      state = this.retryAt !== null && this.now() < this.retryAt ? 'backoff' : 'offline';
+      state =
+        this.retryAt !== null && this.now() < this.retryAt
+          ? 'backoff'
+          : 'offline';
     }
     return {
       state,

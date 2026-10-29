@@ -58,17 +58,15 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../auth/interfaces/jwt-payload.interface';
 import { localized, requestLanguage } from '../i18n/localized';
 import { wordConstraints } from './settings-rules/worded-constraints';
-
-/** The Wi-Fi Plug Pro's TCP port, used when none is given. */
-const DEFAULT_LOGGER_PORT = 8899;
-const DEFAULT_HISTORY_POINTS = 300;
-const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
-/** Longest range one history request may cover. */
-const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
-const DEFAULT_READINGS_PAGE = 100;
-const DEFAULT_ALERTS_PAGE = 50;
-/** The longest range the readings log lists or exports at once. */
-const MAX_READINGS_SPAN_MS = 31 * 24 * 60 * 60 * 1000;
+import {
+  DEFAULT_ALERTS_PAGE,
+  DEFAULT_HISTORY_POINTS,
+  DEFAULT_HISTORY_SPAN_MS,
+  DEFAULT_LOGGER_PORT,
+  DEFAULT_READINGS_PAGE,
+  MAX_HISTORY_SPAN_MS,
+  MAX_READINGS_SPAN_MS,
+} from './constants';
 
 @Controller('api/inverter')
 @UseGuards(AuthGuard('jwt'))
