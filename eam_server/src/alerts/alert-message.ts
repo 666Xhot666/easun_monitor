@@ -9,7 +9,7 @@ import { registerMapFor } from '../inverter/registers/register-translations';
 import { bmsAlarmName } from '../telegram/cards';
 import { clockTime } from '../telegram/messages';
 import type { AlertKind } from './alert-kind';
-import { KYIV } from '../outage-reader/dnem/windows';
+import { SITE_TIME_ZONE } from '../outage-reader/dnem/windows';
 import { changesOf, scheduleUpdateText } from '../outage/notices';
 import { reminderText, windowOf } from '../outage/reminders';
 
@@ -47,7 +47,7 @@ const COMPOSED: Record<
     scheduleUpdateText(
       changesOf(p),
       new Date(p.madeAt as string),
-      KYIV,
+      SITE_TIME_ZONE,
       language,
     ) ?? '',
   outageSoon: (p, language) =>
@@ -58,7 +58,7 @@ const COMPOSED: Record<
         soc: p.soc as number | null,
         staleHours: p.staleHours as number | null,
       },
-      KYIV,
+      SITE_TIME_ZONE,
       language,
     ),
 };

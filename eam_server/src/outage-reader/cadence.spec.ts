@@ -1,6 +1,6 @@
 import { nextCheckAt, type Cadence } from './cadence';
 
-// Helsinki keeps Kyiv's clock rules; 2026-10-10 is UTC+3.
+// Helsinki keeps the site's clock rules; 2026-10-10 is UTC+3.
 const HELSINKI = 'Europe/Helsinki';
 const cadence: Cadence = {
   intervalMinutes: 120,

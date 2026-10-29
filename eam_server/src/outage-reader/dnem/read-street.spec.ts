@@ -21,6 +21,7 @@ describe('DnemSiteClient in a browser', () => {
     const { fetch, calls } = fakeFetch();
     const browser = fakeBrowser([PAGE]);
     const page = await new DnemSiteClient({
+      baseUrl: BASE,
       fetch,
       openBrowser: browser.open,
     }).loadPage({ browser: true });
@@ -34,9 +35,13 @@ describe('DnemSiteClient in a browser', () => {
   it('asks for the houses from inside the browser page', async () => {
     const { fetch, calls } = fakeFetch();
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
     await client.loadPage({ browser: true });
-    const houses = await client.houses('м. Дніпро', 'вул. Тестова');
+    const houses = await client.houses('м. Тестове', 'вул. Тестова');
 
     expect(houses['12'].groups).toEqual(['GPV5.2']);
     expect(calls).toEqual([]);
@@ -55,6 +60,7 @@ describe('DnemSiteClient in a browser', () => {
   it('reports the firewall check when the browser does not get past it either', async () => {
     const browser = fakeBrowser([CHALLENGE]);
     const client = new DnemSiteClient({
+      baseUrl: BASE,
       fetch: fakeFetch().fetch,
       openBrowser: browser.open,
     });
@@ -64,6 +70,7 @@ describe('DnemSiteClient in a browser', () => {
   it('closes the browser once', async () => {
     const browser = fakeBrowser([PAGE]);
     const client = new DnemSiteClient({
+      baseUrl: BASE,
       fetch: fakeFetch().fetch,
       openBrowser: browser.open,
     });
@@ -78,8 +85,12 @@ describe('readStreet', () => {
   it('uses plain requests when the site lets them through', async () => {
     const { fetch } = fakeFetch(html(PAGE), json(HOUSES));
     const browser = fakeBrowser([]);
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(false);
@@ -91,8 +102,12 @@ describe('readStreet', () => {
   it('switches to the browser when the page is behind the firewall check', async () => {
     const { fetch } = fakeFetch(html(CHALLENGE, 403));
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(true);
@@ -103,8 +118,12 @@ describe('readStreet', () => {
   it('switches to the browser when the houses request is refused', async () => {
     const { fetch } = fakeFetch(html(PAGE), html('Bad Request', 400));
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(true);
@@ -114,8 +133,12 @@ describe('readStreet', () => {
   it('goes straight to the browser when asked, as for the weekly check', async () => {
     const { fetch, calls } = fakeFetch();
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       forceBrowser: true,
       retry: noSleep,
     });
@@ -127,7 +150,11 @@ describe('readStreet', () => {
     const down = () => html('Bad gateway', 502);
     const { fetch, calls } = fakeFetch(down(), down(), down());
     const browser = fakeBrowser([]);
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
     const failure = readStreet(client, 'a', 'b', {
       retry: { ...noSleep, delaysMs: [1, 1] },
     });
@@ -139,7 +166,11 @@ describe('readStreet', () => {
   it('does not use the browser for a changed site', async () => {
     const { fetch } = fakeFetch(html(PAGE), json({ result: true, data: [] }));
     const browser = fakeBrowser([]);
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
     expect(await kindOf(readStreet(client, 'a', 'b', { retry: noSleep }))).toBe(
       'shape',
     );
@@ -149,6 +180,7 @@ describe('readStreet', () => {
   it('reports the block when the browser it needs cannot start', async () => {
     const { fetch } = fakeFetch(html(CHALLENGE));
     const client = new DnemSiteClient({
+      baseUrl: BASE,
       fetch,
       openBrowser: () =>
         Promise.reject(new Error('Playwright could not be loaded')),
@@ -166,7 +198,11 @@ describe('readStreet', () => {
   it('closes the browser when the check fails in it', async () => {
     const { fetch } = fakeFetch(html(CHALLENGE));
     const browser = fakeBrowser([PAGE], housesAnswer({ result: false }));
-    const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
+    const client = new DnemSiteClient({
+      baseUrl: BASE,
+      fetch,
+      openBrowser: browser.open,
+    });
     expect(await kindOf(readStreet(client, 'a', 'b', { retry: noSleep }))).toBe(
       'rejected',
     );

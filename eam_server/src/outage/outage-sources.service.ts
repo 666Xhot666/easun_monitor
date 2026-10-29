@@ -14,7 +14,7 @@ import type { PutOutageSourceDto } from './dto/put-outage-source.dto';
 import type { PutSiteStreetsDto } from './dto/put-site-streets.dto';
 import { localized } from '../i18n/localized';
 
-/** The only DTEK site so far: DTEK Dnipro. */
+/** The only outage site so far. */
 const SITE = 'dnem';
 
 /** Everything about a source but its token hash. */

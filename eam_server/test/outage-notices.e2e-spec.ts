@@ -38,7 +38,7 @@ describe('Outage schedule notices (e2e)', () => {
   let admin: string;
   let profile: { id: number; name: string };
   let readerToken: string;
-  // The checks are made now, about tomorrow (Kyiv).
+  // The checks are made now, about tomorrow (site time).
   const tomorrow = key(nextDay(localDateOf(new Date())));
   let minutes = 0;
 
@@ -72,7 +72,7 @@ describe('Outage schedule notices (e2e)', () => {
     const { body } = await request(app.getHttpServer())
       .put(`/api/inverter/profiles/${profile.id}/outage-source`)
       .set('Authorization', `Bearer ${admin}`)
-      .send({ city: 'м. Дніпро', street: 'вул. Тестова', house: '12а' })
+      .send({ city: 'м. Тестове', street: 'вул. Тестова', house: '12а' })
       .expect(200);
     readerToken = body.token;
   });
@@ -137,7 +137,7 @@ describe('Outage schedule notices (e2e)', () => {
 
   describe('Outage soon', () => {
     const MIN = 60_000;
-    // An outage at 18:00–20:00 Kyiv on a fixed day, checked shortly before.
+    // An outage at 18:00–20:00 site time on a fixed day, checked shortly before.
     const start = new Date('2026-10-12T15:00:00Z');
     const end = new Date('2026-10-12T17:00:00Z');
     const at = (minutesBefore: number) =>

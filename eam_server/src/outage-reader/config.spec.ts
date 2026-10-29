@@ -3,12 +3,14 @@ import { outageReaderConfig } from './config';
 const required = {
   OUTAGE_SERVER_URL: 'http://localhost:3000',
   OUTAGE_READER_TOKEN: 'tok',
+  OUTAGE_SITE_URL: 'https://outage-site.test/',
 };
 
 describe('outageReaderConfig', () => {
-  it('has defaults for everything but the server and token', () => {
+  it('has defaults for everything but the server, token and site', () => {
     expect(outageReaderConfig(required)).toEqual({
       server: { url: 'http://localhost:3000', token: 'tok' },
+      siteUrl: 'https://outage-site.test',
       cadence: {
         intervalMinutes: 120,
         eveningIntervalMinutes: 30,
@@ -18,6 +20,12 @@ describe('outageReaderConfig', () => {
       browserEveryDays: 7,
       stateFile: '.outage-reader-state.json',
     });
+  });
+
+  it('needs the outage site to read', () => {
+    expect(() =>
+      outageReaderConfig({ ...required, OUTAGE_SITE_URL: ' ' }),
+    ).toThrow(/OUTAGE_SITE_URL is required/);
   });
 
   it('reads every setting', () => {

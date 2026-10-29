@@ -55,7 +55,7 @@ describe('alertKindOf', () => {
 });
 
 describe('outage alerts', () => {
-  const kyiv = (local: string) => new Date(`${local}+03:00`);
+  const siteTime = (local: string) => new Date(`${local}+03:00`);
   /** As stored in the database and read back. */
   const stored = (m: AlertMessage | null) =>
     JSON.parse(JSON.stringify(m)) as AlertMessage;
@@ -67,12 +67,12 @@ describe('outage alerts', () => {
           type: 'new',
           kind: 'SCHEDULE',
           status: 'OFF',
-          start: kyiv('2026-10-13T18:00:00'),
-          end: kyiv('2026-10-13T20:00:00'),
+          start: siteTime('2026-10-13T18:00:00'),
+          end: siteTime('2026-10-13T20:00:00'),
           description: null,
         },
       ],
-      kyiv('2026-10-12T20:40:00'),
+      siteTime('2026-10-12T20:40:00'),
     );
     expect(alertText(stored(message), 'uk', ZONE)).toBe(
       'Графік відключень оновлено\nЗавтра 18:00–20:00 відключення (нове)',
@@ -83,13 +83,13 @@ describe('outage alerts', () => {
   it('words a stored reminder, with how long the schedule was out', () => {
     const message = reminderMessage(
       {
-        start: kyiv('2026-10-12T18:00:00'),
-        end: kyiv('2026-10-12T20:00:00'),
+        start: siteTime('2026-10-12T18:00:00'),
+        end: siteTime('2026-10-12T20:00:00'),
         status: 'off',
         source: 'schedule',
         description: null,
       },
-      kyiv('2026-10-12T17:45:00'),
+      siteTime('2026-10-12T17:45:00'),
       { soc: 64, staleHours: null },
     );
     expect(alertText(stored(message), 'en', ZONE)).toBe(

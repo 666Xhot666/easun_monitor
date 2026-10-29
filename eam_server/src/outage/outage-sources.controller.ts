@@ -19,7 +19,7 @@ import { OutageForecastService } from './outage-forecast.service';
 import { OutageSourcesService } from './outage-sources.service';
 import { PutOutageSourceDto } from './dto/put-outage-source.dto';
 
-/** An inverter's outage schedule source (its DTEK address), and the site's city and street lists for picking one. */
+/** An inverter's outage schedule source (its address on the outage site), and the site's city and street lists for picking one. */
 @Controller('api')
 @UseGuards(AuthGuard('jwt'))
 export class OutageSourcesController {

@@ -18,7 +18,8 @@ export interface HouseInfo {
 
 export interface SiteClientOptions {
   fetch?: typeof globalThis.fetch;
-  baseUrl?: string;
+  /** The site, e.g. https://www.example.com. */
+  baseUrl: string;
   timeoutMs?: number;
   /** Opens the page in a real browser; Chromium by default. */
   openBrowser?: OpenBrowser;
@@ -97,9 +98,9 @@ export class DnemSiteClient {
   private openBrowser: OpenBrowser;
   private browser: BrowserPage | null = null;
 
-  constructor(options: SiteClientOptions = {}) {
+  constructor(options: SiteClientOptions) {
     this.fetch = options.fetch ?? globalThis.fetch;
-    this.baseUrl = options.baseUrl ?? 'https://www.dtek-dnem.com.ua';
+    this.baseUrl = options.baseUrl;
     this.timeoutMs = options.timeoutMs ?? 15000;
     this.pageUrl = this.baseUrl + '/ua/shutdowns';
     this.openBrowser = options.openBrowser ?? openInChromium;

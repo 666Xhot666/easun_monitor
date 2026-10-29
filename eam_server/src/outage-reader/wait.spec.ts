@@ -3,7 +3,7 @@ import { waitForNextCheck } from './wait';
 
 const SOURCE: ReaderSource = {
   site: 'dnem',
-  city: 'м. Дніпро',
+  city: 'м. Тестове',
   street: 'вул. Тестова',
   house: '12а',
   enabled: true,

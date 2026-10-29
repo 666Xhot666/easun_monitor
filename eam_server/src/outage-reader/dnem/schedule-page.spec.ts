@@ -1,7 +1,7 @@
 import { parseSchedulePage } from './schedule-page';
 import { SiteError } from './site-error';
 
-const PAGE_URL = 'https://www.dtek-dnem.com.ua/ua/shutdowns';
+const PAGE_URL = 'https://outage-site.test/ua/shutdowns';
 
 const hourly = Object.fromEntries(
   Array.from({ length: 24 }, (_, i) => {
@@ -64,7 +64,7 @@ function page(parts: PageParts = {}): string {
     parts.raw ??
     assign(
       'streets',
-      'streets' in parts ? parts.streets : { 'м. Дніпро': ['вул. Тестова'] },
+      'streets' in parts ? parts.streets : { 'м. Тестове': ['вул. Тестова'] },
     ) +
       assign('preset', 'preset' in parts ? parts.preset : preset) +
       'DisconSchedule.showCurOutage = true\n' +
@@ -85,7 +85,7 @@ function errorOf(html: string): SiteError {
 describe('parseSchedulePage', () => {
   it('resolves the AJAX address against the page and reads the CSRF token', () => {
     const parsed = parseSchedulePage(page(), PAGE_URL);
-    expect(parsed.ajaxUrl).toBe('https://www.dtek-dnem.com.ua/ua/ajax');
+    expect(parsed.ajaxUrl).toBe('https://outage-site.test/ua/ajax');
     expect(parsed.csrfToken).toBe('tok-123');
   });
 
@@ -99,7 +99,7 @@ describe('parseSchedulePage', () => {
 
     const missing = page({ head: '<meta name="csrf-token" content="t">' });
     expect(parseSchedulePage(missing, PAGE_URL).ajaxUrl).toBe(
-      'https://www.dtek-dnem.com.ua/ua/ajax',
+      'https://outage-site.test/ua/ajax',
     );
   });
 
@@ -107,15 +107,15 @@ describe('parseSchedulePage', () => {
     const parsed = parseSchedulePage(
       page({
         streets: {
-          'м. Дніпро': ['вул. Тестова', 'пров. Ясний'],
-          'с. Філія': ['вул. Лісова'],
+          'м. Тестове': ['вул. Тестова', 'пров. Тестовий'],
+          'с. Тестове': ['вул. Лісова'],
         },
       }),
       PAGE_URL,
     );
     expect(parsed.streets).toEqual({
-      'м. Дніпро': ['вул. Тестова', 'пров. Ясний'],
-      'с. Філія': ['вул. Лісова'],
+      'м. Тестове': ['вул. Тестова', 'пров. Тестовий'],
+      'с. Тестове': ['вул. Лісова'],
     });
   });
 
@@ -157,7 +157,7 @@ describe('parseSchedulePage', () => {
     });
   });
 
-  it('reads confirmed days keyed by the Kyiv midnight timestamp', () => {
+  it('reads confirmed days keyed by the local midnight timestamp', () => {
     const fact = {
       data: {
         '1791579600': {
@@ -185,11 +185,11 @@ describe('parseSchedulePage', () => {
 
   it('copes with escaped text and braces inside strings, as the site sends them', () => {
     const raw =
-      'DisconSchedule.streets = {"\\u043c. \\u0414\\u043d\\u0456\\u043f\\u0440\\u043e":["\\u0432\\u0443\\u043b. \\"{\\u0414\\u0443\\u0436\\u043a\\u0430}\\"","a\\/b"]}\n' +
+      'DisconSchedule.streets = {"\\u043c. \\u0422\\u0435\\u0441\\u0442\\u043e\\u0432\\u0435":["\\u0432\\u0443\\u043b. \\"{\\u0414\\u0443\\u0436\\u043a\\u0430}\\"","a\\/b"]}\n' +
       `DisconSchedule.preset = ${JSON.stringify(preset)}\n` +
       `DisconSchedule.fact = ${JSON.stringify(emptyFact)}`;
     expect(parseSchedulePage(page({ raw }), PAGE_URL).streets).toEqual({
-      'м. Дніпро': ['вул. "{Дужка}"', 'a/b'],
+      'м. Тестове': ['вул. "{Дужка}"', 'a/b'],
     });
   });
 
@@ -234,7 +234,7 @@ describe('parseSchedulePage', () => {
 
   it('rejects streets that are not lists of names', () => {
     expect(
-      errorOf(page({ streets: { 'м. Дніпро': 'вул. Тестова' } })).kind,
+      errorOf(page({ streets: { 'м. Тестове': 'вул. Тестова' } })).kind,
     ).toBe('shape');
   });
 

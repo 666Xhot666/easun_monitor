@@ -16,7 +16,7 @@ import {
 
 const day = (set: Record<number, string> = {}) =>
   Array.from({ length: 24 }, (_, h) => set[h] ?? 'yes') as DaySlots;
-// Kyiv midnight of 2026-10-11 (UTC+3).
+// local midnight of 2026-10-11 (UTC+3).
 const SUN = 1791666000;
 
 const reading: StreetReading = {
@@ -24,7 +24,7 @@ const reading: StreetReading = {
   page: {
     ajaxUrl: 'x',
     csrfToken: 't',
-    streets: { 'м. Дніпро': ['вул. Тестова'] },
+    streets: { 'м. Тестове': ['вул. Тестова'] },
     weekly: {
       groupNames: { 'GPV5.2': 'Черга 5.2' },
       groups: {
@@ -73,7 +73,7 @@ describe('Outage reader against the server (e2e)', () => {
       await request(app.getHttpServer())
         .put(`/api/inverter/profiles/${profileId}/outage-source`)
         .set('Authorization', `Bearer ${admin}`)
-        .send({ city: 'м. Дніпро', street: 'вул. Тестова', house: '12a' })
+        .send({ city: 'м. Тестове', street: 'вул. Тестова', house: '12a' })
         .expect(200)
     ).body.token;
   });

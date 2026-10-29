@@ -36,7 +36,7 @@ function houseText(source: OutageSource): string {
 }
 
 /**
- * The inverter's DTEK address for the outage schedule: city and street from
+ * The inverter's address on the outage site for the outage schedule: city and street from
  * the site's own lists, the house as typed, and what the reader found for it.
  * The reader token is shown only once.
  */

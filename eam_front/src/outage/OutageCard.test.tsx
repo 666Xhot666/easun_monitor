@@ -5,13 +5,13 @@ import { fakeServer, type Reply } from '../test/fakeServer';
 import OutageCard from './OutageCard';
 import type { ForecastWindow, OutageForecast } from './types';
 
-// Kyiv is UTC+3 until 25 October 2026.
-const kyiv = (local: string) => new Date(`${local}+03:00`).toISOString();
-const NOW = Date.parse(kyiv('2026-10-12T09:00:00'));
+// The site's time is UTC+3 until 25 October 2026.
+const siteTime = (local: string) => new Date(`${local}+03:00`).toISOString();
+const NOW = Date.parse(siteTime('2026-10-12T09:00:00'));
 
 const window = (start: string, end: string, over: Partial<ForecastWindow> = {}): ForecastWindow => ({
-  start: kyiv(start),
-  end: kyiv(end),
+  start: siteTime(start),
+  end: siteTime(end),
   status: 'off',
   source: 'schedule',
   description: null,
@@ -24,9 +24,9 @@ const tomorrow = window('2026-10-13T00:00:00', '2026-10-13T02:00:00', { source: 
 const forecast = (over: Partial<OutageForecast> = {}): OutageForecast => ({
   state: 'fresh',
   groups: ['GPV5.2'],
-  lastOkAt: kyiv('2026-10-12T08:35:00'),
+  lastOkAt: siteTime('2026-10-12T08:35:00'),
   dataAgeMinutes: 25,
-  lastCheck: { checkedAt: kyiv('2026-10-12T08:35:00'), outcome: 'OK', error: null },
+  lastCheck: { checkedAt: siteTime('2026-10-12T08:35:00'), outcome: 'OK', error: null },
   windows: [morning, evening, tomorrow],
   now: { status: 'off', window: morning },
   next: evening,
@@ -82,8 +82,8 @@ describe('OutageCard', () => {
     restore = renderCard(
       forecast({
         state: 'stale',
-        lastOkAt: kyiv('2026-10-11T19:00:00'),
-        lastCheck: { checkedAt: kyiv('2026-10-12T08:35:00'), outcome: 'CHALLENGE', error: 'firewall' },
+        lastOkAt: siteTime('2026-10-11T19:00:00'),
+        lastCheck: { checkedAt: siteTime('2026-10-12T08:35:00'), outcome: 'CHALLENGE', error: 'firewall' },
       }),
     ).restore;
 
@@ -99,7 +99,7 @@ describe('OutageCard', () => {
         windows: [],
         now: { status: 'unknown', window: null },
         next: null,
-        lastCheck: { checkedAt: kyiv('2026-10-12T08:35:00'), outcome: 'SERVER', error: 'HTTP 502' },
+        lastCheck: { checkedAt: siteTime('2026-10-12T08:35:00'), outcome: 'SERVER', error: 'HTTP 502' },
       }),
     ).restore;
 
@@ -110,8 +110,8 @@ describe('OutageCard', () => {
   it.each([
     ['disabled', 'Switched off in Settings.'],
     ['pending', 'The reader looks the house up on its next check.'],
-    ['not-found', 'The house is not on the DTEK site. Check the address in Settings.'],
-    ['no-groups', 'The DTEK site lists no outage group for this house.'],
+    ['not-found', 'The house is not on the outage site. Check the address in Settings.'],
+    ['no-groups', 'The outage site lists no outage group for this house.'],
   ] as const)('explains the %s state', async (state, text) => {
     restore = renderCard(forecast({ state, windows: [], now: { status: 'unknown', window: null }, next: null })).restore;
     expect(await screen.findByText(text)).toBeInTheDocument();

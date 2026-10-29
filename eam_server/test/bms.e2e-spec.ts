@@ -428,9 +428,10 @@ describe('BMS devices (e2e)', () => {
       const base = `/api/inverter/profiles/${profileId}/bms/${device.id}/export`;
       const range = `from=${new Date(t0).toISOString()}&to=${new Date(t0 + 2500 * 30_000).toISOString()}`;
 
-      const res = await call('get', `${base}?${range}&tz=Europe/Kyiv`).expect(
-        200,
-      );
+      const res = await call(
+        'get',
+        `${base}?${range}&tz=Europe/Helsinki`,
+      ).expect(200);
 
       expect(res.headers['content-type']).toMatch(/^text\/csv/);
       expect(res.headers['content-disposition']).toMatch(
@@ -438,7 +439,7 @@ describe('BMS devices (e2e)', () => {
       );
       const lines = res.text.split('\r\n');
       expect(lines[0]).toMatch(
-        /^\uFEFFTime \(Europe\/Kyiv\),State of charge \(%\),Pack voltage \(V\)/,
+        /^\uFEFFTime \(Europe\/Helsinki\),State of charge \(%\),Pack voltage \(V\)/,
       );
       expect(lines[0]).toContain('Cell 16 (V)');
       expect(lines[1].startsWith('2026-10-06 13:00:00,0,54.028,')).toBe(true);

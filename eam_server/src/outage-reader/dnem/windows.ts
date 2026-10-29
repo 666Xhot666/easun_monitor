@@ -2,14 +2,16 @@ import type { ConfirmedSchedule, DaySlots } from './schedule-page';
 import type { SlotStatus } from './slot-status';
 
 /**
- * Outage windows from the site's hourly slots. The site's hours are Kyiv wall
- * clock time; windows are real instants (UTC). On the day clocks go forward
+ * Outage windows from the site's hourly slots. The site's hours are its local
+ * wall clock time; windows are real instants (UTC). On the day clocks go forward
  * the missing hour has no length and drops out; on the day they go back, the
  * repeated hour covers both of its runs, erring towards a longer outage (a
  * `first` half of that hour covers only its first run).
  */
 
-export const KYIV = 'Europe/Kyiv';
+import { SITE_TIME_ZONE } from './constants';
+
+export { SITE_TIME_ZONE };
 
 export interface LocalDate {
   year: number;
@@ -40,12 +42,12 @@ const PIECES: Record<SlotStatus, [number, number, WindowStatus] | null> = {
   unknown: [0, 60, 'unknown'],
 };
 
-/** The windows of one Kyiv day, from its 24 hourly slots. */
+/** The windows of one local day, from its 24 hourly slots. */
 export function dayWindows(
   date: LocalDate,
   slots: DaySlots,
   source: WindowSource,
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): OutageWindow[] {
   const windows: OutageWindow[] = [];
   slots.forEach((status, hour) => {
@@ -96,7 +98,7 @@ export function weeklyWindows(
   week: Record<number, DaySlots>,
   from: Date,
   to: Date,
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): OutageWindow[] {
   if (to <= from) return [];
   const windows: OutageWindow[] = [];
@@ -120,13 +122,13 @@ export function weeklyWindows(
 
 /**
  * The confirmed schedule of the given groups (a house can be on several), and
- * the Kyiv days it covers: a day counts only if one of the groups is published
+ * the Local days it covers: a day counts only if one of the groups is published
  * for it.
  */
 export function confirmedWindows(
   days: ConfirmedSchedule['days'],
   groups: string[],
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): { windows: OutageWindow[]; coveredDays: LocalDate[] } {
   const windows: OutageWindow[] = [];
   const coveredDays: LocalDate[] = [];
@@ -147,7 +149,7 @@ export function confirmedWindows(
   return { windows: mergeWindows(windows), coveredDays };
 }
 
-// --- Kyiv wall clock <-> UTC -------------------------------------------------
+// --- site wall clock <-> UTC -------------------------------------------------
 
 const formatters = new Map<string, Intl.DateTimeFormat>();
 
@@ -185,11 +187,11 @@ function wallClock(utcMs: number, timeZone: string): number {
 }
 
 /** Minutes since local midnight at `at`. */
-export function localMinuteOf(at: Date, timeZone = KYIV): number {
+export function localMinuteOf(at: Date, timeZone = SITE_TIME_ZONE): number {
   return Math.floor((wallClock(at.getTime(), timeZone) % 86_400_000) / 60_000);
 }
 
-export function localDateOf(at: Date, timeZone = KYIV): LocalDate {
+export function localDateOf(at: Date, timeZone = SITE_TIME_ZONE): LocalDate {
   const wall = new Date(wallClock(at.getTime(), timeZone));
   return {
     year: wall.getUTCFullYear(),
@@ -205,7 +207,7 @@ export function localDateOf(at: Date, timeZone = KYIV): LocalDate {
 export function wallToUtc(
   date: LocalDate,
   minute: number,
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): number {
   const wall = Date.UTC(date.year, date.month - 1, date.day, 0, minute);
   const HALF_DAY = 12 * 3600_000;

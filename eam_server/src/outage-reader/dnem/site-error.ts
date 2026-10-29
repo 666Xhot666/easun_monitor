@@ -1,5 +1,5 @@
 /**
- * Why a request to the DTEK site failed:
+ * Why a request to the outage site failed:
  * - `challenge`: the firewall answered with its check instead of the page;
  * - `rejected`: the site refused the request (a 4xx, or `result: false`);
  * - `shape`: the answer is not in the expected form (the site changed);

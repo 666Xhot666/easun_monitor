@@ -1,17 +1,17 @@
 import type { ForecastWindow } from './forecast';
 import { reminderText, remindersDue, type Member } from './reminders';
 
-const kyiv = (local: string) => new Date(`${local}+03:00`);
-const TZ = 'Europe/Kyiv';
-const NOW = kyiv('2026-10-12T17:45:00');
+const siteTime = (local: string) => new Date(`${local}+03:00`);
+const TZ = 'Europe/Helsinki';
+const NOW = siteTime('2026-10-12T17:45:00');
 
 const window = (
   start: string,
   end: string,
   over: Partial<ForecastWindow> = {},
 ): ForecastWindow => ({
-  start: kyiv(start),
-  end: kyiv(end),
+  start: siteTime(start),
+  end: siteTime(end),
   status: 'off',
   source: 'schedule',
   description: null,
@@ -38,11 +38,11 @@ describe('remindersDue', () => {
       { window: confirmed, userId: 1 },
     ]);
     expect(
-      remindersDue([confirmed], [member()], kyiv('2026-10-12T17:44:59')),
+      remindersDue([confirmed], [member()], siteTime('2026-10-12T17:44:59')),
     ).toEqual([]);
     // Started already: too late.
     expect(
-      remindersDue([confirmed], [member()], kyiv('2026-10-12T18:00:00')),
+      remindersDue([confirmed], [member()], siteTime('2026-10-12T18:00:00')),
     ).toEqual([]);
   });
 

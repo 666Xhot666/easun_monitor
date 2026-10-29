@@ -270,7 +270,12 @@ With the ESP32 proxy (`esp_proxy/`) between the inverter and the Wi-Fi logger,
 set `ESP_PORT` to the proxy's USB device instead of the two taps. The service
 then reads the inverter itself through the proxy before answering, so the
 values are live: `POLLING_INTERVAL_MS=2500` gives a new reading on every poll
-(values younger than 2 seconds are reused). Writes are still refused.
+(values younger than 2 seconds are reused). Settings writes from the app go
+through the proxy to the inverter, and the inverter's own answer comes back:
+taken, refused (e.g. not allowed in the current working mode), or no answer
+within 2.5 seconds. A register the map does not mark writable is refused
+without being sent. Each write is logged, e.g.
+`The inverter took a write of [1] at 305`.
 
 ```bash
 ESP_PORT=/dev/cu.usbserial-C npm run serial-logger
@@ -301,8 +306,8 @@ That user must be in the `dialout` group: run
 header. A tap without a USB serial number gets a generic `by-id` name. With two
 such devices, use its `/dev/serial/by-path/` name instead.
 
-Serial mode is read-only: settings writes are refused, and nothing is written
-to the taps or the inverter. The service keeps saving the two-tap capture files
+With the two taps, serial mode is read-only: settings writes are refused, and
+nothing is written to the taps or the inverter. The service keeps saving the two-tap capture files
 in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
 program can open a serial port, so stop the serial logger before using the
 `/dev/serial` capture panel, and the other way round.
@@ -341,7 +346,8 @@ environment, then `eam_server/.env`, then the repository's `.env`.
   `setcap` above can be removed with `sudo setcap -r` on the same path. View
   logs with `journalctl -u easun-bms-reader -f`.
 - The JK phone app cannot connect while the reader is connected.
-- Each session writes `.dev-captures/bms/<start>.jsonl` with the raw frames.
+- It writes the raw frames to `.dev-captures/bms/<start>.jsonl`, a new file
+  each day; captures not written to for two weeks are deleted.
 
 The decoder is ported from
 [syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0),
@@ -349,8 +355,8 @@ commit `59c994e`.
 
 ## Outage schedule reader
 
-Checks the DTEK Dnipro site (`dtek-dnem.com.ua`) for the outage
-schedule of the address set in the app, and reports to the server.
+Checks the grid operator's site set in `OUTAGE_SITE_URL` for the
+outage schedule of the address set in the app, and reports to the server.
 Runs natively beside the server, like the BMS reader. Read-only.
 
 Set the address in the app under the inverter's Settings > Outage
@@ -363,7 +369,7 @@ how old the data is. Under Settings > Notifications each user picks the
 outage notices: schedule updated, outage soon (their own lead time,
 15 minutes by default; possible outages only if switched on), and
 schedule unavailable after 12 hours without a successful check. Outage
-times are Kyiv time.
+times are in site time.
 
 "Check now" on the Overview card asks for a check at once: between
 checks the reader asks the server every minute whether one is wanted.
@@ -381,9 +387,10 @@ Settings (see `.env.example`), read from the environment, then
 
 - `OUTAGE_SERVER_URL`: the server, e.g. `http://localhost:3000`.
 - `OUTAGE_READER_TOKEN`: the token from the app.
+- `OUTAGE_SITE_URL`: the grid operator's site with the outage schedule.
 - `OUTAGE_INTERVAL_MINUTES` (120) and `OUTAGE_EVENING_INTERVAL_MINUTES`
   (30): how often it checks, normally and during `OUTAGE_EVENING`
-  (`18:00-23:00`, Kyiv time).
+  (`18:00-23:00`, site time).
 - `OUTAGE_BLOCKED_HOURS` (6): the pause after the site turns even the
   browser away.
 - `OUTAGE_BROWSER_EVERY_DAYS` (7): one check this often goes through

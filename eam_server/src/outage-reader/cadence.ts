@@ -1,5 +1,5 @@
 import {
-  KYIV,
+  SITE_TIME_ZONE,
   localDateOf,
   localMinuteOf,
   nextDay,
@@ -27,7 +27,7 @@ export function nextCheckAt(
   from: Date,
   cadence: Cadence,
   last: { blocked: boolean },
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): Date {
   if (last.blocked) {
     return new Date(from.getTime() + cadence.blockedHours * 60 * MINUTE);

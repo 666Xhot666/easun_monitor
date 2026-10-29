@@ -1,6 +1,6 @@
 /**
- * The outage schedule reader: a native process that checks the DTEK Dnipro
- * site for the address set in the app and reports to the server, on its own
+ * The outage schedule reader: a native process that checks the grid
+ * operator's site for the address set in the app and reports to the server, on its own
  * schedule (see cadence.ts). Runs beside the server, like the BMS reader.
  *
  *   npm run outage-reader             check on schedule, forever
@@ -22,11 +22,12 @@ import { DnemSiteClient } from './dnem/site-client';
 import { runCheck, type ReaderState } from './run-check';
 import { ReaderServerClient } from './server-client';
 import { waitForNextCheck } from './wait';
+import { SITE_TIME_ZONE } from './dnem/constants';
 
 const log = (message: string) =>
   console.log(formatLogLine(message, new Date(), 'outage-reader'));
-const kyivTime = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Europe/Kyiv',
+const siteClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: SITE_TIME_ZONE,
   dateStyle: 'short',
   timeStyle: 'short',
 });
@@ -75,7 +76,12 @@ async function main(): Promise<void> {
   const deps = {
     server,
     read: (city: string, street: string, options: { forceBrowser: boolean }) =>
-      readStreet(new DnemSiteClient(), city, street, options),
+      readStreet(
+        new DnemSiteClient({ baseUrl: config.siteUrl }),
+        city,
+        street,
+        options,
+      ),
     now: () => new Date(),
     browserEveryDays: config.browserEveryDays,
     log,
@@ -96,7 +102,7 @@ async function main(): Promise<void> {
     }
     if (once) return;
     const next = nextCheckAt(started, config.cadence, { blocked });
-    log(`Next check at ${kyivTime.format(next)} Kyiv time`);
+    log(`Next check at ${siteClock.format(next)} (site time)`);
     // Earlier if someone asks for a check in the app.
     await waitForNextCheck(
       { server, now: () => new Date(), sleep, log },

@@ -5,12 +5,12 @@ import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { ageText, useNow } from '../shell/age';
 import { Button, CardTitle, Dot } from '../ui';
+import { SITE_TIME_ZONE } from './constants';
 import type { ForecastState, ForecastWindow, OutageForecast } from './types';
 import { useOutageForecast } from './useOutage';
 
-const KYIV = 'Europe/Kyiv';
-const time = new Intl.DateTimeFormat('en-GB', { timeZone: KYIV, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
-const dayOf = new Intl.DateTimeFormat('en-CA', { timeZone: KYIV, year: 'numeric', month: '2-digit', day: '2-digit' });
+const time = new Intl.DateTimeFormat('en-GB', { timeZone: SITE_TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+const dayOf = new Intl.DateTimeFormat('en-CA', { timeZone: SITE_TIME_ZONE, year: 'numeric', month: '2-digit', day: '2-digit' });
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
 
@@ -35,7 +35,7 @@ interface Props {
 }
 
 /**
- * Today and tomorrow's scheduled outages for the inverter's DTEK address:
+ * Today and tomorrow's scheduled outages for the inverter's address on the outage site:
  * whether power is scheduled on now, what comes, how sure and how old.
  */
 export default function OutageCard({ profileId, now: fixedNow }: Props) {

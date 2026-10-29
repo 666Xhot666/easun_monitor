@@ -18,7 +18,7 @@ interface EventFields {
 
 /** What one check changed in the address's outages. */
 export type ScheduleChange =
-  /** The confirmed schedule of a Kyiv day (YYYY-MM-DD) appeared. */
+  /** The confirmed schedule of a local day (YYYY-MM-DD) appeared. */
   | { type: 'published'; day: string }
   | ({ type: 'new' } & EventFields)
   | ({ type: 'revised'; before: { start: Date; end: Date } } & EventFields)

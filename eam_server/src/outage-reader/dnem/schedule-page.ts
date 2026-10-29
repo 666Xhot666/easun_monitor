@@ -2,7 +2,7 @@ import { SiteError } from './site-error';
 import { toSlotStatus, type SlotStatus } from './slot-status';
 
 /**
- * Parses the DTEK Dnipro schedule page (/ua/shutdowns). Besides the AJAX
+ * Parses the grid operator's schedule page (/ua/shutdowns). Besides the AJAX
  * address and CSRF token in its meta tags, the page carries its data inline as
  * `DisconSchedule.<name> = <JSON>` assignments: every city's streets, the
  * weekly pattern of each outage group, and the confirmed schedule.
@@ -11,7 +11,7 @@ import { toSlotStatus, type SlotStatus } from './slot-status';
  * a changed site is reported as such instead of being read as "no outages".
  */
 
-/** 24 statuses, index 0 = 00:00–01:00 Kyiv time. */
+/** 24 statuses, index 0 = 00:00–01:00 site time. */
 export type DaySlots = SlotStatus[];
 
 export interface WeeklyPattern {
@@ -22,11 +22,11 @@ export interface WeeklyPattern {
 }
 
 export interface ConfirmedSchedule {
-  /** Unix time of today's midnight in Kyiv, as the site sees it. */
+  /** Unix time of today's local midnight, as the site sees it. */
   today: number;
-  /** The site's "updated" stamp, Kyiv time, e.g. "10.10.2026 20:40". */
+  /** The site's "updated" stamp, in site time, e.g. "10.10.2026 20:40". */
   updated: string;
-  /** Day (Unix time of its Kyiv midnight) → group id → slots. */
+  /** Day (Unix time of its local midnight) → group id → slots. */
   days: Record<number, Record<string, DaySlots>>;
 }
 

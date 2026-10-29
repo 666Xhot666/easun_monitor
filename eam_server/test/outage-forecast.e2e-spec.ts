@@ -51,7 +51,7 @@ describe('Outage forecast (e2e)', () => {
     const { body } = await request(app.getHttpServer())
       .put(`/api/inverter/profiles/${profileId}/outage-source`)
       .set('Authorization', `Bearer ${admin}`)
-      .send({ city: 'м. Дніпро', street: 'вул. Тестова', house: '12а' })
+      .send({ city: 'м. Тестове', street: 'вул. Тестова', house: '12а' })
       .expect(200);
     readerToken = body.token;
   });

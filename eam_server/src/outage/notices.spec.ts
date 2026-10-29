@@ -1,9 +1,9 @@
 import { scheduleUpdateText, type ScheduleChange } from './notices';
 
-// Kyiv is UTC+3 until 25 October 2026. 12 October 2026 is a Monday.
-const kyiv = (local: string) => new Date(`${local}+03:00`);
-const NOW = kyiv('2026-10-12T20:40:00');
-const TZ = 'Europe/Kyiv';
+// The site's time is UTC+3 until 25 October 2026. 12 October 2026 is a Monday.
+const siteTime = (local: string) => new Date(`${local}+03:00`);
+const NOW = siteTime('2026-10-12T20:40:00');
+const TZ = 'Europe/Helsinki';
 
 describe('scheduleUpdateText', () => {
   it('lists every change of one check, old → new', () => {
@@ -13,16 +13,16 @@ describe('scheduleUpdateText', () => {
         type: 'new',
         kind: 'SCHEDULE',
         status: 'OFF',
-        start: kyiv('2026-10-13T18:00:00'),
-        end: kyiv('2026-10-13T20:00:00'),
+        start: siteTime('2026-10-13T18:00:00'),
+        end: siteTime('2026-10-13T20:00:00'),
         description: null,
       },
       {
         type: 'new',
         kind: 'SCHEDULE',
         status: 'POSSIBLE',
-        start: kyiv('2026-10-12T22:00:00'),
-        end: kyiv('2026-10-12T23:00:00'),
+        start: siteTime('2026-10-12T22:00:00'),
+        end: siteTime('2026-10-12T23:00:00'),
         description: null,
       },
       {
@@ -30,27 +30,27 @@ describe('scheduleUpdateText', () => {
         kind: 'SCHEDULE',
         status: 'OFF',
         before: {
-          start: kyiv('2026-10-12T21:00:00'),
-          end: kyiv('2026-10-12T22:00:00'),
+          start: siteTime('2026-10-12T21:00:00'),
+          end: siteTime('2026-10-12T22:00:00'),
         },
-        start: kyiv('2026-10-12T21:00:00'),
-        end: kyiv('2026-10-12T22:30:00'),
+        start: siteTime('2026-10-12T21:00:00'),
+        end: siteTime('2026-10-12T22:30:00'),
         description: null,
       },
       {
         type: 'withdrawn',
         kind: 'SCHEDULE',
         status: 'OFF',
-        start: kyiv('2026-10-14T00:00:00'),
-        end: kyiv('2026-10-14T02:00:00'),
+        start: siteTime('2026-10-14T00:00:00'),
+        end: siteTime('2026-10-14T02:00:00'),
         description: null,
       },
       {
         type: 'new',
         kind: 'REPAIR',
         status: 'OFF',
-        start: kyiv('2026-10-12T21:10:00'),
-        end: kyiv('2026-10-13T03:00:00'),
+        start: siteTime('2026-10-12T21:10:00'),
+        end: siteTime('2026-10-13T03:00:00'),
         description: 'Аварійні ремонтні роботи',
       },
     ];

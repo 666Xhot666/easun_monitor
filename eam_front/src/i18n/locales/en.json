@@ -265,8 +265,8 @@
       "noOutages": "No outages scheduled for today or tomorrow.",
       "disabled": "Switched off in Settings.",
       "pending": "The reader looks the house up on its next check.",
-      "notFound": "The house is not on the DTEK site. Check the address in Settings.",
-      "noGroups": "The DTEK site lists no outage group for this house.",
+      "notFound": "The house is not on the outage site. Check the address in Settings.",
+      "noGroups": "The outage site lists no outage group for this house.",
       "powerOn": "Power on by the schedule",
       "notKnown": "Schedule not known yet",
       "offUntil": "Power off until {{time}}",
@@ -604,7 +604,7 @@
       },
       "schedule-unavailable": {
         "label": "Outage schedule unavailable",
-        "detail": "When the DTEK site could not be checked for 12 hours"
+        "detail": "When the outage site could not be checked for 12 hours"
       },
       "server-heat": {
         "label": "Server overheating",
@@ -883,7 +883,7 @@
     "tokenFailed": "Couldn't make a new token.",
     "removeFailed": "Couldn't remove the address.",
     "title": "Outage schedule",
-    "noAddress": "No address yet. With one set, the outage schedule reader checks the DTEK site for it.",
+    "noAddress": "No address yet. With one set, the outage schedule reader checks the outage site for it.",
     "lastAsked": "Reader last asked {{age}} ago",
     "check": "Check the outage schedule",
     "newToken": "New reader token",
@@ -898,7 +898,7 @@
     "removeWarning": "The reader stops checking. The stored schedule and outages of this address are deleted too.",
     "change": "Change the address",
     "set": "Set the address",
-    "listsHint": "The lists of cities and streets appear after the reader's first check; until then, type them as the DTEK site writes them.",
+    "listsHint": "The lists of cities and streets appear after the reader's first check; until then, type them as the outage site writes them.",
     "city": "City",
     "street": "Street",
     "house": "House",

@@ -26,9 +26,9 @@ export interface OkCheck {
   /** Group → weekday "1" (Monday) .. "7" → slots. */
   weekly: Record<string, Record<string, DaySlots>>;
   confirmed: {
-    /** The site's "updated" stamp, Kyiv time. */
+    /** The site's "updated" stamp, in site time. */
     updated: string;
-    /** Kyiv day "YYYY-MM-DD" → group → slots. */
+    /** local day "YYYY-MM-DD" → group → slots. */
     days: Record<string, Record<string, DaySlots>>;
   };
 }

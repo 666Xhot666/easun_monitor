@@ -2,6 +2,8 @@ import type { Cadence } from './cadence';
 
 export interface OutageReaderConfig {
   server: { url: string; token: string };
+  /** The grid operator's site the schedule is read from, without a trailing slash. */
+  siteUrl: string;
   cadence: Cadence;
   browserEveryDays: number;
   stateFile: string;
@@ -19,6 +21,11 @@ export function outageReaderConfig(
   if (!token)
     throw new Error(
       'OUTAGE_READER_TOKEN is required: set the outage schedule address in the app to get one',
+    );
+  const siteUrl = env.OUTAGE_SITE_URL?.trim().replace(/\/+$/, '');
+  if (!siteUrl)
+    throw new Error(
+      "OUTAGE_SITE_URL is required: the grid operator's site with the outage schedule",
     );
 
   function minutes(name: string, fallback: number, min: number): number {
@@ -57,6 +64,7 @@ export function outageReaderConfig(
 
   return {
     server: { url, token },
+    siteUrl,
     cadence: {
       intervalMinutes,
       eveningIntervalMinutes,

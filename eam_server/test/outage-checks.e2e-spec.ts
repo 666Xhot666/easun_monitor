@@ -62,7 +62,7 @@ describe('Outage schedule checks (e2e)', () => {
     const { body } = await request(app.getHttpServer())
       .put(`/api/inverter/profiles/${profileId}/outage-source`)
       .set('Authorization', `Bearer ${admin}`)
-      .send({ city: 'м. Дніпро', street: 'вул. Тестова', house: '12а' })
+      .send({ city: 'м. Тестове', street: 'вул. Тестова', house: '12а' })
       .expect(200);
     readerToken = body.token;
     sourceId = body.source.id;
@@ -350,7 +350,7 @@ describe('Outage schedule checks (e2e)', () => {
     });
 
     it("follows a confirmed day's outage as it is extended and then cancelled", async () => {
-      // 2026-10-11 18:00-20:00 Kyiv (UTC+3), then 18:00-21:00, then none.
+      // 2026-10-11 18:00-20:00 site time (UTC+3), then 18:00-21:00, then none.
       const tomorrow = (slots: string[]) => ({
         updated: '10.10.2026 20:40',
         days: { '2026-10-11': { 'GPV5.2': slots } },
@@ -410,7 +410,7 @@ describe('Outage schedule checks (e2e)', () => {
     });
 
     it('leaves past outages and days the site no longer shows as they were', async () => {
-      // 06:00-07:00 Kyiv on the 11th, then checks after it ended.
+      // 06:00-07:00 site time on the 11th, then checks after it ended.
       await send(
         okCheck({
           checkedAt: '2026-10-11T02:00:00.000Z',

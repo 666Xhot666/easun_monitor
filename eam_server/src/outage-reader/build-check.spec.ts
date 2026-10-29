@@ -7,16 +7,16 @@ const day = (set: Record<number, string> = {}) =>
 const week = (fill = day()) =>
   Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [d, fill]));
 
-// Kyiv midnights: 2026-10-10 and 2026-10-11 (UTC+3).
+// Local midnights: 2026-10-10 and 2026-10-11 (UTC+3).
 const SAT = 1791579600;
 const SUN = 1791666000;
 
 const reading = (over: Partial<StreetReading> = {}): StreetReading => ({
   usedBrowser: false,
   page: {
-    ajaxUrl: 'https://www.dtek-dnem.com.ua/ua/ajax',
+    ajaxUrl: 'https://outage-site.test/ua/ajax',
     csrfToken: 't',
-    streets: { 'м. Дніпро': ['вул. Тестова'] },
+    streets: { 'м. Тестове': ['вул. Тестова'] },
     weekly: {
       groupNames: { 'GPV5.2': 'Черга 5.2', 'GPV1.1': 'Черга 1.1' },
       groups: { 'GPV5.2': week(day({ 8: 'maybe' })), 'GPV1.1': week() },
