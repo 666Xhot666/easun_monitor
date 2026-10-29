@@ -8,6 +8,7 @@ import type { ForecastWindow } from './forecast';
 import { OutageForecastService } from './outage-forecast.service';
 import { reminderMessage, remindersDue, type Member } from './reminders';
 import { SOC_FRESH_MS } from './constants';
+import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
 
 const DAY_MS = 24 * 60 * 60_000;
 
@@ -135,8 +136,10 @@ export class OutageReminders {
     if (!latest || now.getTime() - latest.timestamp.getTime() > SOC_FRESH_MS) {
       return null;
     }
-    const soc = (latest.payload as Record<string, unknown>).BatterySoc;
-    return typeof soc === 'number' ? soc : null;
+    const { batterySoc } = SMG_II_READINGS.common(
+      latest.payload as Record<string, number>,
+    );
+    return batterySoc ?? null;
   }
 
   /** Drops what is about windows that started over a day ago. */

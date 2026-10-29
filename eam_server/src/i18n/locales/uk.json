@@ -273,5 +273,14 @@
     "neverEqualizeLithium": "Ніколи не вирівнюйте літієвий акумулятор",
     "forBattery": "для акумулятора {{voltage}} В",
     "between": "Має бути від {{min}} до {{max}}{{context}}"
+  },
+  "inverterState": {
+    "starting": "Увімкнення",
+    "standby": "Очікування",
+    "grid": "Мережа",
+    "off-grid": "Автономний",
+    "bypass": "Байпас",
+    "charging": "Заряджання",
+    "fault": "Несправність"
   }
 }

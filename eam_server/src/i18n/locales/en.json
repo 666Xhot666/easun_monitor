@@ -271,5 +271,14 @@
     "neverEqualizeLithium": "Never equalize a lithium battery",
     "forBattery": "for a {{voltage}} V battery",
     "between": "Must be between {{min}} and {{max}}{{context}}"
+  },
+  "inverterState": {
+    "starting": "Power on",
+    "standby": "Standby",
+    "grid": "Mains",
+    "off-grid": "Off-grid",
+    "bypass": "Bypass",
+    "charging": "Charging",
+    "fault": "Fault"
   }
 }
