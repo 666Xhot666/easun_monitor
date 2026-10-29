@@ -1,7 +1,7 @@
 import { parseSchedulePage } from './schedule-page';
 import { SiteError } from './site-error';
 
-const PAGE_URL = 'https://www.dtek-dnem.com.ua/ua/shutdowns';
+const PAGE_URL = 'https://outage-site.test/ua/shutdowns';
 
 const hourly = Object.fromEntries(
   Array.from({ length: 24 }, (_, i) => {
@@ -85,7 +85,7 @@ function errorOf(html: string): SiteError {
 describe('parseSchedulePage', () => {
   it('resolves the AJAX address against the page and reads the CSRF token', () => {
     const parsed = parseSchedulePage(page(), PAGE_URL);
-    expect(parsed.ajaxUrl).toBe('https://www.dtek-dnem.com.ua/ua/ajax');
+    expect(parsed.ajaxUrl).toBe('https://outage-site.test/ua/ajax');
     expect(parsed.csrfToken).toBe('tok-123');
   });
 
@@ -99,7 +99,7 @@ describe('parseSchedulePage', () => {
 
     const missing = page({ head: '<meta name="csrf-token" content="t">' });
     expect(parseSchedulePage(missing, PAGE_URL).ajaxUrl).toBe(
-      'https://www.dtek-dnem.com.ua/ua/ajax',
+      'https://outage-site.test/ua/ajax',
     );
   });
 

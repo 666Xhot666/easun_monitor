@@ -110,8 +110,8 @@ describe('OutageCard', () => {
   it.each([
     ['disabled', 'Switched off in Settings.'],
     ['pending', 'The reader looks the house up on its next check.'],
-    ['not-found', 'The house is not on the DTEK site. Check the address in Settings.'],
-    ['no-groups', 'The DTEK site lists no outage group for this house.'],
+    ['not-found', 'The house is not on the outage site. Check the address in Settings.'],
+    ['no-groups', 'The outage site lists no outage group for this house.'],
   ] as const)('explains the %s state', async (state, text) => {
     restore = renderCard(forecast({ state, windows: [], now: { status: 'unknown', window: null }, next: null })).restore;
     expect(await screen.findByText(text)).toBeInTheDocument();

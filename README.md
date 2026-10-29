@@ -349,8 +349,8 @@ commit `59c994e`.
 
 ## Outage schedule reader
 
-Checks the DTEK Dnipro site (`dtek-dnem.com.ua`) for the outage
-schedule of the address set in the app, and reports to the server.
+Checks the grid operator's site set in `OUTAGE_SITE_URL` for the
+outage schedule of the address set in the app, and reports to the server.
 Runs natively beside the server, like the BMS reader. Read-only.
 
 Set the address in the app under the inverter's Settings > Outage
@@ -381,6 +381,7 @@ Settings (see `.env.example`), read from the environment, then
 
 - `OUTAGE_SERVER_URL`: the server, e.g. `http://localhost:3000`.
 - `OUTAGE_READER_TOKEN`: the token from the app.
+- `OUTAGE_SITE_URL`: the grid operator's site with the outage schedule.
 - `OUTAGE_INTERVAL_MINUTES` (120) and `OUTAGE_EVENING_INTERVAL_MINUTES`
   (30): how often it checks, normally and during `OUTAGE_EVENING`
   (`18:00-23:00`, Kyiv time).

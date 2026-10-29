@@ -62,7 +62,7 @@ describe('OutageSetup', () => {
 
     expect(await screen.findByText(/No address yet/)).toBeInTheDocument();
     // Before the reader's first run there are no lists to pick from.
-    expect(await screen.findByText(/type them as the DTEK site writes them/)).toBeInTheDocument();
+    expect(await screen.findByText(/type them as the outage site writes them/)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText('City'), 'м. Тестове');
     await userEvent.type(screen.getByLabelText('Street'), 'вул. Тестова');
     await userEvent.type(screen.getByLabelText('House'), '12а');
@@ -95,7 +95,7 @@ describe('OutageSetup', () => {
     await userEvent.type(city, 'м. Тестове');
     expect(await screen.findByRole('option', { name: 'просп. Тестовий', hidden: true })).toBeInTheDocument();
     expect(server.sent.find((c) => c.url === '/api/outage/streets')?.params).toEqual({ city: 'м. Тестове' });
-    expect(screen.queryByText(/type them as the DTEK site writes them/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/type them as the outage site writes them/)).not.toBeInTheDocument();
   });
 
   it('shows the group the reader found and when it last asked', async () => {

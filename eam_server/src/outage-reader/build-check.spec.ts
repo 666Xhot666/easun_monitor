@@ -14,7 +14,7 @@ const SUN = 1791666000;
 const reading = (over: Partial<StreetReading> = {}): StreetReading => ({
   usedBrowser: false,
   page: {
-    ajaxUrl: 'https://www.dtek-dnem.com.ua/ua/ajax',
+    ajaxUrl: 'https://outage-site.test/ua/ajax',
     csrfToken: 't',
     streets: { 'м. Тестове': ['вул. Тестова'] },
     weekly: {

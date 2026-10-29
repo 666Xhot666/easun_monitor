@@ -66,7 +66,7 @@ export function useOutageForecast(profileId: number, refreshMs = 300_000) {
   return { forecast, reload };
 }
 
-/** The DTEK site's cities, as the reader last sent them; empty before its first run. */
+/** The outage site's cities, as the reader last sent them; empty before its first run. */
 export function useOutageCities() {
   const [cities, setCities] = useState<string[] | null>(null);
 
@@ -88,7 +88,7 @@ export function useOutageCities() {
   return cities;
 }
 
-/** The streets of `city` on the DTEK site; empty when the city is not on its list (`known` false). */
+/** The streets of `city` on the outage site; empty when the city is not on its list (`known` false). */
 export function useOutageStreets(city: string, known: boolean) {
   const [loaded, setLoaded] = useState<{ city: string; streets: string[] } | null>(null);
 

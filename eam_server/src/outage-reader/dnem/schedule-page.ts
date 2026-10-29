@@ -2,7 +2,7 @@ import { SiteError } from './site-error';
 import { toSlotStatus, type SlotStatus } from './slot-status';
 
 /**
- * Parses the DTEK Dnipro schedule page (/ua/shutdowns). Besides the AJAX
+ * Parses the grid operator's schedule page (/ua/shutdowns). Besides the AJAX
  * address and CSRF token in its meta tags, the page carries its data inline as
  * `DisconSchedule.<name> = <JSON>` assignments: every city's streets, the
  * weekly pattern of each outage group, and the confirmed schedule.

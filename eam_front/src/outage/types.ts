@@ -1,4 +1,4 @@
-/** An inverter's DTEK address and what the reader found for it. */
+/** An inverter's address on the outage site and what the reader found for it. */
 export interface OutageSource {
   id: number;
   site: string;

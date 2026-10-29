@@ -35,7 +35,7 @@ interface Props {
 }
 
 /**
- * Today and tomorrow's scheduled outages for the inverter's DTEK address:
+ * Today and tomorrow's scheduled outages for the inverter's address on the outage site:
  * whether power is scheduled on now, what comes, how sure and how old.
  */
 export default function OutageCard({ profileId, now: fixedNow }: Props) {

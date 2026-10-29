@@ -1,9 +1,9 @@
 import type { OpenBrowser } from '../../browser';
 import { SiteError } from '../site-error';
 
-/** A fake DTEK Dnipro site for the reader's tests. */
+/** A fake outage site for the reader's tests. */
 
-export const BASE = 'https://www.dtek-dnem.com.ua';
+export const BASE = 'https://outage-site.test';
 
 export const slots = Object.fromEntries(
   Array.from({ length: 24 }, (_, i) => [String(i + 1), 'yes']),

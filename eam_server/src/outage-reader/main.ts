@@ -1,6 +1,6 @@
 /**
- * The outage schedule reader: a native process that checks the DTEK Dnipro
- * site for the address set in the app and reports to the server, on its own
+ * The outage schedule reader: a native process that checks the grid
+ * operator's site for the address set in the app and reports to the server, on its own
  * schedule (see cadence.ts). Runs beside the server, like the BMS reader.
  *
  *   npm run outage-reader             check on schedule, forever
@@ -75,7 +75,12 @@ async function main(): Promise<void> {
   const deps = {
     server,
     read: (city: string, street: string, options: { forceBrowser: boolean }) =>
-      readStreet(new DnemSiteClient(), city, street, options),
+      readStreet(
+        new DnemSiteClient({ baseUrl: config.siteUrl }),
+        city,
+        street,
+        options,
+      ),
     now: () => new Date(),
     browserEveryDays: config.browserEveryDays,
     log,

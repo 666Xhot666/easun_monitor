@@ -523,12 +523,12 @@ enum OutageHouseState {
   NOT_FOUND
 }
 
-/// Where an inverter's outage schedule comes from: a DTEK site and the
+/// Where an inverter's outage schedule comes from: an outage site and the
 /// address on it, at most one per inverter. The outage schedule reader asks
 /// for it with its token and checks it.
 model OutageSource {
   id                 Int              @id @default(autoincrement())
-  /// DTEK site key; "dnem" (DTEK Dnipro) is the only one so far.
+  /// Outage site key; "dnem" is the only one so far.
   site               String           @default("dnem")
   /// City, street and house in the site's own spelling.
   city               String
@@ -560,7 +560,7 @@ model OutageSource {
   @@map("outage_sources")
 }
 
-/// A DTEK site's city -> streets list, uploaded by the reader for the address
+/// An outage site's city -> streets list, uploaded by the reader for the address
 /// pickers and replaced when it changes.
 model OutageSiteStreets {
   site      String   @id

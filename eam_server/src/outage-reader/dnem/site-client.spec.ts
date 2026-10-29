@@ -15,7 +15,7 @@ import {
 describe('DnemSiteClient', () => {
   it('loads the schedule page like a browser and parses it', async () => {
     const { fetch, calls } = fakeFetch(html(PAGE));
-    const page = await new DnemSiteClient({ fetch }).loadPage();
+    const page = await new DnemSiteClient({ fetch, baseUrl: BASE }).loadPage();
     expect(calls[0].url).toBe(`${BASE}/ua/shutdowns`);
     expect(calls[0].init.method ?? 'GET').toBe('GET');
     expect(header(calls[0], 'user-agent')).toMatch(/Chrome\//);
@@ -28,7 +28,7 @@ describe('DnemSiteClient', () => {
     const { fetch, calls } = fakeFetch(
       html(PAGE, 200, [
         'visid_incap_1=abc; path=/; HttpOnly',
-        '_csrf-dtek-dnem=xyz; path=/',
+        '_csrf-site=xyz; path=/',
       ]),
       json({
         result: true,
@@ -36,7 +36,7 @@ describe('DnemSiteClient', () => {
         updateTimestamp: '20:16 10.10.2026',
       }),
     );
-    const client = new DnemSiteClient({ fetch });
+    const client = new DnemSiteClient({ fetch, baseUrl: BASE });
     await client.loadPage();
     await client.houses('м. Тестове', 'вул. Тестова');
 
@@ -50,9 +50,7 @@ describe('DnemSiteClient', () => {
     expect(header(post, 'x-csrf-token')).toBe('tok-1');
     expect(header(post, 'origin')).toBe(BASE);
     expect(header(post, 'referer')).toBe(`${BASE}/ua/shutdowns`);
-    expect(header(post, 'cookie')).toBe(
-      'visid_incap_1=abc; _csrf-dtek-dnem=xyz',
-    );
+    expect(header(post, 'cookie')).toBe('visid_incap_1=abc; _csrf-site=xyz');
     expect(
       Object.fromEntries(new URLSearchParams(String(post.init.body))),
     ).toEqual({
@@ -83,7 +81,7 @@ describe('DnemSiteClient', () => {
         },
       }),
     );
-    const client = new DnemSiteClient({ fetch });
+    const client = new DnemSiteClient({ fetch, baseUrl: BASE });
     await client.loadPage();
     expect(await client.houses('м. Тестове', 'вул. Тестова')).toEqual({
       '329': {
@@ -103,58 +101,58 @@ describe('DnemSiteClient', () => {
   it('needs the page before asking for houses', async () => {
     const { fetch } = fakeFetch();
     await expect(
-      new DnemSiteClient({ fetch }).houses('a', 'b'),
+      new DnemSiteClient({ fetch, baseUrl: BASE }).houses('a', 'b'),
     ).rejects.toThrow(/loadPage/);
   });
 
   describe('tells failures apart', () => {
     it('a failing site', async () => {
       const { fetch } = fakeFetch(html('<h1>Bad gateway</h1>', 502));
-      expect(await kindOf(new DnemSiteClient({ fetch }).loadPage())).toBe(
-        'server',
-      );
+      expect(
+        await kindOf(new DnemSiteClient({ fetch, baseUrl: BASE }).loadPage()),
+      ).toBe('server');
     });
 
     it('a busy site', async () => {
       const { fetch } = fakeFetch(html('slow down', 429));
-      expect(await kindOf(new DnemSiteClient({ fetch }).loadPage())).toBe(
-        'server',
-      );
+      expect(
+        await kindOf(new DnemSiteClient({ fetch, baseUrl: BASE }).loadPage()),
+      ).toBe('server');
     });
 
     it('no answer', async () => {
       const { fetch } = fakeFetch(new TypeError('fetch failed'));
-      expect(await kindOf(new DnemSiteClient({ fetch }).loadPage())).toBe(
-        'network',
-      );
+      expect(
+        await kindOf(new DnemSiteClient({ fetch, baseUrl: BASE }).loadPage()),
+      ).toBe('network');
     });
 
     it('the firewall check instead of the page, whatever its status', async () => {
       for (const status of [200, 403]) {
         const { fetch } = fakeFetch(html(CHALLENGE, status));
-        expect(await kindOf(new DnemSiteClient({ fetch }).loadPage())).toBe(
-          'challenge',
-        );
+        expect(
+          await kindOf(new DnemSiteClient({ fetch, baseUrl: BASE }).loadPage()),
+        ).toBe('challenge');
       }
     });
 
     it('the firewall check instead of the houses', async () => {
       const { fetch } = fakeFetch(html(PAGE), html(CHALLENGE));
-      const client = new DnemSiteClient({ fetch });
+      const client = new DnemSiteClient({ fetch, baseUrl: BASE });
       await client.loadPage();
       expect(await kindOf(client.houses('a', 'b'))).toBe('challenge');
     });
 
     it('a refused request', async () => {
       const { fetch } = fakeFetch(html(PAGE), html('Bad Request', 400));
-      const client = new DnemSiteClient({ fetch });
+      const client = new DnemSiteClient({ fetch, baseUrl: BASE });
       await client.loadPage();
       expect(await kindOf(client.houses('a', 'b'))).toBe('rejected');
     });
 
     it('a refusal in the answer', async () => {
       const { fetch } = fakeFetch(html(PAGE), json({ result: false }));
-      const client = new DnemSiteClient({ fetch });
+      const client = new DnemSiteClient({ fetch, baseUrl: BASE });
       await client.loadPage();
       expect(await kindOf(client.houses('a', 'b'))).toBe('rejected');
     });
@@ -175,7 +173,7 @@ describe('DnemSiteClient', () => {
       ];
       for (const body of bad) {
         const { fetch } = fakeFetch(html(PAGE), json(body));
-        const client = new DnemSiteClient({ fetch });
+        const client = new DnemSiteClient({ fetch, baseUrl: BASE });
         await client.loadPage();
         expect(await kindOf(client.houses('a', 'b'))).toBe('shape');
       }
@@ -190,7 +188,9 @@ describe('DnemSiteClient', () => {
         );
       })) as unknown as typeof globalThis.fetch;
     expect(
-      await kindOf(new DnemSiteClient({ fetch, timeoutMs: 20 }).loadPage()),
+      await kindOf(
+        new DnemSiteClient({ baseUrl: BASE, fetch, timeoutMs: 20 }).loadPage(),
+      ),
     ).toBe('network');
   });
 });
