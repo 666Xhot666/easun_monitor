@@ -1,5 +1,6 @@
 import i18n from '../i18n';
 import { plainUnit } from '../i18n/format';
+import { COLD_VOC_MARGIN } from './constants';
 
 /** A voltage as written in the current language. */
 const v = (value: number) => plainUnit(value, 'V');
@@ -45,9 +46,6 @@ export interface ArrayWarning {
   level: 'danger' | 'warning' | 'info';
   message: string;
 }
-
-/** Open-circuit voltage rises in the cold; this much headroom below the maximum is kept. */
-export const COLD_VOC_MARGIN = 0.15;
 
 const round = (value: number) => Math.round(value * 100) / 100;
 

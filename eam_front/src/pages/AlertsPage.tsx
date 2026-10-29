@@ -6,8 +6,8 @@ import AlertTimeline, { type AlertEvent } from '../alerts/AlertTimeline';
 import { markAlertsSeen } from '../alerts/seen';
 import { useLiveData } from '../shell/LiveData';
 import { Badge, Button, Dot, PageHeader, Segmented } from '../ui';
+import { ALERTS_PAGE_SIZE } from './constants';
 
-const PAGE = 50;
 type Filter = 'all' | 'outages' | Exclude<AlertEvent['kind'], 'schedule' | 'outage' | 'schedule-unavailable'>;
 const OUTAGE_KINDS: AlertEvent['kind'][] = ['schedule', 'outage', 'schedule-unavailable'];
 const matches = (kind: AlertEvent['kind'], filter: Filter) =>
@@ -38,11 +38,11 @@ export default function AlertsPage() {
     void (async () => {
       try {
         const { data } = await axios.get<AlertEvent[]>(`/api/inverter/${profile.id}/alerts`, {
-          params: { limit: PAGE, lang: language },
+          params: { limit: ALERTS_PAGE_SIZE, lang: language },
         });
         if (cancelled) return;
         setEvents(data);
-        setHasMore(data.length === PAGE);
+        setHasMore(data.length === ALERTS_PAGE_SIZE);
         if (data[0]) markAlertsSeen(profile.id, data[0].id);
       } catch {
         if (!cancelled) setFailed(true);
@@ -59,10 +59,10 @@ export default function AlertsPage() {
     setLoadingMore(true);
     try {
       const { data } = await axios.get<AlertEvent[]>(`/api/inverter/${profile.id}/alerts`, {
-        params: { limit: PAGE, before: oldest.id, lang: language },
+        params: { limit: ALERTS_PAGE_SIZE, before: oldest.id, lang: language },
       });
       setEvents((current) => [...(current ?? []), ...data]);
-      setHasMore(data.length === PAGE);
+      setHasMore(data.length === ALERTS_PAGE_SIZE);
     } finally {
       setLoadingMore(false);
     }

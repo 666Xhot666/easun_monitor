@@ -5,15 +5,13 @@ import { differenceInCalendarDays, parseISO } from 'date-fns';
 import { Download } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { daysRange, toDay, type Day } from './days';
-
-/** The server's limit on one export. */
-const MAX_DAYS = 31;
+import { EXPORT_MAX_DAYS } from './constants';
 
 function rangeProblem(first: Day, last: Day): string | null {
   if (!first || !last) return i18n.t('exportCsv.chooseBoth');
   const days = differenceInCalendarDays(parseISO(last), parseISO(first)) + 1;
   if (days < 1) return i18n.t('exportCsv.startFirst');
-  if (days > MAX_DAYS) return i18n.t('exportCsv.tooLong', { max: MAX_DAYS });
+  if (days > EXPORT_MAX_DAYS) return i18n.t('exportCsv.tooLong', { max: EXPORT_MAX_DAYS });
   return null;
 }
 
@@ -69,7 +67,7 @@ export default function ReadingsExport({ profileId, today = toDay(new Date()), b
 
   return (
     <section aria-label={t('exportCsv.label')} className="text-ink">
-      <p className="mb-3 text-sm text-muted">{t('exportCsv.intro', { max: MAX_DAYS })}</p>
+      <p className="mb-3 text-sm text-muted">{t('exportCsv.intro', { max: EXPORT_MAX_DAYS })}</p>
       <div className="flex flex-wrap items-end gap-3">
         {bmsId !== null && (
           <label className="flex flex-col gap-1 text-xs text-muted">

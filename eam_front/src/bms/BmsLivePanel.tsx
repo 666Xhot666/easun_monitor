@@ -7,17 +7,13 @@ import { Link } from 'react-router-dom';
 import type { BmsLatest, BmsReading } from './types';
 import { formatAge } from '../energy/freshness';
 import { batteryEta, formatDuration } from '../energy/overviewModel';
+import { CELL_MAX_V, CELL_MIN_V, IDLE_A } from './constants';
 
 interface BmsLivePanelProps {
   latest: BmsLatest | null;
   /** Where "Battery monitor settings" leads; left out for readers. */
   settingsHref?: string;
 }
-
-/** Bar scale for a LiFePO4 cell: empty to full. */
-const CELL_MIN_V = 2.5;
-const CELL_MAX_V = 3.65;
-const IDLE_A = 0.5;
 
 const card = 'rounded-xl border border-line bg-surface p-4 sm:p-[18px]';
 

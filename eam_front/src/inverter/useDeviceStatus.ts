@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import i18n from '../i18n';
 import axios from '../lib/apiClient';
-import { DEFAULT_POLL_MS } from './useReading';
+import { DEFAULT_POLL_MS } from './constants';
 
 /** GET /api/inverter/:profileId/status: the poller's link to the logger. */
 export interface DeviceStatus {

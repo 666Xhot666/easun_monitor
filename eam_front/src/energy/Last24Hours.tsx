@@ -7,9 +7,9 @@ import { Area, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis, 
 import axios from '../lib/apiClient';
 import { rangeQuery, type History } from '../history/historyRange';
 import { toPowerRows, type PowerRow } from './powerRows';
+import { LAST_24H_REFRESH_MS } from './constants';
 
 const FIELDS = ['PVPower', 'OutputActivePower', 'AverageMainsPower', 'BatteryCurrentSigned', 'BatteryVoltage', 'BatterySoc'];
-const REFRESH_MS = 5 * 60_000;
 
 const LEGEND = [
   { name: 'last24.solar', swatch: 'h-2.5 w-2.5 rounded-[2px] bg-pv' },
@@ -43,7 +43,7 @@ export default function Last24Hours({ profileId, historyHref }: { profileId: num
       }
     };
     void load();
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    const timer = setInterval(() => void load(), LAST_24H_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);

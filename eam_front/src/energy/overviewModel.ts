@@ -1,12 +1,9 @@
 import i18n from '../i18n';
 import { num, unit } from '../i18n/format';
+import { DEADBAND_W, GRID_PRESENT_MIN_V, IDLE_A } from './constants';
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
 
-/** Below this many watts a flow counts as idle, so noise doesn't flip the sentence. */
-const DEADBAND_W = 10;
-/** Battery current below this many amps counts as idle: no time to full or empty. */
-const IDLE_A = 0.5;
 
 const active = (watts: number | undefined) => watts !== undefined && Math.abs(watts) > DEADBAND_W;
 
@@ -67,9 +64,6 @@ export function formatDuration(hours: number): string {
   if (h === 0) return `${m} ${unit('m')}`;
   return m === 0 ? `${h} ${unit('h')}` : `${h} ${unit('h')} ${m} ${unit('m')}`;
 }
-
-/** Mains voltage above this means the grid is there, used or not. */
-const GRID_PRESENT_MIN_V = 90;
 
 /** "2.84 kW" from 1000 W up, "620 W" below, "--" when unknown. */
 export function formatKw(watts: number | undefined): string {

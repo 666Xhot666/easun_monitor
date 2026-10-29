@@ -5,6 +5,7 @@ import { num, withUnit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { toDay, type Day } from '../readings/days';
+import { FORECAST_REFRESH_MS } from './constants';
 
 interface ForecastDay {
   date: Day;
@@ -17,9 +18,6 @@ interface SolarForecast {
   days: ForecastDay[];
   assumedMounting: boolean;
 }
-
-/** The forecast is asked for again this often; the server keeps it for an hour. */
-const REFRESH_MS = 30 * 60_000;
 
 const card = 'flex h-full flex-col gap-2.5 rounded-xl border border-line bg-surface p-4 sm:p-[18px]';
 const linkButton = 'mt-1 inline-flex h-10 w-fit items-center rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2';
@@ -57,7 +55,7 @@ export default function SunForecastTile({ profileId, today = toDay(new Date()) }
       }
     };
     void load();
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    const timer = setInterval(() => void load(), FORECAST_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);
