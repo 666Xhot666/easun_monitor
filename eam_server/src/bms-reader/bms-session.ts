@@ -9,21 +9,15 @@ import { CELL_INFO, DEVICE_INFO, buildRequest } from '../bms/jk/requests';
 import type { BmsProtocol } from '../bms/jk/variants';
 import type { BmsReading, BmsSource } from '../bms/reading';
 import type { BleConnection } from './noble-connection';
+import {
+  CELL_INFO_ASK_MS,
+  FIRST_CELL_INFO_MS,
+  WATCHDOG_CHECK_MS,
+  WATCHDOG_MS,
+} from './constants';
 
 /** Bumped whenever decoding changes, so stored readings say which decoder made them. */
 export const DECODER_VERSION = 'jk-ble/1';
-
-/** No frame for this long: ask again once; another such silence ends the session. */
-const WATCHDOG_MS = 30_000;
-const WATCHDOG_CHECK_MS = 1_000;
-/**
- * Until cell info streams, ask for it this often (the reference asks on its
- * 5 s update cycle until the first cell-info frame). Asking right after the
- * device-info request, while the BMS is still answering it, gets ignored.
- */
-const CELL_INFO_ASK_MS = 5_000;
-/** No cell info at all within this long after connecting: reconnect. */
-const FIRST_CELL_INFO_MS = 60_000;
 
 export type SessionEvent =
   /** Every valid frame, raw, for the capture files. */

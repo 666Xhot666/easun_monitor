@@ -1,7 +1,8 @@
-const FIRST_DELAY_MS = 1_000;
-const MAX_DELAY_MS = 30_000;
-/** A connection that lasted this long counts as healthy: backoff starts over. */
-const HEALTHY_SESSION_MS = 30_000;
+import {
+  HEALTHY_SESSION_MS,
+  RECONNECT_FIRST_MS,
+  RECONNECT_MAX_MS,
+} from './constants';
 
 export interface ReconnectOptions<C> {
   connect: () => Promise<C>;
@@ -35,20 +36,21 @@ const message = (error: unknown) =>
 export async function reconnectLoop<C>(
   options: ReconnectOptions<C>,
 ): Promise<void> {
-  let delay = FIRST_DELAY_MS;
+  let delay = RECONNECT_FIRST_MS;
   while (!options.signal.aborted) {
     let reason: string;
     try {
       const connection = await options.connect();
       const startedAt = Date.now();
       reason = await options.session(connection);
-      if (Date.now() - startedAt >= HEALTHY_SESSION_MS) delay = FIRST_DELAY_MS;
+      if (Date.now() - startedAt >= HEALTHY_SESSION_MS)
+        delay = RECONNECT_FIRST_MS;
     } catch (error) {
       reason = message(error);
     }
     if (options.signal.aborted) return;
     options.onEvent(`${reason}; retrying in ${delay / 1000} s`);
     await sleep(delay, options.signal);
-    delay = Math.min(delay * 2, MAX_DELAY_MS);
+    delay = Math.min(delay * 2, RECONNECT_MAX_MS);
   }
 }

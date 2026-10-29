@@ -23,10 +23,7 @@ import { loadEnvFiles } from './env-files';
 import { IngestClient } from './ingest-client';
 import { connectBms, scanPeripherals } from './noble-transport';
 import { reconnectLoop } from './reconnect-loop';
-
-const SCAN_MS = 10_000;
-/** Readings waiting for the server: about five minutes at the send interval. */
-const QUEUE_MINUTES = 5;
+import { QUEUE_MINUTES, SCAN_MS } from './constants';
 
 const log = (message: string) =>
   console.log(formatLogLine(message, new Date(), 'bms-reader'));
