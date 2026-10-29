@@ -52,6 +52,12 @@ describe('DeviceReadings', () => {
     });
   });
 
+  it('lists the registers a set of common readings needs, each once', () => {
+    expect(
+      smgII().registersFor(['batteryPower', 'batteryVoltage', 'pvPower']),
+    ).toEqual(['BatteryVoltage', 'BatteryCurrentSigned', 'PVPower']);
+  });
+
   it('refuses a mapping to a register the map does not have, or an unknown reading', () => {
     const wrong = (over: object) =>
       parseReadingsFile(

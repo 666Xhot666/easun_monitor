@@ -1,6 +1,11 @@
 import { Transform } from 'class-transformer';
 import {
+  COMMON_READINGS,
+  type CommonReading,
+} from '../readings/common-readings';
+import {
   IsArray,
+  IsIn,
   IsDate,
   IsInt,
   IsOptional,
@@ -37,4 +42,14 @@ export class HistoryQueryDto {
   @IsArray()
   @Matches(/^[A-Za-z0-9]+$/, { each: true })
   fields?: string[];
+
+  /**
+   * Comma-separated common readings (pvPower, batteryPower, ...): the
+   * points then carry them by those names. Not with `fields`.
+   */
+  @IsOptional()
+  @Transform(({ value }) => String(value).split(',').filter(Boolean))
+  @IsArray()
+  @IsIn(COMMON_READINGS, { each: true })
+  readings?: CommonReading[];
 }

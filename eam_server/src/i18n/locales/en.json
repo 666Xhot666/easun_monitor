@@ -229,6 +229,7 @@
     "notInFaultMode": "The inverter is not in fault mode",
     "noReadingsYet": "No inverter readings recorded yet",
     "fromBeforeTo": "`from` must be before `to`",
+    "readingsOrFields": "Ask for `readings` or `fields`, not both",
     "rangeTooLong": "A range can cover at most {{days}} days",
     "historyTooLong": "A history range can cover at most {{years}} years",
     "unknownTimeZone": "Unknown time zone \"{{zone}}\"",

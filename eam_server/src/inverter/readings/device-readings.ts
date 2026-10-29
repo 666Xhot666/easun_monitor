@@ -120,6 +120,18 @@ export class DeviceReadings {
     return out;
   }
 
+  /** The registers the readings `names` come from, each once. */
+  registersFor(names: readonly CommonReading[]): string[] {
+    const registers = new Set<string>();
+    for (const name of names) {
+      const source = this.file.readings[name];
+      if (!source) continue;
+      for (const r of 'register' in source ? [source.register] : source.product)
+        registers.add(r);
+    }
+    return [...registers];
+  }
+
   /** The registers behind `name`, or null when this device does not give it. */
   source(name: CommonReading): ReadingSource | null {
     return this.file.readings[name] ?? null;

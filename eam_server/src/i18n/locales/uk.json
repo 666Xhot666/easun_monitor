@@ -231,6 +231,7 @@
     "notInFaultMode": "Інвертор не в режимі несправності",
     "noReadingsYet": "Показників інвертора ще немає",
     "fromBeforeTo": "Початок має бути раніше за кінець",
+    "readingsOrFields": "Задайте `readings` або `fields`, не обидва",
     "rangeTooLong": "Період може охоплювати щонайбільше {{days}} днів",
     "historyTooLong": "Період історії може охоплювати щонайбільше {{years}} років",
     "unknownTimeZone": "Невідомий часовий пояс «{{zone}}»",
