@@ -40,7 +40,10 @@ class FakeConnection implements BleConnection {
 
 const NOW = Date.parse('2026-10-06T12:00:00Z');
 
-function startSession(protocol: 'JK02_32S' | 'JK02_24S' = 'JK02_32S') {
+function startSession(
+  protocol: 'JK02_32S' | 'JK02_24S' = 'JK02_32S',
+  signal?: AbortSignal,
+) {
   const connection = new FakeConnection();
   const readings: BmsReading[] = [];
   const events: SessionEvent[] = [];
@@ -51,7 +54,7 @@ function startSession(protocol: 'JK02_32S' | 'JK02_24S' = 'JK02_32S') {
     onReading: (reading) => readings.push(reading),
     onEvent: (event) => events.push(event),
   });
-  const ended = session.run();
+  const ended = session.run(signal);
   return { connection, readings, events, ended };
 }
 
@@ -61,6 +64,23 @@ describe('BmsSession', () => {
     jest.setSystemTime(NOW);
   });
   afterEach(() => jest.useRealTimers());
+
+  it('disconnects and ends when the reader is told to stop', async () => {
+    const stop = new AbortController();
+    const { connection, ended } = startSession('JK02_32S', stop.signal);
+    await jest.advanceTimersByTimeAsync(0);
+    stop.abort();
+    await expect(ended).resolves.toBe('Stopped');
+    expect(connection.closed).toBe(true);
+  });
+
+  it('ends at once when told to stop before it began', async () => {
+    const stop = new AbortController();
+    stop.abort();
+    const { connection, ended } = startSession('JK02_32S', stop.signal);
+    await expect(ended).resolves.toBe('Stopped');
+    expect(connection.closed).toBe(true);
+  });
 
   it('asks for device info once subscribed, then for cell info every 5 s until it streams', async () => {
     const { connection } = startSession();
