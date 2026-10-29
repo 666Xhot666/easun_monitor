@@ -233,6 +233,35 @@ export class TelemetryStore {
   }
 
   /**
+   * History of common readings: points carry `readings` by their common
+   * names, a reading missing from a bucket left out. A product (battery
+   * power) comes from the bucket's average voltage and current: close, as
+   * the voltage hardly moves within a bucket.
+   */
+  async commonHistory(
+    profileId: number,
+    query: Omit<HistoryQuery, 'fields'> & { readings: CommonReading[] },
+  ): Promise<History> {
+    const { readings, ...range } = query;
+    const history = await this.history(profileId, {
+      ...range,
+      fields: SMG_II_READINGS.registersFor(readings),
+    });
+    return {
+      ...history,
+      points: history.points.map((point) => {
+        const common = SMG_II_READINGS.common(point.values);
+        const values: Record<string, number> = {};
+        for (const name of readings) {
+          const value = common[name];
+          if (value !== undefined) values[name] = value;
+        }
+        return { ...point, values };
+      }),
+    };
+  }
+
+  /**
    * Brings InverterLogHourly up to date: recomputes every hour from one
    * hour before the newest rollup onwards (so the current, still-filling
    * hour is refreshed), or everything on the first run. Idempotent, and
