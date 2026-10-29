@@ -13,6 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { PutOutageSourceDto } from './dto/put-outage-source.dto';
 import type { PutSiteStreetsDto } from './dto/put-site-streets.dto';
 import { localized } from '../i18n/localized';
+import { STREETS_REFRESH_EVERY_MS } from './constants';
 
 /** The only outage site so far. */
 const SITE = 'dnem';
@@ -31,9 +32,6 @@ const SOURCE_FIELDS = {
 } as const;
 
 const byUkrainian = new Intl.Collator('uk').compare;
-
-/** A check asked for in the app comes at most this often. */
-const REFRESH_EVERY_MS = 5 * 60_000;
 
 @Injectable()
 export class OutageSourcesService {
@@ -157,9 +155,9 @@ export class OutageSourcesService {
     }
     const last = await this.lastCheck(source.id);
     const age = last ? now.getTime() - last.checkedAt.getTime() : Infinity;
-    if (age < REFRESH_EVERY_MS) {
+    if (age < STREETS_REFRESH_EVERY_MS) {
       const ago = Math.floor(age / 60_000);
-      const wait = Math.ceil((REFRESH_EVERY_MS - age) / 60_000);
+      const wait = Math.ceil((STREETS_REFRESH_EVERY_MS - age) / 60_000);
       throw new HttpException(
         localized('checkedRecently', { ago, wait }),
         HttpStatus.TOO_MANY_REQUESTS,
