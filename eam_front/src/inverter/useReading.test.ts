@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
 import { useReading } from './useReading';
 
-const at = (iso: string) => ({ id: 1, timestamp: iso, payload: { PVPower: 1200 } });
+const at = (iso: string) => ({ id: 1, timestamp: iso, payload: { PVPower: 1200 }, readings: { pvPower: 1200 } });
 const NOW = Date.parse('2026-09-30T12:00:00Z');
 const now = () => NOW;
 
@@ -24,6 +24,13 @@ describe('useReading', () => {
     expect(result.current.status).toBe('loading');
     await waitFor(() => expect(result.current.status).toBe('live'));
     expect(result.current.reading?.payload.PVPower).toBe(1200);
+  });
+
+  it('gives empty common readings when the server sends none (a server from before them)', async () => {
+    serve(() => ({ status: 200, data: { id: 1, timestamp: '2026-09-30T11:59:58Z', payload: { PVPower: 1200 } } }));
+    const { result } = renderHook(() => useReading(3, { pollMs: 0, now }));
+    await waitFor(() => expect(result.current.status).toBe('live'));
+    expect(result.current.reading?.readings).toEqual({});
   });
 
   it('reports stale when the newest reading is older than the threshold', async () => {

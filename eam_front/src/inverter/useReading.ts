@@ -40,7 +40,8 @@ export function useReading(profileId: number, options: UseReadingOptions = {}) {
     try {
       const { data } = await axios.get<LatestReading>(`/api/inverter/${id}/latest`, { params: { lang: currentLanguage() } });
       if (currentProfile.current !== id) return;
-      setReading(data);
+      // A server from before common readings sends none: show dashes, not a crash.
+      setReading({ ...data, readings: data.readings ?? {} });
       setFetched('ok');
     } catch (error) {
       if (currentProfile.current !== id) return;
