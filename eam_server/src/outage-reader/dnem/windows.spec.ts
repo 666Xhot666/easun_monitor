@@ -8,7 +8,7 @@ import {
   type OutageWindow,
 } from './windows';
 
-// Helsinki keeps the same EET/EEST rules as Kyiv and they are settled law, so
+// Helsinki keeps the same EET/EEST rules as the site's zone and they are settled law, so
 // exact UTC times around daylight saving are tested there.
 const HELSINKI = 'Europe/Helsinki';
 
@@ -142,7 +142,7 @@ describe('dayWindows', () => {
     ]);
   });
 
-  it('works in Kyiv time', () => {
+  it('works in the site time zone', () => {
     // January: UTC+2 whether or not Ukraine keeps daylight saving.
     const windows = dayWindows(
       { year: 2027, month: 1, day: 15 },
@@ -237,7 +237,7 @@ describe('weeklyWindows', () => {
 });
 
 describe('confirmedWindows', () => {
-  // Kyiv midnights as the site sends them (EEST, UTC+3).
+  // Local midnights as the site sends them (EEST, UTC+3).
   const sat = 1791579600; // 2026-10-10
   const sun = 1791666000; // 2026-10-11
   const days = {

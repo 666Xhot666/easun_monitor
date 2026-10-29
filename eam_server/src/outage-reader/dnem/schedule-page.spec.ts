@@ -157,7 +157,7 @@ describe('parseSchedulePage', () => {
     });
   });
 
-  it('reads confirmed days keyed by the Kyiv midnight timestamp', () => {
+  it('reads confirmed days keyed by the local midnight timestamp', () => {
     const fact = {
       data: {
         '1791579600': {

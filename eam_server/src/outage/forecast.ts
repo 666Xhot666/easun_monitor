@@ -1,6 +1,6 @@
 import type { DaySlots } from '../outage-reader/dnem/schedule-page';
 import {
-  KYIV,
+  SITE_TIME_ZONE,
   localDateOf,
   mergeWindows,
   nextDay,
@@ -32,7 +32,7 @@ export interface ForecastInput {
   }>;
   /** The latest weekly pattern of each of the house's groups. */
   weekly: Record<string, Record<number, DaySlots>>;
-  /** Kyiv days (YYYY-MM-DD) with a confirmed schedule for the house's groups. */
+  /** Local days (YYYY-MM-DD) with a confirmed schedule for the house's groups. */
   coveredDays: string[];
 }
 
@@ -96,7 +96,7 @@ export function buildForecast(
   from: Date,
   to: Date,
   now: Date,
-  timeZone = KYIV,
+  timeZone = SITE_TIME_ZONE,
 ): OutageForecast {
   const { source, lastOkAt } = input;
   const base = {

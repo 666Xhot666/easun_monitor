@@ -1,5 +1,6 @@
 import type { OpenBrowser } from './browser';
 import { SiteError } from './dnem/site-error';
+import { SITE_TIME_ZONE } from './dnem/constants';
 
 interface PlaywrightModule {
   chromium: {
@@ -68,7 +69,7 @@ export const openInChromium: OpenBrowser = async (
     const context = await browser.newContext({
       userAgent,
       locale: 'uk-UA',
-      timezoneId: 'Europe/Kyiv',
+      timezoneId: SITE_TIME_ZONE,
     });
     const page = await context.newPage();
 

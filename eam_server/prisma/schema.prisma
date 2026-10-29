@@ -621,7 +621,7 @@ model OutageWeeklyPattern {
   @@map("outage_weekly_patterns")
 }
 
-/// One group's confirmed schedule for one Kyiv day: the latest version seen,
+/// One group's confirmed schedule for one local day: the latest version seen,
 /// kept after the day has passed.
 model OutageConfirmedDay {
   id          Int      @id @default(autoincrement())
@@ -629,7 +629,7 @@ model OutageConfirmedDay {
   group       String
   /// [24 slot statuses], 00:00-01:00 first.
   slots       Json
-  /// The site's "updated" stamp of this version, Kyiv time.
+  /// The site's "updated" stamp of this version, in site time.
   siteUpdated String
   /// When a check first saw the day, and when the slots last changed.
   firstSeenAt DateTime

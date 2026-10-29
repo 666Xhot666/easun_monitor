@@ -7,7 +7,7 @@ const day = (set: Record<number, string> = {}) =>
 const week = (fill = day()) =>
   Object.fromEntries([1, 2, 3, 4, 5, 6, 7].map((d) => [d, fill]));
 
-// Kyiv midnights: 2026-10-10 and 2026-10-11 (UTC+3).
+// Local midnights: 2026-10-10 and 2026-10-11 (UTC+3).
 const SAT = 1791579600;
 const SUN = 1791666000;
 

@@ -22,11 +22,12 @@ import { DnemSiteClient } from './dnem/site-client';
 import { runCheck, type ReaderState } from './run-check';
 import { ReaderServerClient } from './server-client';
 import { waitForNextCheck } from './wait';
+import { SITE_TIME_ZONE } from './dnem/constants';
 
 const log = (message: string) =>
   console.log(formatLogLine(message, new Date(), 'outage-reader'));
-const kyivTime = new Intl.DateTimeFormat('en-GB', {
-  timeZone: 'Europe/Kyiv',
+const siteClock = new Intl.DateTimeFormat('en-GB', {
+  timeZone: SITE_TIME_ZONE,
   dateStyle: 'short',
   timeStyle: 'short',
 });
@@ -101,7 +102,7 @@ async function main(): Promise<void> {
     }
     if (once) return;
     const next = nextCheckAt(started, config.cadence, { blocked });
-    log(`Next check at ${kyivTime.format(next)} Kyiv time`);
+    log(`Next check at ${siteClock.format(next)} (site time)`);
     // Earlier if someone asks for a check in the app.
     await waitForNextCheck(
       { server, now: () => new Date(), sleep, log },

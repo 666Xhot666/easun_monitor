@@ -16,7 +16,7 @@ import {
 
 const day = (set: Record<number, string> = {}) =>
   Array.from({ length: 24 }, (_, h) => set[h] ?? 'yes') as DaySlots;
-// Kyiv midnight of 2026-10-11 (UTC+3).
+// local midnight of 2026-10-11 (UTC+3).
 const SUN = 1791666000;
 
 const reading: StreetReading = {

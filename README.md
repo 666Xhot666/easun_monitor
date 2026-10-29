@@ -363,7 +363,7 @@ how old the data is. Under Settings > Notifications each user picks the
 outage notices: schedule updated, outage soon (their own lead time,
 15 minutes by default; possible outages only if switched on), and
 schedule unavailable after 12 hours without a successful check. Outage
-times are Kyiv time.
+times are in site time.
 
 "Check now" on the Overview card asks for a check at once: between
 checks the reader asks the server every minute whether one is wanted.
@@ -384,7 +384,7 @@ Settings (see `.env.example`), read from the environment, then
 - `OUTAGE_SITE_URL`: the grid operator's site with the outage schedule.
 - `OUTAGE_INTERVAL_MINUTES` (120) and `OUTAGE_EVENING_INTERVAL_MINUTES`
   (30): how often it checks, normally and during `OUTAGE_EVENING`
-  (`18:00-23:00`, Kyiv time).
+  (`18:00-23:00`, site time).
 - `OUTAGE_BLOCKED_HOURS` (6): the pause after the site turns even the
   browser away.
 - `OUTAGE_BROWSER_EVERY_DAYS` (7): one check this often goes through

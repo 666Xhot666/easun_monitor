@@ -111,10 +111,10 @@ describe('notification settings', () => {
       expect(sendsToTelegram(quiet, 'server-updates', at('03:00'), 'UTC')).toBe(
         false,
       );
-      // 21:30 UTC is 00:30 in Kyiv (UTC+3 in October).
-      expect(sendsToTelegram(quiet, 'grid', at('21:30'), 'Europe/Kyiv')).toBe(
-        false,
-      );
+      // 21:30 UTC is 00:30 in Helsinki (UTC+3 in October).
+      expect(
+        sendsToTelegram(quiet, 'grid', at('21:30'), 'Europe/Helsinki'),
+      ).toBe(false);
     });
   });
 });

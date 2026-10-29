@@ -3,7 +3,7 @@ import { HouseholdsService } from '../households/households.service';
 import { PrismaService } from '../prisma/prisma.service';
 import type { DaySlots } from '../outage-reader/dnem/schedule-page';
 import {
-  KYIV,
+  SITE_TIME_ZONE,
   localDateOf,
   nextDay,
   wallToUtc,
@@ -137,7 +137,7 @@ export class OutageForecastService {
   }
 
   /**
-   * Today and tomorrow (Kyiv), the days the site publishes, for a member of the inverter's household.
+   * Today and tomorrow (site time), the days the site publishes, for a member of the inverter's household.
    */
   async forecastFor(
     profileId: number,
@@ -145,7 +145,7 @@ export class OutageForecastService {
     now = new Date(),
   ): Promise<OutageForecast> {
     await this.households.requireProfile(profileId, userId, 'read');
-    const today = localDateOf(now, KYIV);
+    const today = localDateOf(now, SITE_TIME_ZONE);
     const from = new Date(wallToUtc(today, 0));
     const to = new Date(wallToUtc(nextDay(nextDay(today)), 0));
     return this.getOutageForecast(profileId, from, to, now);
