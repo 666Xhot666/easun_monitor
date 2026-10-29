@@ -14,6 +14,7 @@ describe('serverAgentConfig', () => {
         'easun-serial-logger',
         'easun-bms-reader',
         'easun-outage-reader',
+        'easun-server-agent',
       ],
       fan: null,
       updatesEveryHours: 6,
