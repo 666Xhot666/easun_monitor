@@ -27,6 +27,7 @@ import { LoggerFrameError } from './protocol/logger-frame';
 import { SettingsRuleError, SettingsService } from './settings.service';
 import { settingsConstraints } from './settings-rules/smg-ii.settings-rules';
 import { SMG_II_PANEL_SETTINGS } from './registers/smg-ii.panel-settings';
+import { SMG_II_READINGS } from './readings/smg-ii.readings';
 import {
   registerMapFor,
   translatePanelSettings,
@@ -278,6 +279,7 @@ export class InverterController {
     const map = registerMapFor(languageOr(lang));
     return {
       ...latest,
+      readings: SMG_II_READINGS.common(payload),
       alerts: {
         faults: map.activeFlags('FaultCode', payload.FaultCode ?? 0),
         warnings: map.activeFlags('WarningCode', payload.WarningCode ?? 0),
