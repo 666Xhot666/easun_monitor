@@ -7,8 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { TelegramBot } from './telegram-bot';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { sendsToTelegram } from '../notifications/notification-settings';
-
-const DEFAULT_TIME = '21:00';
+import { SUMMARY_DEFAULT_TIME } from './constants';
 
 /** The local date and HH:MM of `now` in `timeZone`. */
 function localDateTime(
@@ -54,7 +53,7 @@ export class TelegramSummary {
     const configured = config.get<string>('TELEGRAM_SUMMARY_TIME') ?? '';
     this.time = /^([01]\d|2[0-3]):[0-5]\d$/.test(configured)
       ? configured
-      : DEFAULT_TIME;
+      : SUMMARY_DEFAULT_TIME;
   }
 
   @Interval(30_000)

@@ -2,6 +2,7 @@ import { LOCALES, type Language } from '../i18n/languages';
 import { translate } from '../i18n/translate';
 import { Resvg } from '@resvg/resvg-js';
 import { escapeHtml } from './cards';
+import { CHART_FONT, CHART_HEIGHT, CHART_PLOT, CHART_WIDTH } from './constants';
 
 export interface ChartSeries {
   label: string;
@@ -20,10 +21,6 @@ export interface ChartRange {
   maxGapMs: number;
 }
 
-const WIDTH = 800;
-const HEIGHT = 450;
-const PLOT = { left: 70, right: 780, top: 60, bottom: 410 };
-const FONT = 'DejaVu Sans, Helvetica, Arial, sans-serif';
 const HOUR_MS = 3_600_000;
 
 const watts = (w: number, language: Language) =>
@@ -54,7 +51,7 @@ function runs(points: ChartSeries['points'], maxGapMs: number) {
 
 /** `attrs` may add attributes, but not repeat these (resvg rejects duplicates). */
 const text = (x: number, y: number, content: string, attrs = '', size = 13) =>
-  `<text x="${x}" y="${y}" font-family="${FONT}" font-size="${size}" fill="#374151" ${attrs}>${content}</text>`;
+  `<text x="${x}" y="${y}" font-family="${CHART_FONT}" font-size="${size}" fill="#374151" ${attrs}>${content}</text>`;
 
 /** A power-over-time line chart as SVG, in watts, with hour ticks in the time zone. */
 export function powerChartSvg(
@@ -63,16 +60,16 @@ export function powerChartSvg(
   range: ChartRange,
 ): string {
   const parts = [
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">`,
-    `<rect width="${WIDTH}" height="${HEIGHT}" fill="#ffffff"/>`,
-    text(PLOT.left, 30, escapeHtml(title), 'font-weight="bold"', 18),
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${CHART_WIDTH}" height="${CHART_HEIGHT}" viewBox="0 0 ${CHART_WIDTH} ${CHART_HEIGHT}">`,
+    `<rect width="${CHART_WIDTH}" height="${CHART_HEIGHT}" fill="#ffffff"/>`,
+    text(CHART_PLOT.left, 30, escapeHtml(title), 'font-weight="bold"', 18),
   ];
   const values = series.flatMap((s) => s.points.map((p) => p.v));
   if (values.length === 0) {
     parts.push(
       text(
-        WIDTH / 2,
-        HEIGHT / 2,
+        CHART_WIDTH / 2,
+        CHART_HEIGHT / 2,
         translate(range.language, 'telegram.chart.empty'),
         'text-anchor="middle"',
       ),
@@ -88,17 +85,19 @@ export function powerChartSvg(
   const low = Math.floor(Math.min(...values, 0) / step) * step;
   const high = Math.ceil(Math.max(...values, step) / step) * step;
   const x = (t: number) =>
-    PLOT.left +
-    ((t - range.from) / (range.to - range.from)) * (PLOT.right - PLOT.left);
+    CHART_PLOT.left +
+    ((t - range.from) / (range.to - range.from)) *
+      (CHART_PLOT.right - CHART_PLOT.left);
   const y = (v: number) =>
-    PLOT.bottom - ((v - low) / (high - low)) * (PLOT.bottom - PLOT.top);
+    CHART_PLOT.bottom -
+    ((v - low) / (high - low)) * (CHART_PLOT.bottom - CHART_PLOT.top);
 
   for (let v = low; v <= high + step / 2; v += step) {
     const color = Math.abs(v) < step / 2 ? '#9ca3af' : '#e5e7eb';
     parts.push(
-      `<line x1="${PLOT.left}" x2="${PLOT.right}" y1="${y(v)}" y2="${y(v)}" stroke="${color}"/>`,
+      `<line x1="${CHART_PLOT.left}" x2="${CHART_PLOT.right}" y1="${y(v)}" y2="${y(v)}" stroke="${color}"/>`,
       text(
-        PLOT.left - 8,
+        CHART_PLOT.left - 8,
         y(v) + 4,
         watts(Math.abs(v) < step / 2 ? 0 : v, range.language),
         'text-anchor="end"',
@@ -121,13 +120,13 @@ export function powerChartSvg(
     const label = hour.format(t);
     if (!['00:00', '06:00', '12:00', '18:00'].includes(label)) continue;
     parts.push(
-      `<line x1="${x(t)}" x2="${x(t)}" y1="${PLOT.top}" y2="${PLOT.bottom}" stroke="#e5e7eb"/>`,
-      text(x(t), PLOT.bottom + 20, label, 'text-anchor="middle"'),
+      `<line x1="${x(t)}" x2="${x(t)}" y1="${CHART_PLOT.top}" y2="${CHART_PLOT.bottom}" stroke="#e5e7eb"/>`,
+      text(x(t), CHART_PLOT.bottom + 20, label, 'text-anchor="middle"'),
     );
   }
 
   // The legend: a row under the title, each entry as wide as its label.
-  let lx = PLOT.left;
+  let lx = CHART_PLOT.left;
   series.forEach((s) => {
     for (const run of runs(s.points, range.maxGapMs)) {
       const coords = run

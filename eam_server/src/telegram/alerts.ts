@@ -1,10 +1,6 @@
 import type { AlertMessage } from '../alerts/alert-message';
 import { activeBits } from '../inverter/registers/register-map';
-
-/** Mains above this voltage counts as the grid being there. */
-const GRID_PRESENT_V = 100;
-/** A low battery is reported again only after it recovers this many points. */
-const RECOVER_POINTS = 5;
+import { GRID_PRESENT_V, RECOVER_POINTS } from './constants';
 
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && !Number.isNaN(value);
