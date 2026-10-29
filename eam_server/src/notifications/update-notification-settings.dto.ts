@@ -6,7 +6,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
-import { OUTAGE_LEAD_MINUTES } from './notification-settings';
+import { OUTAGE_LEAD_MINUTES } from './constants';
 
 /** PUT /api/notifications/settings: any part of the settings; the rest stays. */
 export class UpdateNotificationSettingsDto {
