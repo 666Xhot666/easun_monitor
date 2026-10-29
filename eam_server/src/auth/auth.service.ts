@@ -15,19 +15,12 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ServerAccessService } from '../server-monitor/server-access.service';
 import type { JwtPayload } from './interfaces/jwt-payload.interface';
 import { localized } from '../i18n/localized';
+import {
+  BCRYPT_SALT_ROUNDS,
+  DEFAULT_REFRESH_TOKEN_TTL_DAYS,
+  REFRESH_TOKEN_BYTES,
+} from './constants';
 
-// Cost factor for bcrypt hashing — 12 is comfortably above the commonly
-// recommended floor (10) without making login noticeably slow on modest
-// hardware (this runs on a small home server/NAS, not scaled infra).
-const BCRYPT_SALT_ROUNDS = 12;
-
-// Refresh tokens are opaque random values, not JWTs — there's nothing to
-// decode or verify offline, so the only way to use one is to look its
-// hash up in the database. That's what makes rotation and revocation
-// possible at all; a self-verifying JWT refresh token could never be
-// un-issued early (logout, a stolen-token report, etc).
-const REFRESH_TOKEN_BYTES = 32;
-const DEFAULT_REFRESH_TOKEN_TTL_DAYS = 30;
 /** Access-token lifetime when JWT_EXPIRES_IN is unset; the one default. */
 export const DEFAULT_ACCESS_TOKEN_TTL: JwtSignOptions['expiresIn'] = '15m';
 
