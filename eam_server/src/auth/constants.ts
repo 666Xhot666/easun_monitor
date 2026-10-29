@@ -4,6 +4,11 @@ export const REFRESH_TOKEN_COOKIE = 'refresh_token';
 // alongside every other API request.
 export const REFRESH_TOKEN_COOKIE_PATH = '/api/auth';
 
+// The mobile app sends this header (with MOBILE_CLIENT) and keeps its
+// refresh token itself: it gets the token in the body, never a cookie.
+export const CLIENT_HEADER = 'x-eam-client';
+export const MOBILE_CLIENT = 'mobile';
+
 // Cost factor for bcrypt hashing — 12 is comfortably above the commonly
 // recommended floor (10) without making login noticeably slow on modest
 // hardware (this runs on a small home server/NAS, not scaled infra).

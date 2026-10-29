@@ -25,6 +25,9 @@ import {
 export const DEFAULT_ACCESS_TOKEN_TTL: JwtSignOptions['expiresIn'] = '15m';
 
 export interface AuthResult {
+  /** Only for the mobile app, which keeps it itself; browsers get a cookie. */
+  refreshToken?: string;
+  refreshTokenExpiresAt?: Date;
   accessToken: string;
   user: {
     id: number;

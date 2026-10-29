@@ -29,7 +29,13 @@ import { RegisterDto } from './dto/register.dto';
 import { SetLanguageDto } from './dto/set-language.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './interfaces/jwt-payload.interface';
-import { REFRESH_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE_PATH } from './constants';
+import {
+  CLIENT_HEADER,
+  MOBILE_CLIENT,
+  REFRESH_TOKEN_COOKIE,
+  REFRESH_TOKEN_COOKIE_PATH,
+} from './constants';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
 
 @Controller('api/auth')
 export class AuthController {
@@ -51,7 +57,7 @@ export class AuthController {
       dto.inviteCode,
       req.get('user-agent'),
     );
-    return this.respondWithTokens(tokens, res);
+    return this.respondWithTokens(tokens, req, res);
   }
 
   @Post('login')
@@ -67,7 +73,7 @@ export class AuthController {
       dto.password,
       req.get('user-agent'),
     );
-    return this.respondWithTokens(tokens, res);
+    return this.respondWithTokens(tokens, req, res);
   }
 
   /**
@@ -90,6 +96,7 @@ export class AuthController {
     if (!email) throw notFound();
     return this.respondWithTokens(
       await this.authService.devLogin(email, req.get('user-agent')),
+      req,
       res,
     );
   }
@@ -101,24 +108,26 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   async refresh(
+    @Body() dto: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<AuthResult> {
-    const rawRefreshToken = this.readRefreshCookie(req);
+    const rawRefreshToken = this.readRefreshToken(req, dto);
     if (!rawRefreshToken) {
       throw new UnauthorizedException('No refresh token provided');
     }
     const tokens = await this.authService.refresh(rawRefreshToken);
-    return this.respondWithTokens(tokens, res);
+    return this.respondWithTokens(tokens, req, res);
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   async logout(
+    @Body() dto: RefreshTokenDto,
     @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<void> {
-    const rawRefreshToken = this.readRefreshCookie(req);
+    const rawRefreshToken = this.readRefreshToken(req, dto);
     if (rawRefreshToken) {
       await this.authService.logout(rawRefreshToken);
     }
@@ -189,6 +198,19 @@ export class AuthController {
     return this.authService.getMe(user.userId);
   }
 
+  /** The mobile app, which keeps its refresh token itself. */
+  private isMobile(req: Request): boolean {
+    return req.get(CLIENT_HEADER) === MOBILE_CLIENT;
+  }
+
+  /** The refresh token: from the body for the mobile app, else from the cookie only. */
+  private readRefreshToken(
+    req: Request,
+    dto: RefreshTokenDto,
+  ): string | undefined {
+    return this.isMobile(req) ? dto.refreshToken : this.readRefreshCookie(req);
+  }
+
   private readRefreshCookie(req: Request): string | undefined {
     const cookies = req.cookies as
       Record<string, string | undefined> | undefined;
@@ -196,9 +218,23 @@ export class AuthController {
   }
 
   /** Sets the rotated refresh token as an httpOnly cookie and returns
-   * only the access token + user to the client — the raw refresh token
-   * never appears in a JSON response body or touches frontend JS. */
-  private respondWithTokens(tokens: IssuedTokens, res: Response): AuthResult {
+   * only the access token + user to the client — for a browser, the raw
+   * refresh token never appears in a JSON response body or touches
+   * frontend JS. The mobile app gets it in the body instead, to keep in
+   * the phone's secure storage. */
+  private respondWithTokens(
+    tokens: IssuedTokens,
+    req: Request,
+    res: Response,
+  ): AuthResult {
+    if (this.isMobile(req)) {
+      return {
+        accessToken: tokens.accessToken,
+        user: tokens.user,
+        refreshToken: tokens.refreshToken,
+        refreshTokenExpiresAt: tokens.refreshTokenExpiresAt,
+      };
+    }
     res.cookie(REFRESH_TOKEN_COOKIE, tokens.refreshToken, {
       httpOnly: true,
       sameSite: 'lax',
