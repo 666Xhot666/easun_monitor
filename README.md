@@ -270,7 +270,12 @@ With the ESP32 proxy (`esp_proxy/`) between the inverter and the Wi-Fi logger,
 set `ESP_PORT` to the proxy's USB device instead of the two taps. The service
 then reads the inverter itself through the proxy before answering, so the
 values are live: `POLLING_INTERVAL_MS=2500` gives a new reading on every poll
-(values younger than 2 seconds are reused). Writes are still refused.
+(values younger than 2 seconds are reused). Settings writes from the app go
+through the proxy to the inverter, and the inverter's own answer comes back:
+taken, refused (e.g. not allowed in the current working mode), or no answer
+within 2.5 seconds. A register the map does not mark writable is refused
+without being sent. Each write is logged, e.g.
+`The inverter took a write of [1] at 305`.
 
 ```bash
 ESP_PORT=/dev/cu.usbserial-C npm run serial-logger
@@ -301,8 +306,8 @@ That user must be in the `dialout` group: run
 header. A tap without a USB serial number gets a generic `by-id` name. With two
 such devices, use its `/dev/serial/by-path/` name instead.
 
-Serial mode is read-only: settings writes are refused, and nothing is written
-to the taps or the inverter. The service keeps saving the two-tap capture files
+With the two taps, serial mode is read-only: settings writes are refused, and
+nothing is written to the taps or the inverter. The service keeps saving the two-tap capture files
 in `DEV_CAPTURE_DIR`, so register discovery continues while it runs. Only one
 program can open a serial port, so stop the serial logger before using the
 `/dev/serial` capture panel, and the other way round.
@@ -341,7 +346,8 @@ environment, then `eam_server/.env`, then the repository's `.env`.
   `setcap` above can be removed with `sudo setcap -r` on the same path. View
   logs with `journalctl -u easun-bms-reader -f`.
 - The JK phone app cannot connect while the reader is connected.
-- Each session writes `.dev-captures/bms/<start>.jsonl` with the raw frames.
+- It writes the raw frames to `.dev-captures/bms/<start>.jsonl`, a new file
+  each day; captures not written to for two weeks are deleted.
 
 The decoder is ported from
 [syssi/esphome-jk-bms](https://github.com/syssi/esphome-jk-bms) (Apache-2.0),
