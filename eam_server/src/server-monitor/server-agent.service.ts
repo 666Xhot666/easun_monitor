@@ -5,18 +5,9 @@ import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import type { HostSample } from '../server-agent/sample';
 import { ServerAccessService } from './server-access.service';
+import { AGENT_STALE_MS, HISTORY_RANGES, KEEP_SAMPLES_MS } from './constants';
 
-/** Without a sample for this long, the server page says the agent is silent. */
-export const AGENT_STALE_MS = 3 * 60_000;
-/** Samples are kept this long. */
-export const KEEP_SAMPLES_MS = 30 * 24 * 60 * 60_000;
-
-/** The ranges the history offers: how far back, in buckets of how long. */
-const RANGES = {
-  '24h': { spanMs: 24 * 60 * 60_000, bucketSeconds: 300 },
-  '7d': { spanMs: 7 * 24 * 60 * 60_000, bucketSeconds: 3600 },
-} as const;
-export type HistoryRange = keyof typeof RANGES;
+export type HistoryRange = keyof typeof HISTORY_RANGES;
 
 /** One bucket of the history: averages, and the hottest temperature. */
 export interface HistoryPoint {
@@ -106,13 +97,13 @@ export class ServerAgentService {
     to = new Date(),
   ): Promise<{ bucketSeconds: number; points: HistoryPoint[] }> {
     await this.access.requireViewer(userId);
-    if (!(range in RANGES)) {
+    if (!(range in HISTORY_RANGES)) {
       throw new BadRequestException('range must be 24h or 7d');
     }
     if (Number.isNaN(to.getTime())) {
       throw new BadRequestException('to must be a time');
     }
-    const { spanMs, bucketSeconds } = RANGES[range as HistoryRange];
+    const { spanMs, bucketSeconds } = HISTORY_RANGES[range as HistoryRange];
     const from = new Date(to.getTime() - spanMs);
     const bucket = `${bucketSeconds} seconds`;
     const rows = await this.prisma.$queryRaw<
