@@ -13,7 +13,7 @@ const profile: InverterProfile = {
   batteryNominalVoltage: 48, batteryCapacityAh: 200, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null, writesLocked: false,
   householdId: 5, role: 'ADMIN', createdAt: '', updatedAt: '',
 };
 
@@ -68,6 +68,22 @@ describe('InverterProfileSettings', () => {
     expect(JSON.parse(patch?.data)).toEqual({ name: 'Cabin', batteryNominalVoltage: 24 });
     expect(auth.refreshUser).toHaveBeenCalled();
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
+
+  it('locks writes to the inverter at once, apart from the profile form', async () => {
+    const { server, auth } = renderTab();
+    restore = server.restore;
+    const user = userEvent.setup();
+
+    const lock = screen.getByRole('switch', { name: 'Lock writes to the inverter' });
+    expect(lock).toHaveAttribute('aria-checked', 'false');
+    await user.click(lock);
+
+    const patch = server.sent.find((c) => c.method === 'patch');
+    expect(patch?.url).toBe('/api/inverter/profiles/1');
+    expect(JSON.parse(patch?.data)).toEqual({ writesLocked: true });
+    expect(auth.refreshUser).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Save profile' })).toBeDisabled();
   });
 
   it('takes a custom rated power', async () => {

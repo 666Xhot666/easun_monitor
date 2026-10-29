@@ -227,6 +227,7 @@
     "loggerNotPrivate": "The logger address {{host}} is not on a private network. Use the logger's LAN address, or set ALLOW_PUBLIC_LOGGER_HOSTS=true.",
     "loggerUnresolved": "The logger address {{host}} could not be resolved",
     "notInFaultMode": "The inverter is not in fault mode",
+    "writesLocked": "Writes to the inverter are locked in its settings",
     "noReadingsYet": "No inverter readings recorded yet",
     "fromBeforeTo": "`from` must be before `to`",
     "readingsOrFields": "Ask for `readings` or `fields`, not both",

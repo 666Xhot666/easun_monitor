@@ -58,8 +58,11 @@ export default function InverterSettings() {
   const language = currentLanguage();
   const { profileId } = useParams<{ profileId: string }>();
   const { user } = useAuth();
-  // Readers see everything and change nothing; the server enforces the same.
-  const readOnly = user?.inverterProfiles.find((p) => p.id === Number(profileId))?.role !== 'ADMIN';
+  // Readers see everything and change nothing, and so does everyone while
+  // writes to the inverter are locked; the server enforces the same.
+  const thisProfile = user?.inverterProfiles.find((p) => p.id === Number(profileId));
+  const writesLocked = thisProfile?.writesLocked === true;
+  const readOnly = thisProfile?.role !== 'ADMIN' || writesLocked;
   const registers = useRegisters();
 
   const [snapshot, setSnapshot] = useState<SettingsSnapshot | null>(null);
@@ -320,7 +323,7 @@ export default function InverterSettings() {
         {loadState === 'ready' && registers && (
           <div className="space-y-4">
             {readOnly ? (
-              <p className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm text-muted">{t('invSettings.readOnly')}</p>
+              <p className="rounded-lg bg-surface-2 px-4 py-2.5 text-sm text-muted">{t(writesLocked ? 'invSettings.writesLocked' : 'invSettings.readOnly')}</p>
             ) : (
               <LithiumSetupHelper onPropose={propose} />
             )}

@@ -540,6 +540,9 @@ export class InverterController {
       user.userId,
       'write',
     );
+    if (profile.writesLocked) {
+      throw new ConflictException(localized('writesLocked'));
+    }
     const entries = Object.entries(dto.changes);
     if (entries.length === 0) {
       throw new BadRequestException(localized('noSettings'));
@@ -588,6 +591,9 @@ export class InverterController {
       user.userId,
       'write',
     );
+    if (profile.writesLocked) {
+      throw new ConflictException(localized('writesLocked'));
+    }
     const link = this.links.get(profile.ipAddress, profile.port);
     return this.deviceCall(async () => {
       const values = await link.read(['telemetry']);

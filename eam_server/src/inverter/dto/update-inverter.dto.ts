@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsEnum,
   IsInt,
   IsNumber,
@@ -131,6 +132,11 @@ export class UpdateInverterDto {
   @Min(0)
   @Max(359.9)
   pvFacingDeg?: number | null;
+
+  /** While true, the app writes nothing to the inverter. */
+  @IsOptional()
+  @IsBoolean()
+  writesLocked?: boolean;
 
   /** Where the installation is, in degrees; stored rounded to 0.1. */
   @IsOptional()

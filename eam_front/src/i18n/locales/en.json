@@ -72,7 +72,8 @@
       "exit": "Exit fault mode",
       "exitTitle": "Exit fault mode?",
       "exitBody": "The inverter clears the fault and tries to resume normal operation. If the cause is still there, it goes back into fault mode.",
-      "exitFailed": "Couldn’t clear the fault."
+      "exitFailed": "Couldn’t clear the fault.",
+      "writesLocked": "Writes to the inverter are locked in Settings › Inverter, so the app cannot clear it."
     },
     "stale": {
       "title": "No new readings for {{age}}",
@@ -701,7 +702,8 @@
     "notPanelOption": "{{value}} (not a panel option)",
     "panelTitle": "Set on the inverter's panel",
     "panelIntro": "The app can't read or change these; they still change how the settings above behave.",
-    "programDefault": "Program {{program}} · Default: {{value}}"
+    "programDefault": "Program {{program}} · Default: {{value}}",
+    "writesLocked": "Writes to the inverter are locked in Settings › Inverter; unlock them there to change settings."
   },
   "lithium": {
     "open": "Set up a lithium battery without BMS communication",
@@ -747,7 +749,14 @@
     "removeIntro": "Removes {{name}} from EAM. Its recorded history is kept; the inverter and its logger are not changed.",
     "removeNamed": "Remove {{name}}…",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "EAM stops reading it. Its recorded history is kept."
+    "removeBody": "EAM stops reading it. Its recorded history is kept.",
+    "writes": {
+      "title": "Writes to the inverter",
+      "lock": "Lock writes to the inverter",
+      "locked": "Locked: the app reads the inverter but changes nothing on it, neither settings nor a fault reset.",
+      "open": "The app can change the inverter's settings and reset a fault. Lock it to make the app read-only towards the inverter.",
+      "saveFailed": "Couldn’t change the lock."
+    }
   },
   "solar": {
     "array": "Array",

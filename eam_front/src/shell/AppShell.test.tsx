@@ -13,7 +13,7 @@ const profile = (id: number, name: string, role: HouseholdRole): InverterProfile
   batteryNominalVoltage: 48, batteryCapacityAh: 200, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null, writesLocked: false,
   householdId: 5, role, createdAt: '', updatedAt: '',
 });
 
@@ -21,14 +21,14 @@ const modeRegister = [{ name: 'OperationMode', label: 'Operating mode', address:
 
 /** OperationMode's raw values, as the server names them in common terms. */
 const STATES = ['starting', 'standby', 'grid', 'off-grid', 'bypass', 'charging', 'fault'];
-type Scenario = { mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean; server?: 'OWNER' | 'VIEWER' | null };
+type Scenario = { writesLocked?: boolean; mode?: number; ageMs?: number; device?: 'online' | 'backoff'; gridInApp?: boolean; server?: 'OWNER' | 'VIEWER' | null };
 
 function Where() {
   return <p data-testid="where">{useLocation().pathname}</p>;
 }
 
 function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dashboard/1') {
-  const { mode = 3, ageMs = 1000, device = 'online', gridInApp = true, server: serverRole = null } = scenario;
+  const { writesLocked = false, mode = 3, ageMs = 1000, device = 'online', gridInApp = true, server: serverRole = null } = scenario;
   const server = fakeServer((config) => {
     if (config.url === '/api/inverter/registers') return { status: 200, data: modeRegister };
     if (config.url === '/api/inverter/1/latest') {
@@ -53,7 +53,7 @@ function renderShell(role: HouseholdRole, scenario: Scenario = {}, path = '/dash
     user: {
       id: 1, email: 'jack@example.com', createdAt: '', adminHouseholdId: role === 'ADMIN' ? 5 : null,
       households: [{ id: 5, name: 'Home', role }],
-      inverterProfiles: [profile(1, 'House', role), profile(2, 'Workshop', role)],
+      inverterProfiles: [{ ...profile(1, 'House', role), writesLocked }, profile(2, 'Workshop', role)],
       server: serverRole,
     },
     logout: vi.fn(),
@@ -189,6 +189,13 @@ describe('AppShell', () => {
     await user.click(within(dialog).getByRole('button', { name: 'Exit fault mode' }));
 
     expect(server.sent.some((c) => c.method === 'post' && c.url === '/api/inverter/1/exit-fault-mode')).toBe(true);
+  });
+
+  it('shows an admin the fault without the button while writes are locked', async () => {
+    restore = renderShell('ADMIN', { mode: 6, writesLocked: true }).server.restore;
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Writes to the inverter are locked');
+    expect(screen.queryByRole('button', { name: 'Exit fault mode' })).not.toBeInTheDocument();
   });
 
   it('shows a reader the fault without the button to clear it', async () => {
