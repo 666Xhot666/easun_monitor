@@ -1042,6 +1042,26 @@
       "askTitle": "Make a new agent token?",
       "askConfirm": "Make a new token",
       "askBody": "The agent stops reporting until it uses the new one."
+    },
+    "usage": {
+      "memory": "RAM {{value}}",
+      "cpu": "CPU {{value}} %",
+      "disk": "disk {{value}}"
+    },
+    "battery": {
+      "title": "Battery",
+      "onMains": "On mains",
+      "onBattery": "On battery",
+      "health": "Health {{percent}} %",
+      "healthHolds": "Health {{percent}} %: holds {{full}} of {{design}} when new",
+      "cycles_one": "{{count}} cycle",
+      "cycles_other": "{{count}} cycles",
+      "status": {
+        "Charging": "charging",
+        "Discharging": "discharging",
+        "Full": "full",
+        "Not charging": "not charging"
+      }
     }
   },
   "wizard": {

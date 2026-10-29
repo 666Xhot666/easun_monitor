@@ -89,6 +89,57 @@ describe('ServerPage', () => {
     expect(screen.getByText('Updated 20 s ago')).toBeInTheDocument();
   });
 
+  it('shows the battery and what each service and container takes', async () => {
+    restore = renderPage({
+      ...fresh,
+      sample: {
+        ...sample,
+        power: {
+          onMains: false,
+          batteries: [
+            {
+              name: 'BAT0',
+              model: 'DELL GD1JP65',
+              status: 'Discharging',
+              percent: 64,
+              healthPercent: 39.7,
+              nowWh: 17.3,
+              fullWh: 27,
+              designWh: 68,
+              voltageV: 7.9,
+              powerW: -7.4,
+              cycles: null,
+            },
+          ],
+        },
+        services: [
+          { name: 'easun-bms-reader', active: true, memoryBytes: 2.2e7, cpuPercent: 0.6, diskBytes: 7.9e9 },
+          { name: 'easun-outage-reader', active: false, memoryBytes: null, cpuPercent: null, diskBytes: null },
+        ],
+        containers: [{ name: 'eam_db', state: 'running', status: 'Up 2 days', memoryBytes: 1.8e8, cpuPercent: 1.25, diskBytes: 9.4e8 }],
+      },
+    }).restore;
+
+    const battery = await screen.findByRole('region', { name: 'Battery' });
+    expect(battery).toHaveTextContent('On battery');
+    expect(battery).toHaveTextContent('64 % · discharging, 7.4 W');
+    expect(battery).toHaveTextContent('Health 40 %: holds 27 Wh of 68 Wh when new');
+    expect(battery).toHaveTextContent('DELL GD1JP65');
+    expect(battery).not.toHaveTextContent('cycles');
+
+    const system = screen.getByRole('region', { name: 'System' });
+    expect(system).toHaveTextContent('easun-bms-readerrunningRAM 22 MB · CPU 0.6 % · disk 7.9 GB');
+    expect(system).toHaveTextContent('eam_dbUp 2 daysRAM 180 MB · CPU 1.3 % · disk 940 MB');
+    expect(system).toHaveTextContent('easun-outage-readerstopped');
+    expect(system).not.toHaveTextContent('easun-outage-readerstoppedRAM');
+  });
+
+  it('shows no battery panel for a host without one', async () => {
+    restore = renderPage({ ...fresh, sample: { ...sample, power: { onMains: null, batteries: [] } } }).restore;
+    await screen.findByRole('region', { name: 'System' });
+    expect(screen.queryByRole('region', { name: 'Battery' })).not.toBeInTheDocument();
+  });
+
   it('shows the package updates waiting, and a restart the system asks for', async () => {
     restore = renderPage({
       ...fresh,

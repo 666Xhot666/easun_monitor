@@ -34,6 +34,8 @@ export async function readServices(
 }
 
 export interface Container {
+  /** Docker's full id, which names the container's cgroup. */
+  id: string;
   name: string;
   /** running, exited, restarting, ... */
   state: string;
@@ -49,15 +51,16 @@ export async function readContainers(
     const out = await runCommand('docker', [
       'ps',
       '-a',
+      '--no-trunc',
       '--format',
-      '{{.Names}}\t{{.State}}\t{{.Status}}',
+      '{{.ID}}\t{{.Names}}\t{{.State}}\t{{.Status}}',
     ]);
     return out
       .split('\n')
       .filter((line) => line.trim() !== '')
       .map((line) => {
-        const [name, state, status] = line.split('\t');
-        return { name, state, status: status ?? '' };
+        const [id, name, state, status] = line.split('\t');
+        return { id, name, state, status: status ?? '' };
       });
   } catch {
     return null;
