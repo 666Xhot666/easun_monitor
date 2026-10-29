@@ -1,3 +1,4 @@
+import { MAX_BRIDGED_GAP } from '../constants';
 /**
  * The Register map: everything the app knows about the inverter's
  * registers (name, address, width, signedness, scale, unit, enum options,
@@ -22,7 +23,8 @@ export type RegisterType = 'uint16' | 'int16' | 'uint32' | 'ascii';
  * command: write-only actions, never read.
  * info: fixed device facts (e.g. serial number), read on demand.
  */
-export type RegisterGroup = 'telemetry' | 'settings' | 'status' | 'command' | 'info';
+export type RegisterGroup =
+  'telemetry' | 'settings' | 'status' | 'command' | 'info';
 
 export interface RegisterDefinition {
   /** Stable key, used in stored readings and by the frontend. */
@@ -91,8 +93,6 @@ export class RegisterValueError extends Error {
   }
 }
 
-/** Unused addresses a single read may span rather than splitting in two. */
-const MAX_BRIDGED_GAP = 8;
 /** Modbus limit on registers per read. */
 const MAX_BLOCK = 125;
 
@@ -105,11 +105,16 @@ export class RegisterMap {
     for (let i = 0; i < this.definitions.length; i++) {
       const definition = this.definitions[i];
       if (this.byName.has(definition.name)) {
-        throw new Error(`Register map: duplicate register name ${definition.name}`);
+        throw new Error(
+          `Register map: duplicate register name ${definition.name}`,
+        );
       }
       this.byName.set(definition.name, definition);
       const previous = this.definitions[i - 1];
-      if (previous && previous.address + wordCount(previous) > definition.address) {
+      if (
+        previous &&
+        previous.address + wordCount(previous) > definition.address
+      ) {
         throw new Error(
           `Register map: ${previous.name} (${previous.address}) overlaps ${definition.name} (${definition.address})`,
         );
@@ -123,7 +128,9 @@ export class RegisterMap {
 
   /** Definitions in address order, optionally restricted to one group. */
   list(group?: RegisterGroup): RegisterDefinition[] {
-    return this.definitions.filter((d) => group === undefined || d.group === group);
+    return this.definitions.filter(
+      (d) => group === undefined || d.group === group,
+    );
   }
 
   /** The fewest read requests that cover every register of a group. */
@@ -146,11 +153,16 @@ export class RegisterMap {
         (gap <= MAX_BRIDGED_GAP &&
           previous?.verified !== false &&
           definition.verified !== false &&
-          !this.definitions.some((d) => d.address >= currentEnd && d.address < definition.address));
+          !this.definitions.some(
+            (d) => d.address >= currentEnd && d.address < definition.address,
+          ));
       if (current && bridgeable && end - current.address <= MAX_BLOCK) {
         current.count = end - current.address;
       } else {
-        blocks.push({ address: definition.address, count: end - definition.address });
+        blocks.push({
+          address: definition.address,
+          count: end - definition.address,
+        });
       }
       previous = definition;
     }
@@ -160,14 +172,22 @@ export class RegisterMap {
   /** Decodes the raw words of one block into named real values. */
   /** Text registers fully inside a block: name -> text, trailing NULs and
    * spaces removed. */
-  decodeText(block: RegisterBlock, words: readonly number[]): Record<string, string> {
+  decodeText(
+    block: RegisterBlock,
+    words: readonly number[],
+  ): Record<string, string> {
     const text: Record<string, string> = {};
     for (const definition of this.definitions) {
       if (definition.type !== 'ascii') continue;
       const offset = definition.address - block.address;
       if (offset < 0 || offset + wordCount(definition) > block.count) continue;
-      const bytes = words.slice(offset, offset + wordCount(definition)).flatMap((word) => [word >> 8, word & 0xff]);
-      text[definition.name] = String.fromCharCode(...bytes).replace(/[\0 ]+$/, '');
+      const bytes = words
+        .slice(offset, offset + wordCount(definition))
+        .flatMap((word) => [word >> 8, word & 0xff]);
+      text[definition.name] = String.fromCharCode(...bytes).replace(
+        /[\0 ]+$/,
+        '',
+      );
     }
     return text;
   }
@@ -176,8 +196,16 @@ export class RegisterMap {
     const reading: Reading = {};
     for (const definition of this.definitions) {
       const offset = definition.address - block.address;
-      if (offset < 0 || offset + wordCount(definition) > block.count || definition.type === 'ascii') continue;
-      reading[definition.name] = decode(definition, words.slice(offset, offset + wordCount(definition)));
+      if (
+        offset < 0 ||
+        offset + wordCount(definition) > block.count ||
+        definition.type === 'ascii'
+      )
+        continue;
+      reading[definition.name] = decode(
+        definition,
+        words.slice(offset, offset + wordCount(definition)),
+      );
     }
     return reading;
   }
@@ -201,14 +229,24 @@ export class RegisterMap {
     const definition = this.byName.get(name);
     if (!definition) throw new RegisterValueError(`Unknown register ${name}`);
     if (definition.verified === false) {
-      throw new RegisterValueError(`${definition.label} is unverified and cannot be written`);
+      throw new RegisterValueError(
+        `${definition.label} is unverified and cannot be written`,
+      );
     }
-    if (!definition.writable) throw new RegisterValueError(`${definition.label} is not writable`);
-    if (!Number.isFinite(value)) throw new RegisterValueError(`${definition.label} must be a number`);
+    if (!definition.writable)
+      throw new RegisterValueError(`${definition.label} is not writable`);
+    if (!Number.isFinite(value))
+      throw new RegisterValueError(`${definition.label} must be a number`);
 
     if (definition.options) {
-      if (!Number.isInteger(value) || value < 0 || value >= definition.options.length) {
-        throw new RegisterValueError(`${value} is not a valid option for ${definition.label}`);
+      if (
+        !Number.isInteger(value) ||
+        value < 0 ||
+        value >= definition.options.length
+      ) {
+        throw new RegisterValueError(
+          `${value} is not a valid option for ${definition.label}`,
+        );
       }
       return { address: definition.address, values: [value] };
     }
@@ -251,7 +289,10 @@ export function wordCount(definition: RegisterDefinition): number {
   return definition.type === 'uint32' ? 2 : 1;
 }
 
-function decode(definition: RegisterDefinition, words: readonly number[]): number {
+function decode(
+  definition: RegisterDefinition,
+  words: readonly number[],
+): number {
   let raw: number;
   if (definition.type === 'uint32') {
     raw = words[0] * 0x10000 + words[1];
@@ -266,11 +307,14 @@ function decode(definition: RegisterDefinition, words: readonly number[]): numbe
 
 function toWords(definition: RegisterDefinition, raw: number): number[] {
   if (definition.type === 'uint32') {
-    if (raw < 0 || raw > 0xffffffff) throw new RegisterValueError(`${definition.label} is out of range`);
+    if (raw < 0 || raw > 0xffffffff)
+      throw new RegisterValueError(`${definition.label} is out of range`);
     return [Math.floor(raw / 0x10000), raw % 0x10000];
   }
-  const [low, high] = definition.type === 'int16' ? [-0x8000, 0x7fff] : [0, 0xffff];
-  if (raw < low || raw > high) throw new RegisterValueError(`${definition.label} is out of range`);
+  const [low, high] =
+    definition.type === 'int16' ? [-0x8000, 0x7fff] : [0, 0xffff];
+  if (raw < low || raw > high)
+    throw new RegisterValueError(`${definition.label} is out of range`);
   return [raw < 0 ? raw + 0x10000 : raw];
 }
 

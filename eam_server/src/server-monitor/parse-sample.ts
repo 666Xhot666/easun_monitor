@@ -1,9 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import type { HostSample } from '../server-agent/sample';
-
-/** Lists longer than this are not a real host's; the sample is refused. */
-const MAX_ITEMS = 256;
-const MAX_TEXT = 200;
+import { SAMPLE_MAX_ITEMS, SAMPLE_MAX_TEXT } from './constants';
 
 class Shape {
   constructor(readonly path: string) {}
@@ -34,12 +31,13 @@ function boolOrNull(v: unknown, s: Shape): boolean | null {
   return v as boolean | null;
 }
 function text(v: unknown, s: Shape): string {
-  if (typeof v !== 'string' || v.length > MAX_TEXT)
+  if (typeof v !== 'string' || v.length > SAMPLE_MAX_TEXT)
     s.fail('expected a short text');
   return v as string;
 }
 function list<T>(v: unknown, s: Shape, item: (x: unknown, s: Shape) => T): T[] {
-  if (!Array.isArray(v) || v.length > MAX_ITEMS) s.fail('expected a list');
+  if (!Array.isArray(v) || v.length > SAMPLE_MAX_ITEMS)
+    s.fail('expected a list');
   return (v as unknown[]).map((x, i) => item(x, new Shape(`${s.path}[${i}]`)));
 }
 function listOrNull<T>(

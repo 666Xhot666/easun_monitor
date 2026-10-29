@@ -33,14 +33,13 @@ import { CreateBmsDeviceDto } from './dto/create-bms-device.dto';
 import { UpdateBmsDeviceDto } from './dto/update-bms-device.dto';
 import { newIngestToken } from './ingest-token';
 import { localized } from '../i18n/localized';
-
-/** A reading older than this is stale, never shown as current. */
-const STALE_AFTER_MS = 30_000;
-const DEFAULT_HISTORY_POINTS = 300;
-const DEFAULT_HISTORY_SPAN_MS = 60 * 60 * 1000;
-const MAX_HISTORY_SPAN_MS = 5 * 366 * 24 * 60 * 60 * 1000;
-/** The longest range one export may cover. */
-const MAX_EXPORT_SPAN_MS = 31 * 24 * 60 * 60 * 1000;
+import {
+  DEFAULT_HISTORY_POINTS,
+  DEFAULT_HISTORY_SPAN_MS,
+  MAX_EXPORT_SPAN_MS,
+  MAX_HISTORY_SPAN_MS,
+  STALE_AFTER_MS,
+} from './constants';
 
 /** Everything about a device but its token hash. */
 export const BMS_DEVICE_FIELDS = {

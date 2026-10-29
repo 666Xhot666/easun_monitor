@@ -9,9 +9,7 @@ import {
   type LocalDate,
   type WindowStatus,
 } from '../outage-reader/dnem/windows';
-
-/** Without a successful check for this long, the data is stale. */
-export const STALE_AFTER_MS = 12 * 60 * 60 * 1000;
+import { STALE_AFTER_MS } from './constants';
 
 /** What the forecast is made from, as stored for one source. */
 export interface ForecastInput {

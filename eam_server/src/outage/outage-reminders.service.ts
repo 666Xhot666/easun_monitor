@@ -7,9 +7,8 @@ import { TelemetryStore } from '../telemetry/telemetry.store';
 import type { ForecastWindow } from './forecast';
 import { OutageForecastService } from './outage-forecast.service';
 import { reminderMessage, remindersDue, type Member } from './reminders';
+import { SOC_FRESH_MS } from './constants';
 
-/** A battery level older than this is left out of the reminder. */
-const SOC_FRESH_MS = 10 * 60_000;
 const DAY_MS = 24 * 60 * 60_000;
 
 /**

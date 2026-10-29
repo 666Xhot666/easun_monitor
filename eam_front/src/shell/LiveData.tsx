@@ -1,7 +1,8 @@
 import { createContext, useContext, type ReactNode } from 'react';
 import type { InverterProfile } from '../auth/types';
 import { useDeviceStatus, type DeviceStatus } from '../inverter/useDeviceStatus';
-import { DEFAULT_POLL_MS, useReading, type ReadingStatus } from '../inverter/useReading';
+import { DEFAULT_POLL_MS } from '../inverter/constants';
+import { useReading, type ReadingStatus } from '../inverter/useReading';
 import { useRegisters } from '../inverter/useRegisters';
 import type { LatestReading, RegisterDefinition } from '../inverter/types';
 import { deriveSystemState, readingInFault, type SystemState } from './systemState';

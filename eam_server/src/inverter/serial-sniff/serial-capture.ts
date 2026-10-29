@@ -1,8 +1,16 @@
 import type { CaptureStore } from './capture-store';
 import type { CaptureRecord } from './capture-summary';
-import { RequestResponsePairer, type PairResult } from './request-response-pairer';
+import {
+  RequestResponsePairer,
+  type PairResult,
+} from './request-response-pairer';
 import { RtuRequestParser } from './rtu-request-parser';
 import { RtuResponseParser } from './rtu-response-parser';
+import {
+  CAPTURE_MAX_RECENT,
+  CAPTURE_RETRY_INITIAL_MS,
+  CAPTURE_RETRY_MAX_MS,
+} from '../constants';
 
 /** A serial port opened for reading only. */
 export interface SerialTap {
@@ -12,7 +20,10 @@ export interface SerialTap {
 }
 
 /** Opens a serial port read-only; the seam to the hardware. */
-export type SerialTapFactory = (path: string, baudRate: number) => Promise<SerialTap>;
+export type SerialTapFactory = (
+  path: string,
+  baudRate: number,
+) => Promise<SerialTap>;
 
 export type PortName = 'rx' | 'tx';
 
@@ -39,10 +50,6 @@ export interface StartOptions {
   rxBaud: number;
   txBaud: number;
 }
-
-const DEFAULT_MAX_RECENT = 2000;
-const RETRY_INITIAL_MS = 1000;
-const RETRY_MAX_MS = 30_000;
 
 interface Port {
   status: PortStatus;
@@ -86,14 +93,18 @@ export class SerialCapture {
     this.openTap = options.openTap;
     this.store = options.store;
     this.windowMs = options.windowMs ?? 1000;
-    this.maxRecent = options.maxRecent ?? DEFAULT_MAX_RECENT;
+    this.maxRecent = options.maxRecent ?? CAPTURE_MAX_RECENT;
     this.onRecord = options.onRecord;
   }
 
   async start(options: StartOptions): Promise<void> {
     await this.stop();
     const run = ++this.run;
-    this.captureId = this.store.create({ startedAt: new Date(), rxPath: options.rxPath, txPath: options.txPath });
+    this.captureId = this.store.create({
+      startedAt: new Date(),
+      rxPath: options.rxPath,
+      txPath: options.txPath,
+    });
     this.recent = [];
     this.nextSeq = 1;
     this.pairer = new RequestResponsePairer({ windowMs: this.windowMs });
@@ -102,7 +113,10 @@ export class SerialCapture {
       rx: newPort(options.rxPath, options.rxBaud),
       tx: newPort(options.txPath, options.txBaud),
     };
-    this.flushTimer = setInterval(() => this.emit(this.pairer.flush(Date.now())), Math.max(50, this.windowMs / 2));
+    this.flushTimer = setInterval(
+      () => this.emit(this.pairer.flush(Date.now())),
+      Math.max(50, this.windowMs / 2),
+    );
     await this.open('rx', run);
     await this.open('tx', run);
   }
@@ -159,9 +173,11 @@ export class SerialCapture {
       if (run !== this.run || port.tap !== tap) return;
       const at = Date.now();
       if (name === 'tx') {
-        for (const request of this.requestParser.push(chunk)) this.emit(this.pairer.push({ dir: 'tx', at, request }));
+        for (const request of this.requestParser.push(chunk))
+          this.emit(this.pairer.push({ dir: 'tx', at, request }));
       } else {
-        for (const response of responses.push(chunk)) this.emit(this.pairer.push({ dir: 'rx', at, response }));
+        for (const response of responses.push(chunk))
+          this.emit(this.pairer.push({ dir: 'rx', at, response }));
       }
     });
     tap.onError((error) => {
@@ -173,19 +189,30 @@ export class SerialCapture {
 
     const reopened = port.status.state === 'reconnecting';
     port.tap = tap;
-    port.retryMs = RETRY_INITIAL_MS;
-    port.status = { ...port.status, state: 'open', error: null, reconnects: port.status.reconnects + (reopened ? 1 : 0) };
+    port.retryMs = CAPTURE_RETRY_INITIAL_MS;
+    port.status = {
+      ...port.status,
+      state: 'open',
+      error: null,
+      reconnects: port.status.reconnects + (reopened ? 1 : 0),
+    };
     this.record({ kind: 'port', at: Date.now(), port: name, state: 'open' });
   }
 
   private retry(name: PortName, run: number, message: string): void {
     const port = this.ports[name]!;
     if (port.status.state !== 'reconnecting') {
-      this.record({ kind: 'port', at: Date.now(), port: name, state: 'reconnecting', message });
+      this.record({
+        kind: 'port',
+        at: Date.now(),
+        port: name,
+        state: 'reconnecting',
+        message,
+      });
     }
     port.status = { ...port.status, state: 'reconnecting', error: message };
     const delay = port.retryMs;
-    port.retryMs = Math.min(port.retryMs * 2, RETRY_MAX_MS);
+    port.retryMs = Math.min(port.retryMs * 2, CAPTURE_RETRY_MAX_MS);
     port.retryTimer = setTimeout(() => {
       port.retryTimer = null;
       if (run === this.run) void this.open(name, run);
@@ -196,12 +223,15 @@ export class SerialCapture {
     for (const result of results) this.record(result);
   }
 
-  private record(entry: PairResult | Omit<Extract<CaptureRecord, { kind: 'port' }>, 'seq'>): void {
+  private record(
+    entry: PairResult | Omit<Extract<CaptureRecord, { kind: 'port' }>, 'seq'>,
+  ): void {
     if (!this.captureId) return;
     const record = { seq: this.nextSeq++, ...entry } as CaptureRecord;
     this.store.append(this.captureId, record);
     this.recent.push(record);
-    if (this.recent.length > this.maxRecent) this.recent.splice(0, this.recent.length - this.maxRecent);
+    if (this.recent.length > this.maxRecent)
+      this.recent.splice(0, this.recent.length - this.maxRecent);
     this.onRecord?.(record);
   }
 }
@@ -210,7 +240,7 @@ function newPort(path: string, baudRate: number): Port {
   return {
     status: { path, baudRate, state: 'closed', error: null, reconnects: 0 },
     tap: null,
-    retryMs: RETRY_INITIAL_MS,
+    retryMs: CAPTURE_RETRY_INITIAL_MS,
     retryTimer: null,
   };
 }

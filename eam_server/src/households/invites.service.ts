@@ -9,11 +9,11 @@ import { HouseholdRole } from '../generated/prisma/enums';
 import { PrismaService } from '../prisma/prisma.service';
 import { HouseholdsService } from './households.service';
 import { localized } from '../i18n/localized';
-
-/** No 0/O, 1/I/L: easy to read out and type. 32 letters, 8 of them: 40 bits. */
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 8;
-const VALID_FOR_MS = 7 * 24 * 60 * 60 * 1000;
+import {
+  INVITE_CODE_ALPHABET,
+  INVITE_CODE_LENGTH,
+  INVITE_VALID_FOR_MS,
+} from './constants';
 
 const OPEN_INVITE_FIELDS = {
   id: true,
@@ -45,8 +45,8 @@ export class InvitesService {
   async create(householdId: number, userId: number, role: HouseholdRole) {
     await this.households.requireMember(householdId, userId, 'write');
     const raw = Array.from(
-      { length: CODE_LENGTH },
-      () => ALPHABET[randomInt(ALPHABET.length)],
+      { length: INVITE_CODE_LENGTH },
+      () => INVITE_CODE_ALPHABET[randomInt(INVITE_CODE_ALPHABET.length)],
     ).join('');
     const code = `${raw.slice(0, 4)}-${raw.slice(4)}`;
     const invite = await this.prisma.householdInvite.create({
@@ -55,7 +55,7 @@ export class InvitesService {
         role,
         codeHash: hashCode(code),
         createdById: userId,
-        expiresAt: new Date(Date.now() + VALID_FOR_MS),
+        expiresAt: new Date(Date.now() + INVITE_VALID_FOR_MS),
       },
       select: OPEN_INVITE_FIELDS,
     });

@@ -16,16 +16,13 @@ import {
 } from './server-alerts';
 import { ServerAccessService } from './server-access.service';
 import { localized } from '../i18n/localized';
+import { RECENT_EVENTS, SILENT_AFTER_MS } from './constants';
 
 export const DEFAULT_LIMITS: AlertThresholds = {
   heatC: 90,
   storageFreePercent: 10,
   memoryUsedPercent: 90,
 };
-
-/** The agent counts as silent after this long without a sample. */
-const SILENT_AFTER_MS = 5 * 60_000;
-const RECENT_EVENTS = 30;
 
 const LIMITS: Record<keyof AlertThresholds, [number, number]> = {
   heatC: [40, 110],

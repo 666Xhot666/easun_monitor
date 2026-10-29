@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Interval } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
-import { STALE_AFTER_MS } from './forecast';
+import { STALE_AFTER_MS } from './constants';
 
 /** Why the checks fail, by the last check's outcome. */
 /** Why the reader failed, by check outcome: keys of outage.reasons in the catalogs. */

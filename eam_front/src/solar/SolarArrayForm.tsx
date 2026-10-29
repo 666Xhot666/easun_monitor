@@ -4,7 +4,8 @@ import { plain, plainUnit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import type { InverterProfile } from '../auth/types';
-import { checkArray, COLD_VOC_MARGIN, computeArray, type ArrayWarning, type PanelType } from './pvArray';
+import { COLD_VOC_MARGIN } from './constants';
+import { checkArray, computeArray, type ArrayWarning, type PanelType } from './pvArray';
 
 /** The profile fields this form edits, in the order they are sent. */
 const FIELDS = [

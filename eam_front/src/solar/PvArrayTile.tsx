@@ -7,9 +7,7 @@ import type { InverterProfile } from '../auth/types';
 import type { LatestReading } from '../inverter/types';
 import { dayRange, toDay, type Day } from '../readings/days';
 import { computeArray, utilization, type PanelType } from './pvArray';
-
-/** 5-minute buckets over a day. */
-const PEAK_POINTS = 288;
+import { PEAK_POINTS } from './constants';
 
 const kW = (watts: number) => withUnit(watts / 1000, 'kW', 1);
 

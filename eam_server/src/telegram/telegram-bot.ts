@@ -32,9 +32,7 @@ import {
 import { powerChartSvg, svgToPng } from './chart';
 import { dayStart, formatEnergy, formatTomorrow } from './messages';
 import { WeatherService } from '../weather/weather.service';
-
-const POLL_TIMEOUT_SECONDS = 30;
-const RETRY_AFTER_ERROR_MS = 5_000;
+import { POLL_TIMEOUT_SECONDS, RETRY_AFTER_ERROR_MS } from './constants';
 
 type ViewName = 'status' | 'battery' | 'faults' | 'energy' | 'week';
 

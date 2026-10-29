@@ -9,6 +9,7 @@ import {
   type History,
   type HistoryQuery,
 } from './time-series';
+import { MAX_ENERGY_GAP_SECONDS, ROLLUP_INTERVAL_MS } from './constants';
 
 /** A reading as stored: register name -> value. */
 export type ReadingPayload = Record<string, number>;
@@ -48,11 +49,6 @@ export interface StoredReading {
   timestamp: Date;
   payload: ReadingPayload;
 }
-
-/** Readings further apart than this are not integrated across. */
-const MAX_ENERGY_GAP_SECONDS = 600;
-/** How often the hourly rollups catch up with new readings. */
-const ROLLUP_INTERVAL_MS = 10 * 60_000;
 
 /**
  * The Telemetry store: records polled readings and answers "latest" and

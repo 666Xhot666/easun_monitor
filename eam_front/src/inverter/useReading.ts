@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { currentLanguage } from '../i18n';
 import axios from '../lib/apiClient';
 import type { LatestReading } from './types';
+import { DEFAULT_POLL_MS, DEFAULT_STALE_AFTER_MS } from './constants';
 
 /**
  * loading: first request for this profile in flight.
@@ -21,9 +22,6 @@ export interface UseReadingOptions {
   /** Clock, injectable for tests. */
   now?: () => number;
 }
-
-export const DEFAULT_POLL_MS = 5000;
-const DEFAULT_STALE_AFTER_MS = 60_000;
 
 /** The latest Reading for one inverter profile, with a single status model
  * shared by every screen that shows live values. */

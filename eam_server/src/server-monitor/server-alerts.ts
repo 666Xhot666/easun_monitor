@@ -1,5 +1,12 @@
 import type { AlertMessage } from '../alerts/alert-message';
 import type { HostSample } from '../server-agent/sample';
+import {
+  HEAT_MARGIN_C,
+  HOT_READINGS,
+  MEMORY_MARGIN,
+  MEMORY_READINGS,
+  STORAGE_MARGIN,
+} from './constants';
 
 /** The owner's limits for the server notices. */
 export interface AlertThresholds {
@@ -34,14 +41,6 @@ export interface AlertState {
   security: number | null;
   rebootRequired: boolean | null;
 }
-
-/** Overheating needs this many hot readings in a row; memory this many over the limit. */
-const HOT_READINGS = 2;
-const MEMORY_READINGS = 5;
-/** How far back below (or above, for free storage) the limit a notice is over. */
-const HEAT_MARGIN_C = 5;
-const STORAGE_MARGIN = 2;
-const MEMORY_MARGIN = 5;
 
 /** To one decimal, as notices show it. */
 const tenth = (v: number) => Math.round(v * 10) / 10;

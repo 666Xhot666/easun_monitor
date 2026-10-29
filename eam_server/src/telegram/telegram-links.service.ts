@@ -2,11 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { languageOr, type Language } from '../i18n/languages';
 import { createHash, randomInt } from 'node:crypto';
 import { PrismaService } from '../prisma/prisma.service';
-
-/** No 0/O, 1/I/L: easy to read out and type. */
-const ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
-const CODE_LENGTH = 8;
-const VALID_FOR_MS = 10 * 60_000;
+import {
+  LINK_CODE_ALPHABET,
+  LINK_CODE_LENGTH,
+  LINK_VALID_FOR_MS,
+} from './constants';
 
 const normalize = (code: string) =>
   code.toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -21,10 +21,10 @@ export class TelegramLinksService {
   /** A new one-time code for the user; any earlier code stops working. */
   async createCode(userId: number) {
     const code = Array.from(
-      { length: CODE_LENGTH },
-      () => ALPHABET[randomInt(ALPHABET.length)],
+      { length: LINK_CODE_LENGTH },
+      () => LINK_CODE_ALPHABET[randomInt(LINK_CODE_ALPHABET.length)],
     ).join('');
-    const expiresAt = new Date(Date.now() + VALID_FOR_MS);
+    const expiresAt = new Date(Date.now() + LINK_VALID_FOR_MS);
     await this.prisma.$transaction([
       this.prisma.telegramLinkCode.deleteMany({ where: { userId } }),
       this.prisma.telegramLinkCode.create({

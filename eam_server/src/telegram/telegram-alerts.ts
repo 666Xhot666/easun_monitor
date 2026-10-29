@@ -13,10 +13,7 @@ import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
 import { TelegramBot } from './telegram-bot';
 import { NotificationSettingsService } from '../notifications/notification-settings.service';
 import { sendsToTelegram } from '../notifications/notification-settings';
-
-/** How long a logger or BMS reader is silent before it is reported. */
-const OFFLINE_AFTER_MS = 5 * 60_000;
-const DEFAULT_LOW_SOC = 20;
+import { DEFAULT_LOW_SOC, OFFLINE_AFTER_MS } from './constants';
 
 /**
  * Alerts on change, recorded for the Alerts page and sent to the linked

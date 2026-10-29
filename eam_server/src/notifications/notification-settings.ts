@@ -1,5 +1,10 @@
 import type { AlertKind } from '../alerts/alert-kind';
 import type { ServerNoticeKind } from '../server-monitor/server-alerts';
+import {
+  OUTAGE_LEAD_MINUTES,
+  QUIET_FROM_HOUR,
+  QUIET_UNTIL_HOUR,
+} from './constants';
 
 /** What can be sent: each kind of alert, and the evening summary. */
 export type NotificationKind = AlertKind | ServerNoticeKind | 'summary';
@@ -60,13 +65,8 @@ export const DEFAULT_SETTINGS: NotificationSettings = {
   possibleOutages: false,
 };
 
-export const OUTAGE_LEAD_MINUTES = { min: 1, max: 120 };
-
 /** What gets through quiet hours. */
 const URGENT = new Set<NotificationKind>(['fault', 'server-heat']);
-
-const QUIET_FROM_HOUR = 23;
-const QUIET_UNTIL_HOUR = 7;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

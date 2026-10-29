@@ -5,8 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/useAuth';
 import { extractErrorMessage } from '../lib/errors';
 import { BrandMark } from '../ui/BrandMark';
-
-const MIN_PASSWORD_LENGTH = 8;
+import { MIN_PASSWORD_LENGTH } from './constants';
 
 export default function RegisterPage() {
   const { t } = useTranslation();

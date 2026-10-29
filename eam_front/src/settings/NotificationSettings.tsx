@@ -4,6 +4,7 @@ import i18n from '../i18n';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { Switch } from '../ui/Switch';
+import { OUTAGE_LEAD_MINUTES } from './constants';
 
 export type NotificationKind =
   | 'fault'
@@ -33,8 +34,6 @@ export interface NotificationSettingsValue {
   /** The notice also before possible outages, not only confirmed ones. */
   possibleOutages: boolean;
 }
-
-const LEAD = { min: 1, max: 120 };
 
 /** `server`: for the server's owner and viewers; in the app these are on the Server page. */
 const ROWS: { kind: NotificationKind; server?: true }[] = [
@@ -96,8 +95,8 @@ export default function NotificationSettings({ showServer = false }: { showServe
   const saveLead = () => {
     if (!settings) return;
     const minutes = Number(lead);
-    if (!Number.isInteger(minutes) || minutes < LEAD.min || minutes > LEAD.max) {
-      setError(t('notify.leadRange', { min: LEAD.min, max: LEAD.max }));
+    if (!Number.isInteger(minutes) || minutes < OUTAGE_LEAD_MINUTES.min || minutes > OUTAGE_LEAD_MINUTES.max) {
+      setError(t('notify.leadRange', { min: OUTAGE_LEAD_MINUTES.min, max: OUTAGE_LEAD_MINUTES.max }));
       return;
     }
     if (minutes === settings.outageLeadMinutes) return;
@@ -196,8 +195,8 @@ export default function NotificationSettings({ showServer = false }: { showServe
               aria-describedby="outage-lead-hint"
               type="number"
               inputMode="numeric"
-              min={LEAD.min}
-              max={LEAD.max}
+              min={OUTAGE_LEAD_MINUTES.min}
+              max={OUTAGE_LEAD_MINUTES.max}
               value={lead}
               onChange={(e) => setLead(e.target.value)}
               onBlur={saveLead}

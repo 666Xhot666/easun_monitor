@@ -4,9 +4,7 @@ import { House, Sun, UtilityPole, BatteryMedium, type LucideIcon } from 'lucide-
 import dayPhoto from '../assets/scene/house-day.jpg';
 import nightPhoto from '../assets/scene/house-night.jpg';
 import type { SystemState } from '../shell/systemState';
-
-/** Watts below this count as idle: no line, no animation. */
-const DEADBAND_W = 10;
+import { DEADBAND_W } from './constants';
 
 /** Cable routes on the 1024 × 572 photo, from the source to where it ends. */
 const ROUTES = {

@@ -9,14 +9,11 @@ import { useAuth } from '../auth/useAuth';
 import type { BatteryType, InverterProfile } from '../auth/types';
 import { UserRoundCheck } from 'lucide-react';
 import { BrandMark } from '../ui/BrandMark';
+import { POWER_PRESETS_W, VOLTAGE_PRESETS } from './constants';
 
 const STEPS = [1, 2, 3];
 
-const POWER_PRESETS_W = [3600, 5000, 6200];
-
 const BATTERY_TYPES: BatteryType[] = ['LIFEPO4', 'LEAD_ACID', 'GEL', 'USER_DEFINED'];
-
-const VOLTAGE_PRESETS = [12, 24, 48];
 
 interface PairTestResult {
   success: true;

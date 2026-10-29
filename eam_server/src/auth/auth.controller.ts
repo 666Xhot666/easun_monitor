@@ -29,12 +29,7 @@ import { RegisterDto } from './dto/register.dto';
 import { SetLanguageDto } from './dto/set-language.dto';
 import { CurrentUser } from './decorators/current-user.decorator';
 import type { AuthenticatedUser } from './interfaces/jwt-payload.interface';
-
-const REFRESH_TOKEN_COOKIE = 'refresh_token';
-// Scoped to /api/auth so the browser only ever attaches this cookie to
-// the handful of routes that actually read it, instead of sending it
-// alongside every other API request.
-const REFRESH_TOKEN_COOKIE_PATH = '/api/auth';
+import { REFRESH_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE_PATH } from './constants';
 
 @Controller('api/auth')
 export class AuthController {

@@ -3,10 +3,20 @@ import { ConfigService } from '@nestjs/config';
 import { SettingsHistory } from '../telemetry/settings-history';
 import { LoggerLinks } from './link/logger-links';
 import type { Reading } from './registers/register-map';
-import { checkSettings, type SettingsCheck } from './settings-rules/settings-rules';
-import { settingsConstraints, type InstallationProfile } from './settings-rules/smg-ii.settings-rules';
-import { outOfBoundsIn, wordConstraints } from './settings-rules/worded-constraints';
+import {
+  checkSettings,
+  type SettingsCheck,
+} from './settings-rules/settings-rules';
+import {
+  settingsConstraints,
+  type InstallationProfile,
+} from './settings-rules/smg-ii.settings-rules';
+import {
+  outOfBoundsIn,
+  wordConstraints,
+} from './settings-rules/worded-constraints';
 import type { Language } from '../i18n/languages';
+import { SETTINGS_MAX_AGE_MS } from './constants';
 
 export interface SettingsSnapshot {
   /** Settings register name -> value, as read from the inverter. */
@@ -28,8 +38,6 @@ export class SettingsRuleError extends Error {
     this.name = 'SettingsRuleError';
   }
 }
-
-const DEFAULT_MAX_AGE_MS = 5 * 60_000;
 
 /**
  * The inverter's configuration, as last read from the device. Settings
@@ -53,7 +61,10 @@ export class SettingsService {
     config: ConfigService,
   ) {
     const configured = Number(config.get<string>('SETTINGS_MAX_AGE_MS'));
-    this.maxAgeMs = Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_MAX_AGE_MS;
+    this.maxAgeMs =
+      Number.isFinite(configured) && configured > 0
+        ? configured
+        : SETTINGS_MAX_AGE_MS;
   }
 
   /** Cached settings if recent enough, otherwise read from the inverter. */
@@ -71,18 +82,27 @@ export class SettingsService {
    * just written; that read-back never shares a read already in progress,
    * which could predate the write.
    */
-  refresh(profile: LoggerAddress, written?: Record<string, number>): Promise<SettingsSnapshot> {
+  refresh(
+    profile: LoggerAddress,
+    written?: Record<string, number>,
+  ): Promise<SettingsSnapshot> {
     const key = cacheKey(profile);
     let read = written ? undefined : this.inFlight.get(key);
     if (!read) {
       read = (async () => {
-        const values = await this.links.get(profile.ipAddress, profile.port).read(['settings']);
+        const values = await this.links
+          .get(profile.ipAddress, profile.port)
+          .read(['settings']);
         const snapshot = { values, readAt: new Date().toISOString() };
         this.cache.set(key, snapshot);
-        await this.history.record(profile.id, values, new Date(snapshot.readAt), written).catch((error: unknown) => {
-          // History is for analysis; never fail a settings read over it.
-          this.logger.error(`Couldn't record settings history: ${error instanceof Error ? error.message : String(error)}`);
-        });
+        await this.history
+          .record(profile.id, values, new Date(snapshot.readAt), written)
+          .catch((error: unknown) => {
+            // History is for analysis; never fail a settings read over it.
+            this.logger.error(
+              `Couldn't record settings history: ${error instanceof Error ? error.message : String(error)}`,
+            );
+          });
         return snapshot;
       })().finally(() => {
         if (this.inFlight.get(key) === read) this.inFlight.delete(key);
@@ -91,7 +111,6 @@ export class SettingsService {
     }
     return read;
   }
-
 
   /**
    * Checks changed settings against the settings rules and the inverter's
@@ -109,7 +128,12 @@ export class SettingsService {
   ): Promise<SettingsSnapshot> {
     const { values } = await this.get(profile);
     const constraints = wordConstraints(settingsConstraints(profile), language);
-    const check = checkSettings(constraints, values, changes, outOfBoundsIn(language));
+    const check = checkSettings(
+      constraints,
+      values,
+      changes,
+      outOfBoundsIn(language),
+    );
     const hasErrors = Object.keys(check.errors).length > 0;
     const hasWarnings = Object.keys(check.warnings).length > 0;
     if (hasErrors || (hasWarnings && !acknowledgeWarnings)) {

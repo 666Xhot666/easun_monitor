@@ -10,9 +10,8 @@ import type { BatteryType, InverterProfile } from '../auth/types';
 import { useLiveData } from '../shell/LiveData';
 import { Button, Card, CardTitle, Segmented } from '../ui';
 import { Dialog } from '../ui/Dialog';
+import { POWER_PRESETS, VOLTAGES } from './constants';
 
-const POWER_PRESETS = ['3600', '5000', '6200'] as const;
-const VOLTAGES = ['12', '24', '48'] as const;
 const CHEMISTRIES: { value: BatteryType; label: string }[] = [
   { value: 'LIFEPO4', label: 'profile.chemistries.LIFEPO4' },
   { value: 'LEAD_ACID', label: 'profile.chemistries.LEAD_ACID' },

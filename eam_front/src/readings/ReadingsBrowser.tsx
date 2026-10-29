@@ -9,6 +9,7 @@ import { dayLabel, dayRange, shiftDay, toDay, type Day } from './days';
 import type { BmsReading } from '../bms/types';
 import { Segmented } from '../ui';
 import BmsReadingRows from './BmsReadingRows';
+import { READINGS_PAGE_SIZE } from './constants';
 
 interface Reading {
   id: number;
@@ -20,7 +21,6 @@ interface Reading {
 }
 type Source = 'inverter' | 'bms';
 
-const PAGE = 100;
 const time = (iso: string) => new Date(iso).toLocaleTimeString(currentLocale(), { hour12: false });
 const iconButton = 'grid h-9 w-9 place-items-center rounded-lg border border-line-strong text-ink hover:bg-surface-2 disabled:opacity-40';
 
@@ -62,11 +62,11 @@ export default function ReadingsBrowser({
       setSelectedId(null);
       try {
         const { data } = await axios.get<Reading[]>(url, {
-          params: { ...dayRange(day), limit: PAGE },
+          params: { ...dayRange(day), limit: READINGS_PAGE_SIZE },
         });
         if (token !== requestIdRef.current) return;
         setReadings(data);
-        setHasMore(data.length === PAGE);
+        setHasMore(data.length === READINGS_PAGE_SIZE);
         setSelectedId(data[0]?.id ?? null);
         setStatus('ready');
       } catch {
@@ -85,11 +85,11 @@ export default function ReadingsBrowser({
     setLoadingMore(true);
     try {
       const { data } = await axios.get<Reading[]>(url, {
-        params: { ...dayRange(day), limit: PAGE, before: oldest.timestamp },
+        params: { ...dayRange(day), limit: READINGS_PAGE_SIZE, before: oldest.timestamp },
       });
       if (token !== requestIdRef.current) return;
       setReadings((previous) => [...previous, ...data]);
-      setHasMore(data.length === PAGE);
+      setHasMore(data.length === READINGS_PAGE_SIZE);
     } finally {
       if (token === requestIdRef.current) setLoadingMore(false);
     }

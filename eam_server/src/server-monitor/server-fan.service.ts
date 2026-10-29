@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { FanSettings } from '../server-agent/fan/fan-control';
 import type { HostSample } from '../server-agent/sample';
 import { ServerAccessService } from './server-access.service';
+import { FAN_MAX_C, FAN_MAX_RULES } from './constants';
 
 /** Until the owner chooses: the firmware runs the fan; one rule ready for AUTO. */
 export const DEFAULT_FAN_SETTINGS: FanSettings = {
@@ -14,8 +15,6 @@ export const DEFAULT_FAN_SETTINGS: FanSettings = {
 };
 
 const MODES = ['FIRMWARE', 'AUTO', 'MANUAL'] as const;
-const MAX_RULES = 10;
-const MAX_C = 120;
 
 const isPercent = (v: unknown): v is number =>
   Number.isInteger(v) && (v as number) >= 0 && (v as number) <= 100;
@@ -35,8 +34,8 @@ export function parseFanSettings(body: unknown): FanSettings {
     bad('minPercent must be a whole number from 0 to 100');
   if (!isPercent(o.manualPercent))
     bad('manualPercent must be a whole number from 0 to 100');
-  if (!Array.isArray(o.rules) || o.rules.length > MAX_RULES) {
-    bad(`rules must be a list of at most ${MAX_RULES}`);
+  if (!Array.isArray(o.rules) || o.rules.length > FAN_MAX_RULES) {
+    bad(`rules must be a list of at most ${FAN_MAX_RULES}`);
   }
   const rules = (o.rules as unknown[]).map((r) => {
     const rule = (typeof r === 'object' && r !== null ? r : {}) as Record<
@@ -48,9 +47,9 @@ export function parseFanSettings(body: unknown): FanSettings {
       typeof aboveC !== 'number' ||
       !Number.isFinite(aboveC) ||
       aboveC < 0 ||
-      aboveC > MAX_C
+      aboveC > FAN_MAX_C
     ) {
-      bad(`Each rule's temperature must be from 0 to ${MAX_C} °C`);
+      bad(`Each rule's temperature must be from 0 to ${FAN_MAX_C} °C`);
     }
     if (!isPercent(percent))
       bad("Each rule's speed must be a whole number from 0 to 100");

@@ -5,10 +5,7 @@ import { num, unit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
 import { loadSources, selfSufficiency, type EnergyTotals as Totals } from './energyMix';
-
-/** Below this share of a day with readings, the totals say how much they cover. */
-const FULL_COVERAGE = 0.95;
-const REFRESH_MS = 60_000;
+import { FULL_COVERAGE, TOTALS_REFRESH_MS } from './constants';
 
 /** Decimals for an energy figure: 2 below 10 kWh, else 1. */
 const decimals = (kWh: number) => (kWh < 10 ? 2 : 1);
@@ -84,7 +81,7 @@ interface Props {
 export default function EnergyTotals({ profileId, today = toDay(new Date()), now = Date.now }: Props) {
   const { t } = useTranslation();
   const yesterday = shiftDay(today, -1);
-  const todayTotals = useDayTotals(profileId, today, REFRESH_MS);
+  const todayTotals = useDayTotals(profileId, today, TOTALS_REFRESH_MS);
   const yesterdayTotals = useDayTotals(profileId, yesterday, null);
   const notes = [
     coverageNote(todayTotals, today, now(), 'today'),

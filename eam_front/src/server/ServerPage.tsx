@@ -12,8 +12,8 @@ import FanPanel from './FanPanel';
 import NoticesPanel from './NoticesPanel';
 import ServerHistory from './ServerHistory';
 import type { Battery, HostSample, ServerStatus, Usage } from './types';
+import { STATUS_REFRESH_MS } from './constants';
 
-const REFRESH_MS = 30_000;
 const gb = (n: number) => `${num(n / 1e9, 1)} ${i18n.t('units.GB')}`;
 const celsius = (n: number) => `${num(Math.round(n * 10) / 10, Number.isInteger(Math.round(n * 10) / 10) ? 0 : 1)} °C`;
 /** A sensor's own label, or its device's name when the label is only a number. */
@@ -67,7 +67,7 @@ export default function ServerPage({ now: fixedNow }: Props) {
           if (!cancelled) setFailed(true);
         });
     void load();
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    const timer = setInterval(() => void load(), STATUS_REFRESH_MS);
     return () => {
       cancelled = true;
       clearInterval(timer);

@@ -1,4 +1,9 @@
-import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  OnModuleDestroy,
+  OnModuleInit,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SchedulerRegistry } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,10 +12,10 @@ import { LoggerLinks } from './link/logger-links';
 import { LoggerUnavailableError } from './link/logger-link';
 import { SettingsService } from './settings.service';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
+import { DEFAULT_SETTINGS_REFRESH_MS } from './constants';
 
 const INTERVAL_NAME_PREFIX = 'inverter-poll-';
 const SETTINGS_INTERVAL_PREFIX = 'inverter-settings-';
-const DEFAULT_SETTINGS_REFRESH_MS = 5 * 60_000;
 
 interface PollTarget {
   ipAddress: string;
@@ -51,7 +56,11 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
   ) {
     const rawInterval = this.configService.get<string>('POLLING_INTERVAL_MS');
     const parsedInterval = Number(rawInterval);
-    if (rawInterval === undefined || !Number.isFinite(parsedInterval) || parsedInterval <= 0) {
+    if (
+      rawInterval === undefined ||
+      !Number.isFinite(parsedInterval) ||
+      parsedInterval <= 0
+    ) {
       throw new Error(
         `POLLING_INTERVAL_MS is not set to a valid positive number (got "${rawInterval}"). ` +
           `Configure it in your .env file before starting the server.`,
@@ -59,7 +68,9 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     }
     this.pollIntervalMs = parsedInterval;
 
-    const settingsRefresh = Number(this.configService.get<string>('SETTINGS_REFRESH_MS'));
+    const settingsRefresh = Number(
+      this.configService.get<string>('SETTINGS_REFRESH_MS'),
+    );
     this.settingsRefreshMs =
       Number.isFinite(settingsRefresh) && settingsRefresh > 0
         ? settingsRefresh
@@ -92,30 +103,47 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
     }
     for (const [profileId, target] of desired) {
       const current = this.tracked.get(profileId);
-      if (!current || current.ipAddress !== target.ipAddress || current.port !== target.port) {
+      if (
+        !current ||
+        current.ipAddress !== target.ipAddress ||
+        current.port !== target.port
+      ) {
         if (current) this.stopPolling(profileId);
         this.startPolling(profileId, target);
       }
     }
 
     if (desired.size === 0) {
-      this.logger.log('No inverter profiles paired yet; polling is idle until setup completes.');
+      this.logger.log(
+        'No inverter profiles paired yet; polling is idle until setup completes.',
+      );
     }
   }
 
   private startPolling(profileId: number, target: PollTarget): void {
     this.tracked.set(profileId, target);
-    const interval = setInterval(() => void this.poll(profileId, target), this.pollIntervalMs);
-    this.schedulerRegistry.addInterval(`${INTERVAL_NAME_PREFIX}${profileId}`, interval);
+    const interval = setInterval(
+      () => void this.poll(profileId, target),
+      this.pollIntervalMs,
+    );
+    this.schedulerRegistry.addInterval(
+      `${INTERVAL_NAME_PREFIX}${profileId}`,
+      interval,
+    );
     const settingsInterval = setInterval(
       () => void this.refreshSettings(profileId, target),
       this.settingsRefreshMs,
     );
-    this.schedulerRegistry.addInterval(`${SETTINGS_INTERVAL_PREFIX}${profileId}`, settingsInterval);
+    this.schedulerRegistry.addInterval(
+      `${SETTINGS_INTERVAL_PREFIX}${profileId}`,
+      settingsInterval,
+    );
     this.logger.log(
       `Polling ${target.ipAddress}:${target.port} every ${this.pollIntervalMs}ms (profile #${profileId})`,
     );
-    void this.poll(profileId, target).then(() => this.refreshSettings(profileId, target, false));
+    void this.poll(profileId, target).then(() =>
+      this.refreshSettings(profileId, target, false),
+    );
   }
 
   private stopPolling(profileId: number): void {
@@ -143,17 +171,25 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
         .read(['telemetry', 'status']);
       if (Object.keys(reading).length > 0) {
         await this.telemetry.record(profileId, reading);
-        void this.alerts.onReading(profileId, reading).catch((error: unknown) => this.alertFailed(error));
+        void this.alerts
+          .onReading(profileId, reading)
+          .catch((error: unknown) => this.alertFailed(error));
       }
-      void this.alerts.onLogger(profileId, true).catch((error: unknown) => this.alertFailed(error));
+      void this.alerts
+        .onLogger(profileId, true)
+        .catch((error: unknown) => this.alertFailed(error));
       this.report(profileId, 'up', `Profile #${profileId}: logger reachable`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       if (error instanceof LoggerUnavailableError) {
-        void this.alerts.onLogger(profileId, false).catch((error: unknown) => this.alertFailed(error));
+        void this.alerts
+          .onLogger(profileId, false)
+          .catch((error: unknown) => this.alertFailed(error));
         this.report(profileId, 'down', `Profile #${profileId}: ${message}`);
       } else {
-        this.logger.error(`Poll cycle failed for profile #${profileId}: ${message}`);
+        this.logger.error(
+          `Poll cycle failed for profile #${profileId}: ${message}`,
+        );
       }
     } finally {
       this.pollingInFlight.delete(profileId);
@@ -162,23 +198,35 @@ export class PollingService implements OnModuleInit, OnModuleDestroy {
 
   /** Slow-cadence settings read; failures just wait for the next one
    * (availability is already reported by the telemetry cycle). */
-  private async refreshSettings(profileId: number, target: PollTarget, force = true): Promise<void> {
+  private async refreshSettings(
+    profileId: number,
+    target: PollTarget,
+    force = true,
+  ): Promise<void> {
     if (!this.tracked.has(profileId)) return;
     const profile = { id: profileId, ...target };
     try {
       // The first read after pairing only fills an empty cache; the slow
       // cadence always re-reads.
-      await (force ? this.settings.refresh(profile) : this.settings.get(profile));
+      await (force
+        ? this.settings.refresh(profile)
+        : this.settings.get(profile));
     } catch {
       // Logger unreachable or a block refused: keep the last snapshot.
     }
   }
 
   private alertFailed(error: unknown): void {
-    this.logger.warn(`Telegram alert failed: ${error instanceof Error ? error.message : String(error)}`);
+    this.logger.warn(
+      `Telegram alert failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 
-  private report(profileId: number, state: 'up' | 'down', message: string): void {
+  private report(
+    profileId: number,
+    state: 'up' | 'down',
+    message: string,
+  ): void {
     if (this.lastReported.get(profileId) === state) return;
     this.lastReported.set(profileId, state);
     if (state === 'up') this.logger.log(message);

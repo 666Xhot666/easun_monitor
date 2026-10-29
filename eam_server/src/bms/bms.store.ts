@@ -9,15 +9,13 @@ import {
   type SeriesTables,
 } from '../telemetry/time-series';
 import type { BmsReading } from './reading';
+import { ROLLUP_INTERVAL_MS } from './constants';
 
 export const BMS_SERIES: SeriesTables = {
   raw: 'bms_logs',
   hourly: 'bms_log_hourly',
   key: '"bmsDeviceId"',
 };
-
-/** How often the hourly averages catch up with new readings. */
-const ROLLUP_INTERVAL_MS = 10 * 60_000;
 
 /** Stored BMS readings: history and hourly averages, like the Telemetry store. */
 @Injectable()

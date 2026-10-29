@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react';
 import axios from '../lib/apiClient';
 import { lastSeenAlert, SEEN_EVENT } from './seen';
-
-const REFRESH_MS = 60_000;
-const NEWEST = 20;
+import { UNREAD_NEWEST, UNREAD_REFRESH_MS } from './constants';
 
 /** How many of the newest alerts, of the kinds the user wants in the app, this browser hasn't shown on the Alerts page (at most 20). */
 export function useUnreadAlerts(profileId: number): number {
@@ -16,7 +14,7 @@ export function useUnreadAlerts(profileId: number): number {
     const load = async () => {
       try {
         const { data } = await axios.get<{ id: number; kind: string }[]>(`/api/inverter/${profileId}/alerts`, {
-          params: { limit: NEWEST },
+          params: { limit: UNREAD_NEWEST },
         });
         if (!cancelled) setAlerts(data);
       } catch {
@@ -31,7 +29,7 @@ export function useUnreadAlerts(profileId: number): number {
         if (!cancelled) setMuted(new Set(Object.entries(data.channels).filter(([, c]) => !c.inApp).map(([kind]) => kind)));
       })
       .catch(() => {});
-    const timer = setInterval(() => void load(), REFRESH_MS);
+    const timer = setInterval(() => void load(), UNREAD_REFRESH_MS);
     const onSeen = () => setSeen(lastSeenAlert(profileId));
     window.addEventListener(SEEN_EVENT, onSeen);
     return () => {

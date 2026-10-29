@@ -1,7 +1,5 @@
 import type { BmsReading } from '../bms/reading';
-
-const FIRST_DELAY_MS = 1_000;
-const MAX_DELAY_MS = 30_000;
+import { INGEST_RETRY_FIRST_MS, INGEST_RETRY_MAX_MS } from './constants';
 
 export interface IngestClientOptions {
   /** The server's ingest endpoint (BMS_INGEST_URL). */
@@ -49,7 +47,7 @@ export class IngestClient {
   private async pump(): Promise<void> {
     if (this.sending) return;
     this.sending = true;
-    let delay = FIRST_DELAY_MS;
+    let delay = INGEST_RETRY_FIRST_MS;
     try {
       while (this.queue.length > 0) {
         const reading = this.queue[0];
@@ -68,7 +66,7 @@ export class IngestClient {
               `Server answered ${status}; retrying in ${delay / 1000} s`,
             );
           await sleep(delay);
-          delay = Math.min(delay * 2, MAX_DELAY_MS);
+          delay = Math.min(delay * 2, INGEST_RETRY_MAX_MS);
           continue;
         }
         // Delivered, already stored (409), or rejected for good (other 4xx).
@@ -78,7 +76,7 @@ export class IngestClient {
             `Server rejected the reading of ${reading.timestamp} (${status}); dropped`,
           );
         }
-        delay = FIRST_DELAY_MS;
+        delay = INGEST_RETRY_FIRST_MS;
       }
     } finally {
       this.sending = false;
