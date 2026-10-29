@@ -66,6 +66,8 @@ export interface RegisterDefinition {
   defaultByBatteryVoltage?: Readonly<Record<number, number>>;
   /** For bitfield registers (fault/warning codes): bit index -> meaning. */
   bits?: Readonly<Record<number, string>>;
+  /** Where the definition comes from, for whoever maintains it; never shown. */
+  note?: string;
 }
 
 /** A contiguous run of registers fetched with one read request. */
