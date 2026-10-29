@@ -6,8 +6,8 @@ import {
 
 export interface ReconnectOptions<C> {
   connect: () => Promise<C>;
-  /** Runs one connected session; resolves with why it ended. */
-  session: (connection: C) => Promise<string>;
+  /** Runs one connected session until it ends or `signal` aborts; resolves with why it ended. */
+  session: (connection: C, signal: AbortSignal) => Promise<string>;
   onEvent: (message: string) => void;
   signal: AbortSignal;
 }
@@ -42,7 +42,7 @@ export async function reconnectLoop<C>(
     try {
       const connection = await options.connect();
       const startedAt = Date.now();
-      reason = await options.session(connection);
+      reason = await options.session(connection, options.signal);
       if (Date.now() - startedAt >= HEALTHY_SESSION_MS)
         delay = RECONNECT_FIRST_MS;
     } catch (error) {

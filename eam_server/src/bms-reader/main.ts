@@ -23,7 +23,7 @@ import { loadEnvFiles } from './env-files';
 import { IngestClient } from './ingest-client';
 import { connectBms, scanPeripherals } from './noble-transport';
 import { reconnectLoop } from './reconnect-loop';
-import { QUEUE_MINUTES, SCAN_MS } from './constants';
+import { QUEUE_MINUTES, SCAN_MS, STOP_GRACE_MS } from './constants';
 
 const log = (message: string) =>
   console.log(formatLogLine(message, new Date(), 'bms-reader'));
@@ -95,8 +95,13 @@ async function run(config: ReturnType<typeof readerConfig>): Promise<void> {
 
   let lastStatusAt = 0;
   const stop = new AbortController();
-  process.on('SIGINT', () => stop.abort());
-  process.on('SIGTERM', () => stop.abort());
+  // Disconnect from the BMS and exit; if that hangs (or a scan is running), exit anyway.
+  const quit = () => {
+    stop.abort();
+    setTimeout(() => process.exit(0), STOP_GRACE_MS).unref();
+  };
+  process.on('SIGINT', quit);
+  process.on('SIGTERM', quit);
 
   await reconnectLoop({
     signal: stop.signal,
@@ -106,7 +111,7 @@ async function run(config: ReturnType<typeof readerConfig>): Promise<void> {
       capture.event('connect', `${connection.name} ${connection.id}`);
       return connection;
     },
-    session: (connection) =>
+    session: (connection, signal) =>
       new BmsSession(connection, {
         protocol: config.protocol,
         source: 'mac-ble',
@@ -129,7 +134,7 @@ async function run(config: ReturnType<typeof readerConfig>): Promise<void> {
           capture.event(event.kind, event.detail);
           log(`${event.kind}: ${event.detail}`);
         },
-      }).run(),
+      }).run(signal),
     onEvent: (message) => {
       log(message);
       capture.event('reconnect', message);

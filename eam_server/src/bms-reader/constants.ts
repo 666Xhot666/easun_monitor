@@ -26,3 +26,6 @@ export const HEALTHY_SESSION_MS = 30_000;
 export const SCAN_MS = 10_000;
 /** Readings waiting for the server: about five minutes at the send interval. */
 export const QUEUE_MINUTES = 5;
+
+/** After a stop signal, the reader exits within this long even if disconnecting hangs. */
+export const STOP_GRACE_MS = 5_000;

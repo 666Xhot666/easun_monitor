@@ -58,7 +58,8 @@ export class BmsSession {
     private readonly options: SessionOptions,
   ) {}
 
-  run(): Promise<string> {
+  /** Until the BMS goes away or `signal` aborts: then it disconnects first, and ends with "Stopped". */
+  run(signal?: AbortSignal): Promise<string> {
     return new Promise<string>((resolve) => {
       let timer: ReturnType<typeof setInterval> | undefined;
       let done = false;
@@ -69,6 +70,17 @@ export class BmsSession {
         if (close) void this.connection.close().catch(() => {});
         resolve(reason);
       };
+      const stop = () => {
+        if (done) return;
+        done = true;
+        if (timer) clearInterval(timer);
+        void this.connection
+          .close()
+          .catch(() => {})
+          .then(() => resolve('Stopped'));
+      };
+      if (signal?.aborted) return stop();
+      signal?.addEventListener('abort', stop, { once: true });
 
       const assembler = new FrameAssembler({
         onFrame: (frame) => this.handle(frame),

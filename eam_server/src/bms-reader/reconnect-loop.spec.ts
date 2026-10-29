@@ -4,6 +4,27 @@ describe('reconnectLoop', () => {
   beforeEach(() => jest.useFakeTimers());
   afterEach(() => jest.useRealTimers());
 
+  it('hands the stop signal to the session, and ends once the session does', async () => {
+    const stop = new AbortController();
+    let connects = 0;
+    const done = reconnectLoop({
+      connect: () => {
+        connects++;
+        return Promise.resolve('link');
+      },
+      session: (_link, signal) =>
+        new Promise<string>((resolve) =>
+          signal.addEventListener('abort', () => resolve('Stopped')),
+        ),
+      onEvent: () => {},
+      signal: stop.signal,
+    });
+    await jest.advanceTimersByTimeAsync(10_000);
+    stop.abort();
+    await done;
+    expect(connects).toBe(1);
+  });
+
   it('retries failed connects after 1 s, doubling up to 30 s', async () => {
     const attempts: number[] = [];
     const stop = new AbortController();
