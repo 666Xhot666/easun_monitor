@@ -36,6 +36,8 @@ export interface CompareRule {
   id: string;
   /** Its text's key under "settingsRules" in src/i18n/locales. */
   key: string;
+  /** Why the rule is as it is, for whoever maintains it. */
+  note?: string;
   kind: 'compare';
   severity: 'error' | 'warning';
   left: string;
@@ -49,6 +51,8 @@ export interface CompareRule {
 export interface InactiveRule {
   id: string;
   key: string;
+  /** Why the rule is as it is, for whoever maintains it. */
+  note?: string;
   kind: 'inactive';
   settings: string[];
   when: string;
@@ -60,6 +64,8 @@ export interface InactiveRule {
 export interface AvoidRule {
   id: string;
   key: string;
+  /** Why the rule is as it is, for whoever maintains it. */
+  note?: string;
   kind: 'avoid';
   setting: string;
   value: number;
@@ -90,14 +96,21 @@ export function checkSettings(
     `Must be between ${bounds.min ?? '-∞'} and ${bounds.max ?? '∞'}${bounds.context ? ` ${bounds.context}` : ''}`,
 ): SettingsCheck {
   const result: SettingsCheck = { errors: {}, warnings: {}, inactive: {} };
-  const add = (into: Record<string, string[]>, name: string, message: string) => {
+  const add = (
+    into: Record<string, string[]>,
+    name: string,
+    message: string,
+  ) => {
     (into[name] ??= []).push(message);
   };
 
   for (const [name, value] of Object.entries(changes)) {
     const bounds = constraints.bounds[name];
     if (!bounds) continue;
-    if ((bounds.min !== undefined && value < bounds.min) || (bounds.max !== undefined && value > bounds.max)) {
+    if (
+      (bounds.min !== undefined && value < bounds.min) ||
+      (bounds.max !== undefined && value > bounds.max)
+    ) {
       add(result.errors, name, outOfBounds(bounds));
     }
   }
@@ -110,7 +123,8 @@ export function checkSettings(
       continue;
     }
     if (rule.kind === 'avoid') {
-      if (changes[rule.setting] === rule.value) add(result.warnings, rule.setting, rule.message);
+      if (changes[rule.setting] === rule.value)
+        add(result.warnings, rule.setting, rule.message);
       continue;
     }
     if (!(rule.left in changes) && !(rule.right in changes)) continue;
@@ -129,5 +143,9 @@ export function checkSettings(
 /** Compares at 0.001 resolution, so 27.0 + 0.4 equals 27.4. */
 function compare(left: number, op: CompareRule['op'], right: number): boolean {
   const difference = Math.round((left - right) * 1000);
-  return op === '>' ? difference > 0 : op === '>=' ? difference >= 0 : difference <= 0;
+  return op === '>'
+    ? difference > 0
+    : op === '>='
+      ? difference >= 0
+      : difference <= 0;
 }

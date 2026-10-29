@@ -1,4 +1,4 @@
-import { MAX_BRIDGED_GAP } from '../constants';
+import { MAX_BRIDGED_GAP } from '../constants.ts';
 /**
  * The Register map: everything the app knows about the inverter's
  * registers (name, address, width, signedness, scale, unit, enum options,
@@ -7,7 +7,7 @@ import { MAX_BRIDGED_GAP } from '../constants';
  *
  * The poller, the settings writer and the simulator all go through this
  * module, and the frontend receives its definitions as metadata, so a
- * register is described exactly once (see smg-ii.registers.ts).
+ * register is described exactly once (see devices/smg-ii/registers.json).
  *
  * No imports and only type-erasable TypeScript, so the simulator can load
  * it with Node's type stripping.
@@ -66,6 +66,8 @@ export interface RegisterDefinition {
   defaultByBatteryVoltage?: Readonly<Record<number, number>>;
   /** For bitfield registers (fault/warning codes): bit index -> meaning. */
   bits?: Readonly<Record<number, string>>;
+  /** Where the definition comes from, for whoever maintains it; never shown. */
+  note?: string;
 }
 
 /** A contiguous run of registers fetched with one read request. */

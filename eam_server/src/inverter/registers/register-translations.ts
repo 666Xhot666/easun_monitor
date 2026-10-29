@@ -7,7 +7,7 @@ import type { Language } from '../../i18n/languages';
 import { RegisterMap, type RegisterDefinition } from './register-map';
 import { SMG_II_REGISTERS } from './smg-ii.registers';
 import type { PanelSetting } from './smg-ii.panel-settings';
-import uk from './smg-ii.uk.json';
+import uk from '../devices/smg-ii/uk.json';
 
 interface RegisterTexts {
   label: string;

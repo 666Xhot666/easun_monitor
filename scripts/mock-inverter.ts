@@ -16,6 +16,7 @@
  * with MOCK_FAULT_MODE=1 to report fault mode until "Exit fault mode" is
  * sent.
  */
+import { readFileSync } from 'node:fs';
 import { InMemoryLogger } from '../eam_server/src/inverter/link/in-memory-logger.ts';
 import { startLoggerServer } from '../eam_server/src/inverter/link/logger-server.ts';
 import {
@@ -23,9 +24,16 @@ import {
   wordCount,
   type RegisterDefinition,
 } from '../eam_server/src/inverter/registers/register-map.ts';
-import { SMG_II_REGISTERS } from '../eam_server/src/inverter/registers/smg-ii.registers.ts';
+import { parseRegisterFile } from '../eam_server/src/inverter/devices/device-files.ts';
 
-const map = new RegisterMap(SMG_II_REGISTERS);
+// Read as a file: plain Node does not import JSON without an import attribute.
+const REGISTERS_FILE = new URL(
+  '../eam_server/src/inverter/devices/smg-ii/registers.json',
+  import.meta.url,
+);
+const map = new RegisterMap(
+  parseRegisterFile(JSON.parse(readFileSync(REGISTERS_FILE, 'utf8')), 'smg-ii/registers.json'),
+);
 const definitions = map.list();
 
 const between = (min: number, max: number) => min + Math.random() * (max - min);
