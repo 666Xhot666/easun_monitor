@@ -9,6 +9,8 @@ import {
   type History,
   type HistoryQuery,
 } from './time-series';
+import type { CommonReading } from '../inverter/readings/common-readings';
+import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
 import { MAX_ENERGY_GAP_SECONDS, ROLLUP_INTERVAL_MS } from './constants';
 
 /** A reading as stored: register name -> value. */
@@ -48,6 +50,20 @@ export interface StoredReading {
   id: number;
   timestamp: Date;
   payload: ReadingPayload;
+}
+
+/**
+ * A common reading of a stored payload in SQL, from the registers the
+ * device maps it to (`l` is the raw readings row); NULL without them.
+ */
+function reading(name: CommonReading): Prisma.Sql {
+  const source = SMG_II_READINGS.source(name);
+  if (!source) return Prisma.sql`NULL::float8`;
+  const value = (register: string) =>
+    Prisma.sql`(l.payload ->> ${register})::float8`;
+  return 'register' in source
+    ? value(source.register)
+    : Prisma.join(source.product.map(value), ' * ');
 }
 
 /**
@@ -161,9 +177,9 @@ export class TelemetryStore {
       WITH r AS (
         -- Negative PV or load is sensor noise; negative grid power would be
         -- export, which is not import. CASE, not GREATEST: GREATEST(NULL, 0)
-        -- is 0, and a missing value must stay missing. Battery power is
-        -- voltage times the signed current (+ charging, - discharging),
-        -- split into its charging and discharging parts.
+        -- is 0, and a missing value must stay missing. Battery power
+        -- (+ charging, - discharging) is split into its charging and
+        -- discharging parts.
         SELECT extract(epoch FROM l."timestamp") AS t,
                CASE WHEN p.pv < 0 THEN 0 ELSE p.pv END AS pv,
                CASE WHEN p.grid < 0 THEN 0 ELSE p.grid END AS grid,
@@ -172,11 +188,10 @@ export class TelemetryStore {
                CASE WHEN p.battery > 0 THEN 0 ELSE -p.battery END AS discharge
         FROM inverter_logs l
         CROSS JOIN LATERAL (
-          SELECT (l.payload ->> 'PVPower')::float8 AS pv,
-                 (l.payload ->> 'AverageMainsPower')::float8 AS grid,
-                 (l.payload ->> 'OutputActivePower')::float8 AS output,
-                 (l.payload ->> 'BatteryVoltage')::float8
-                   * (l.payload ->> 'BatteryCurrentSigned')::float8 AS battery
+          SELECT ${reading('pvPower')} AS pv,
+                 ${reading('gridPower')} AS grid,
+                 ${reading('loadPower')} AS output,
+                 ${reading('batteryPower')} AS battery
         ) p
         WHERE l."inverterProfileId" = ${profileId}
           AND l."timestamp" >= ${range.from.toISOString()}::timestamp
@@ -215,6 +230,35 @@ export class TelemetryStore {
 
   history(profileId: number, query: HistoryQuery): Promise<History> {
     return seriesHistory(this.prisma, INVERTER_SERIES, profileId, query);
+  }
+
+  /**
+   * History of common readings: points carry `readings` by their common
+   * names, a reading missing from a bucket left out. A product (battery
+   * power) comes from the bucket's average voltage and current: close, as
+   * the voltage hardly moves within a bucket.
+   */
+  async commonHistory(
+    profileId: number,
+    query: Omit<HistoryQuery, 'fields'> & { readings: CommonReading[] },
+  ): Promise<History> {
+    const { readings, ...range } = query;
+    const history = await this.history(profileId, {
+      ...range,
+      fields: SMG_II_READINGS.registersFor(readings),
+    });
+    return {
+      ...history,
+      points: history.points.map((point) => {
+        const common = SMG_II_READINGS.common(point.values);
+        const values: Record<string, number> = {};
+        for (const name of readings) {
+          const value = common[name];
+          if (value !== undefined) values[name] = value;
+        }
+        return { ...point, values };
+      }),
+    };
   }
 
   /**

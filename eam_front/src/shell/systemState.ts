@@ -1,6 +1,6 @@
 import type { DeviceStatus } from '../inverter/useDeviceStatus';
 import type { ReadingStatus } from '../inverter/useReading';
-import type { LatestReading, RegisterDefinition } from '../inverter/types';
+import type { LatestReading } from '../inverter/types';
 
 /**
  * One word for the whole system, shown by the status pill and banner on
@@ -31,8 +31,6 @@ export function deriveSystemState({
 }
 
 /** Whether a reading says the inverter is in fault mode. */
-export function readingInFault(reading: LatestReading | null, registers: RegisterDefinition[] | null): boolean {
-  if (!reading || !Array.isArray(registers)) return false;
-  const mode = registers.find((d) => d.name === 'OperationMode');
-  return mode?.options?.[reading.payload.OperationMode] === 'Fault';
+export function readingInFault(reading: LatestReading | null): boolean {
+  return reading?.readings.state === 'fault';
 }

@@ -29,7 +29,7 @@ export function LiveDataProvider({ profile, children }: { profile: InverterProfi
   const systemState = deriveSystemState({
     readingStatus: status,
     deviceStatus,
-    inFault: readingInFault(reading, registers),
+    inFault: readingInFault(reading),
   });
   const value: LiveData = {
     profile,

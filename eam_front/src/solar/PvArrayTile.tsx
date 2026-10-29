@@ -21,12 +21,12 @@ function useTodayPeakPv(profileId: number, today: Day): { watts: number; at: str
         const { data } = await axios.get<{ points: { timestamp: string; values: Record<string, number> }[] }>(
           `/api/inverter/${profileId}/history`,
           {
-            params: { from: dayRange(today).from, to: new Date().toISOString(), points: PEAK_POINTS, fields: 'PVPower' },
+            params: { from: dayRange(today).from, to: new Date().toISOString(), points: PEAK_POINTS, readings: 'pvPower' },
           },
         );
         let best: { watts: number; at: string } | undefined;
         for (const point of data.points) {
-          const watts = point.values.PVPower;
+          const watts = point.values.pvPower;
           if (typeof watts === 'number' && (!best || watts > best.watts)) best = { watts, at: point.timestamp };
         }
         if (!cancelled) setPeak(best);
@@ -74,8 +74,8 @@ export default function PvArrayTile({ profileId, profile, panelTypes, reading, t
   }
 
   const array = computeArray(panel, { inSeries, strings });
-  const pvW = reading?.payload.PVPower;
-  const pvV = reading?.payload.PVVoltage;
+  const pvW = reading?.readings.pvPower;
+  const pvV = reading?.readings.pvVoltage;
   const share = utilization(pvW, array.powerW);
   const peakShare = utilization(peak?.watts, array.powerW);
 

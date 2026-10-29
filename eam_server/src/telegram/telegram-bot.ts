@@ -318,17 +318,11 @@ export class TelegramBot
     const from = to - 24 * 3_600_000;
     for (const profile of profiles) {
       try {
-        const history = await this.telemetry.history(profile.id, {
+        const history = await this.telemetry.commonHistory(profile.id, {
           from: new Date(from),
           to: new Date(to),
           maxPoints: 288,
-          fields: [
-            'PVPower',
-            'OutputActivePower',
-            'AverageMainsPower',
-            'BatteryVoltage',
-            'BatteryCurrentSigned',
-          ],
+          readings: ['pvPower', 'loadPower', 'gridPower', 'batteryPower'],
         });
         const series = (
           value: (v: Record<string, number>) => number | undefined,
@@ -344,27 +338,22 @@ export class TelegramBot
             {
               label: t('chart.pv'),
               color: '#f59e0b',
-              points: series((v) => v.PVPower),
+              points: series((v) => v.pvPower),
             },
             {
               label: t('chart.load'),
               color: '#3b82f6',
-              points: series((v) => v.OutputActivePower),
+              points: series((v) => v.loadPower),
             },
             {
               label: t('chart.grid'),
               color: '#6b7280',
-              points: series((v) => v.AverageMainsPower),
+              points: series((v) => v.gridPower),
             },
             {
               label: t('chart.battery'),
               color: '#10b981',
-              points: series((v) =>
-                v.BatteryVoltage === undefined ||
-                v.BatteryCurrentSigned === undefined
-                  ? undefined
-                  : v.BatteryVoltage * v.BatteryCurrentSigned,
-              ),
+              points: series((v) => v.batteryPower),
             },
           ],
           // Up to three missed buckets still draw as one line.

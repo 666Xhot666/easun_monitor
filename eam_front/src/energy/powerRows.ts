@@ -1,4 +1,5 @@
 import type { History } from '../history/historyRange';
+import type { CommonReading } from '../inverter/commonReadings';
 
 export interface PowerRow {
   at: number;
@@ -12,19 +13,20 @@ export interface PowerRow {
   soc: number | null;
 }
 
-/** History points as kW rows; a value missing from a point stays null so the chart shows a gap. */
+/** The common readings the rows need, for ?readings= on the history request. */
+export const POWER_READINGS: CommonReading[] = ['pvPower', 'loadPower', 'gridPower', 'batteryPower', 'batterySoc'];
+
+/** History points (in common readings) as kW rows; a value missing from a point stays null so the chart shows a gap. */
 export function toPowerRows(history: History): PowerRow[] {
   return history.points.map(({ timestamp, values }) => {
-    const kw = (name: string) => (typeof values[name] === 'number' ? values[name] / 1000 : null);
-    const amps = values.BatteryCurrentSigned;
-    const volts = values.BatteryVoltage;
+    const kw = (name: CommonReading) => (typeof values[name] === 'number' ? values[name] / 1000 : null);
     return {
       at: Date.parse(timestamp),
-      pv: kw('PVPower'),
-      load: kw('OutputActivePower'),
-      grid: kw('AverageMainsPower'),
-      battery: typeof amps === 'number' && typeof volts === 'number' ? (amps * volts) / 1000 : null,
-      soc: typeof values.BatterySoc === 'number' ? values.BatterySoc : null,
+      pv: kw('pvPower'),
+      load: kw('loadPower'),
+      grid: kw('gridPower'),
+      battery: kw('batteryPower'),
+      soc: typeof values.batterySoc === 'number' ? values.batterySoc : null,
     };
   });
 }

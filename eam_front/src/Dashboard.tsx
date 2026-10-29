@@ -70,9 +70,8 @@ export default function Dashboard() {
   }
 
   const live = bmsLatest?.status === 'live' ? bmsLatest.reading : undefined;
-  const values = sceneValues(reading.payload, { pvRatedW, bms: live });
-  const modeRegister = registers.find((d) => d.name === 'OperationMode');
-  const mode = modeRegister?.options?.[reading.payload.OperationMode] ?? '--';
+  const values = sceneValues(reading.readings, { pvRatedW, bms: live });
+  const mode = reading.readings.state ? t(`inverterState.${reading.readings.state}`) : '--';
   const age = ageText(now - Date.parse(reading.timestamp));
   const readAt = clock(reading.timestamp);
   const sentence =

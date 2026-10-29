@@ -1,10 +1,14 @@
+import type { CommonSnapshot } from './commonReadings';
+
 /** A stored poll result, as returned by GET /api/inverter/:profileId/latest. */
 export interface LatestReading {
   id: number;
   /** When the server polled it (ISO 8601). */
   timestamp: string;
-  /** Register name -> value (enum registers hold their option index). */
+  /** Register name -> value (enum registers hold their option index): for the device pages. */
   payload: Record<string, number>;
+  /** The same snapshot in common terms: what every other screen reads. */
+  readings: CommonSnapshot;
   /** Active fault and warning descriptions, decoded by the server. */
   alerts?: { faults: string[]; warnings: string[] };
 }

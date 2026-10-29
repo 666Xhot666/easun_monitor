@@ -1,8 +1,11 @@
 import type { BmsReading } from '../bms/reading';
 import { LOCALES, type Language } from '../i18n/languages';
 import { translate } from '../i18n/translate';
+import type { InverterState } from '../inverter/readings/common-readings';
+import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
 import { registerMapFor } from '../inverter/registers/register-translations';
 import type { EnergyTotals } from '../telemetry/telemetry.store';
+import { GRID_PRESENT_V } from './constants';
 
 /** Escape characters that Telegram HTML treats as markup. */
 export function escapeHtml(text: string): string {
@@ -45,11 +48,8 @@ function wording(language: Language) {
   };
   const kWh = (value: unknown) => `${kWhValue(value)} ${unit('kWh')}`;
   const map = registerMapFor(language);
-  const modeName = (value: unknown) => {
-    if (!isNumber(value)) return undefined;
-    const option = map.get('OperationMode')?.options?.[value];
-    return typeof option === 'string' && option.length > 0 ? option : undefined;
-  };
+  const modeName = (state: InverterState | undefined) =>
+    state ? translate(language, `inverterState.${state}`) : undefined;
   const ago = (key: string, count: number) => t(`units.${key}`, { count });
   return { t, card, unit, fixed, watts, kWhValue, kWh, map, modeName, ago };
 }
@@ -72,29 +72,25 @@ export function statusCard(
     return header + '\n' + card('noReadings');
   }
 
-  const payload = reading.payload;
-  const mode = modeName(payload['OperationMode']);
+  const current = SMG_II_READINGS.common(reading.payload);
+  const mode = modeName(current.state);
   const lines: string[] = [mode ? header + ' · ' + escapeHtml(mode) : header];
 
-  lines.push(`☀️ ${card('pv')} <b>${watts(payload['PVPower'])}</b>`);
-  lines.push(
-    `🏡 ${card('load')} <b>${watts(payload['OutputActivePower'])}</b>`,
-  );
+  lines.push(`☀️ ${card('pv')} <b>${watts(current.pvPower)}</b>`);
+  lines.push(`🏡 ${card('load')} <b>${watts(current.loadPower)}</b>`);
 
-  let grid = `🔌 ${card('grid')} <b>${watts(payload['AverageMainsPower'])}</b>`;
-  const mainsVoltage = payload['MainsVoltage'];
-  if (isNumber(mainsVoltage) && mainsVoltage <= 100) {
+  let grid = `🔌 ${card('grid')} <b>${watts(current.gridPower)}</b>`;
+  const gridVoltage = current.gridVoltage;
+  if (isNumber(gridVoltage) && gridVoltage <= GRID_PRESENT_V) {
     grid += ' · ' + card('noGrid');
   }
   lines.push(grid);
 
-  const soc = payload['BatterySoc'];
+  const soc = current.batterySoc;
   if (isNumber(soc)) {
     let battery = `🔋 ${card('battery')} <b>${Math.round(soc)} %</b>`;
-    const voltage = payload['BatteryVoltage'];
-    const current = payload['BatteryCurrentSigned'];
-    if (isNumber(voltage) && isNumber(current)) {
-      const power = voltage * current;
+    const power = current.batteryPower;
+    if (isNumber(power)) {
       if (Math.abs(power) <= 10) {
         battery += ' · ' + card('idle');
       } else {
@@ -153,16 +149,17 @@ export function batteryCard(
   const { card, unit, fixed, ago } = wording(language);
   const lines: string[] = ['<b>🔋 ' + escapeHtml(name) + '</b>'];
 
-  const soc = payload?.['BatterySoc'];
+  const inverterNow = payload ? SMG_II_READINGS.common(payload) : {};
+  const soc = inverterNow.batterySoc;
   if (!isNumber(soc)) {
     lines.push(`${card('inverter')}: ${card('noReading')}`);
   } else {
     let inverter = `${card('inverter')}: <b>${Math.round(soc)} %</b>`;
-    const voltage = payload?.['BatteryVoltage'];
+    const voltage = inverterNow.batteryVoltage;
     if (isNumber(voltage)) {
       inverter += ` · ${fixed(voltage, 2)} ${unit('V')}`;
     }
-    const current = payload?.['BatteryCurrentSigned'];
+    const current = inverterNow.batteryCurrent;
     if (isNumber(current)) {
       inverter += ` · ${fixed(current, 1)} ${unit('A')}`;
     }
@@ -282,7 +279,7 @@ export function faultsCard(
     return header + '\n' + card('noReadings');
   }
 
-  const mode = modeName(payload['OperationMode']);
+  const mode = modeName(SMG_II_READINGS.common(payload).state);
   const fullHeader = mode ? header + ' · ' + escapeHtml(mode) : header;
   const faults = map.activeFlags(
     'FaultCode',

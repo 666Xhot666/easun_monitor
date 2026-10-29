@@ -6,6 +6,7 @@ import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip,
 import axios from '../lib/apiClient';
 import { HISTORY_RANGES, getRange, rangeQuery, type History, type HistoryRangeId } from './historyRange';
 import { Segmented } from '../ui';
+import type { CommonReading } from '../inverter/commonReadings';
 
 type Key = 'pv' | 'load' | 'grid' | 'battery' | 'soc' | 'bv' | 'pvv' | 'mains';
 
@@ -21,36 +22,25 @@ interface Series {
   value: (v: Record<string, number>) => number | null;
 }
 
-const num = (v: Record<string, number>, name: string) => (typeof v[name] === 'number' ? v[name] : null);
-const kw = (v: Record<string, number>, name: string) => {
+const num = (v: Record<string, number>, name: CommonReading) => (typeof v[name] === 'number' ? v[name] : null);
+const kw = (v: Record<string, number>, name: CommonReading) => {
   const w = num(v, name);
   return w === null ? null : w / 1000;
 };
 
 const SERIES: Series[] = [
-  { key: 'pv', label: 'history.series.pv', colour: 'var(--pv)', power: true, unit: 'kW', value: (v) => kw(v, 'PVPower') },
-  { key: 'load', label: 'history.series.load', colour: 'var(--load)', power: true, unit: 'kW', value: (v) => kw(v, 'OutputActivePower') },
-  { key: 'grid', label: 'history.series.grid', colour: 'var(--grid)', power: true, unit: 'kW', value: (v) => kw(v, 'AverageMainsPower') },
-  {
-    key: 'battery',
-    label: 'history.series.battery',
-    colour: 'var(--batt)',
-    power: true,
-    unit: 'kW',
-    value: (v) => {
-      const a = num(v, 'BatteryCurrentSigned');
-      const u = num(v, 'BatteryVoltage');
-      return a === null || u === null ? null : (a * u) / 1000;
-    },
-  },
-  { key: 'soc', label: 'history.series.soc', colour: 'var(--soc)', power: false, unit: '%', domain: [0, 100], value: (v) => num(v, 'BatterySoc') },
-  { key: 'bv', label: 'history.series.bv', colour: 'var(--muted)', power: false, unit: 'V', value: (v) => num(v, 'BatteryVoltage') },
-  { key: 'pvv', label: 'history.series.pvv', colour: 'var(--pv)', power: false, unit: 'V', value: (v) => num(v, 'PVVoltage') },
-  { key: 'mains', label: 'history.series.mains', colour: 'var(--grid)', power: false, unit: 'V', value: (v) => num(v, 'MainsVoltage') },
+  { key: 'pv', label: 'history.series.pv', colour: 'var(--pv)', power: true, unit: 'kW', value: (v) => kw(v, 'pvPower') },
+  { key: 'load', label: 'history.series.load', colour: 'var(--load)', power: true, unit: 'kW', value: (v) => kw(v, 'loadPower') },
+  { key: 'grid', label: 'history.series.grid', colour: 'var(--grid)', power: true, unit: 'kW', value: (v) => kw(v, 'gridPower') },
+  { key: 'battery', label: 'history.series.battery', colour: 'var(--batt)', power: true, unit: 'kW', value: (v) => kw(v, 'batteryPower') },
+  { key: 'soc', label: 'history.series.soc', colour: 'var(--soc)', power: false, unit: '%', domain: [0, 100], value: (v) => num(v, 'batterySoc') },
+  { key: 'bv', label: 'history.series.bv', colour: 'var(--muted)', power: false, unit: 'V', value: (v) => num(v, 'batteryVoltage') },
+  { key: 'pvv', label: 'history.series.pvv', colour: 'var(--pv)', power: false, unit: 'V', value: (v) => num(v, 'pvVoltage') },
+  { key: 'mains', label: 'history.series.mains', colour: 'var(--grid)', power: false, unit: 'V', value: (v) => num(v, 'gridVoltage') },
 ];
 
-const FIELDS = [
-  'PVPower', 'OutputActivePower', 'AverageMainsPower', 'BatteryCurrentSigned', 'BatteryVoltage', 'BatterySoc', 'PVVoltage', 'MainsVoltage',
+const READINGS: CommonReading[] = [
+  'pvPower', 'loadPower', 'gridPower', 'batteryPower', 'batterySoc', 'batteryVoltage', 'pvVoltage', 'gridVoltage',
 ];
 const DEFAULT_ON: Key[] = ['pv', 'load', 'grid', 'battery', 'soc'];
 
@@ -85,7 +75,7 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
       setFailed(false);
       try {
         const { data } = await axios.get<History>(`/api/inverter/${profileId}/history`, {
-          params: { ...rangeQuery(rangeId), fields: FIELDS.join(',') },
+          params: { ...rangeQuery(rangeId), readings: READINGS.join(',') },
         });
         if (cancelled) return;
         setRows(

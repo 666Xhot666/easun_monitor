@@ -19,7 +19,7 @@ const page1 = [
 function renderPage(alerts: (params: Record<string, string>) => unknown[], active: { faults: string[]; warnings: string[] } = { faults: [], warnings: [] }) {
   const server = fakeServer((config) => {
     if (config.url === '/api/inverter/7/alerts') return { status: 200, data: alerts(config.params ?? {}) };
-    if (config.url === '/api/inverter/7/latest') return { status: 200, data: { id: 1, timestamp: new Date().toISOString(), payload: {}, alerts: active } };
+    if (config.url === '/api/inverter/7/latest') return { status: 200, data: { id: 1, timestamp: new Date().toISOString(), payload: {}, readings: {}, alerts: active } };
     return { status: 404 };
   });
   render(

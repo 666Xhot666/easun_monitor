@@ -113,6 +113,45 @@ describe('Telemetry store (e2e)', () => {
     expect(res.body.points[0].values).toMatchObject({ PVPower: 300, BatteryVoltage: 52 });
   });
 
+  it('serves history in common terms when asked for common readings', async () => {
+    await prisma.inverterLog.createMany({
+      data: Array.from({ length: 720 }, (_, i) => ({
+        inverterProfileId: profileId,
+        timestamp: new Date(t0 + i * 5000),
+        payload: { PVPower: 300, BatteryVoltage: 26, BatteryCurrentSigned: -10, MainsVoltage: 220, OperationMode: 3 },
+      })),
+    });
+    const res = await request(app.getHttpServer())
+      .get(`/api/inverter/${profileId}/history`)
+      .query({
+        from: new Date(t0).toISOString(),
+        to: new Date(t0 + HOUR).toISOString(),
+        points: 12,
+        readings: 'pvPower,batteryPower,batterySoc',
+      })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(200);
+
+    expect(res.body.points).toHaveLength(12);
+    // No SoC in these readings: left out, not zero.
+    expect(res.body.points[0].values).toEqual({ pvPower: 300, batteryPower: -260 });
+  });
+
+  it('refuses a common reading it does not know, or one that is not a number', async () => {
+    for (const readings of ['sunshine', 'state', 'pvPower,PVPower']) {
+      await request(app.getHttpServer())
+        .get(`/api/inverter/${profileId}/history`)
+        .query({ readings })
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+    }
+    await request(app.getHttpServer())
+      .get(`/api/inverter/${profileId}/history`)
+      .query({ readings: 'pvPower', fields: 'PVPower' })
+      .set('Authorization', `Bearer ${token}`)
+      .expect(400);
+  });
+
   it('rejects an inverted range', async () => {
     await request(app.getHttpServer())
       .get(`/api/inverter/${profileId}/history`)

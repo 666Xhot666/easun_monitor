@@ -331,12 +331,20 @@ export class InverterController {
       throw new BadRequestException(localized('historyTooLong', { years: 5 }));
     }
 
-    return this.telemetry.history(profileId, {
+    const range = {
       from,
       to,
       maxPoints: query.points ?? DEFAULT_HISTORY_POINTS,
-      fields: query.fields,
-    });
+    };
+    if (query.readings && query.fields) {
+      throw new BadRequestException(localized('readingsOrFields'));
+    }
+    return query.readings
+      ? this.telemetry.commonHistory(profileId, {
+          ...range,
+          readings: query.readings,
+        })
+      : this.telemetry.history(profileId, { ...range, fields: query.fields });
   }
 
   /** The inverter's recorded alerts, newest first, a page at a time. */
@@ -581,12 +589,9 @@ export class InverterController {
       'write',
     );
     const link = this.links.get(profile.ipAddress, profile.port);
-    const faultMode = this.registers
-      .get('OperationMode')
-      ?.options?.indexOf('Fault');
     return this.deviceCall(async () => {
-      const { OperationMode } = await link.read(['telemetry']);
-      if (OperationMode !== faultMode) {
+      const values = await link.read(['telemetry']);
+      if (SMG_II_READINGS.common(values).state !== 'fault') {
         throw new ConflictException(localized('notInFaultMode'));
       }
       await link.command('ExitFaultMode', 1);

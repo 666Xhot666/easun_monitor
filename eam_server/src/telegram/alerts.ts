@@ -1,4 +1,5 @@
 import type { AlertMessage } from '../alerts/alert-message';
+import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
 import { activeBits } from '../inverter/registers/register-map';
 import { GRID_PRESENT_V, RECOVER_POINTS } from './constants';
 
@@ -21,10 +22,10 @@ export function inverterAlerts(
   reading: Record<string, number>,
   lowSoc: number,
 ): { state: InverterAlertState; messages: AlertMessage[] } {
+  // Fault and warning codes are the device's own; the rest is common.
   const faultCode = reading.FaultCode;
   const warningCode = reading.WarningCode;
-  const mainsVoltage = reading.MainsVoltage;
-  const soc = reading.BatterySoc;
+  const { gridVoltage, batterySoc: soc } = SMG_II_READINGS.common(reading);
 
   const faults = isNumber(faultCode)
     ? activeBits(faultCode)
@@ -32,8 +33,8 @@ export function inverterAlerts(
   const warnings = isNumber(warningCode)
     ? activeBits(warningCode)
     : (previous?.warnings ?? []);
-  const gridUp = isNumber(mainsVoltage)
-    ? mainsVoltage > GRID_PRESENT_V
+  const gridUp = isNumber(gridVoltage)
+    ? gridVoltage > GRID_PRESENT_V
     : previous?.gridUp;
   const batteryLow = !isNumber(soc)
     ? previous?.batteryLow

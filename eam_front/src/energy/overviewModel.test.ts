@@ -54,10 +54,10 @@ describe('formatDuration', () => {
 });
 
 describe('sceneValues', () => {
-  const payload = { PVPower: 2840, AverageMainsPower: 0, OutputActivePower: 1260, MainsVoltage: 231, BatteryCurrentSigned: 30, BatteryVoltage: 52.7, BatterySoc: 70 };
+  const readings = { pvPower: 2840, gridPower: 0, loadPower: 1260, gridVoltage: 231, batteryPower: 1581, batterySoc: 70 };
 
   it('takes the battery from the inverter when there is no live BMS', () => {
-    const v = sceneValues(payload, { pvRatedW: 6600 });
+    const v = sceneValues(readings, { pvRatedW: 6600 });
     expect(v.pv).toEqual({ value: '2.84 kW', sub: '43% of array' });
     expect(v.load).toEqual({ value: '1.26 kW', sub: 'From solar' });
     expect(v.grid).toEqual({ value: '0 W', sub: 'On standby' });
@@ -67,7 +67,7 @@ describe('sceneValues', () => {
   });
 
   it('prefers a live BMS for the battery, with the time to full', () => {
-    const v = sceneValues(payload, {
+    const v = sceneValues(readings, {
       bms: { stateOfChargePct: 72, powerW: 1662, currentA: 31.2, remainingCapacityAh: 144, nominalCapacityAh: 200 },
     });
     expect(v.battery).toEqual({ value: '1.66 kW', sub: '72% · charging', extra: 'Full in 1 h 48 m' });
@@ -75,7 +75,7 @@ describe('sceneValues', () => {
   });
 
   it('says where the home draws from when the grid carries it', () => {
-    const v = sceneValues({ ...payload, PVPower: 0, AverageMainsPower: 900, BatteryCurrentSigned: 0 }, {});
+    const v = sceneValues({ ...readings, pvPower: 0, gridPower: 900, batteryPower: 0 }, {});
     expect(v.load.sub).toBe('From grid');
     expect(v.grid.sub).toBe('Importing');
   });

@@ -1169,5 +1169,14 @@
     "setMounting": "Set the mounting",
     "setup": "Set up",
     "unavailable": "The weather forecast is not available right now."
+  },
+  "inverterState": {
+    "starting": "Power on",
+    "standby": "Standby",
+    "grid": "Mains",
+    "off-grid": "Off-grid",
+    "bypass": "Bypass",
+    "charging": "Charging",
+    "fault": "Fault"
   }
 }

@@ -10,7 +10,7 @@ import { dayRange } from '../readings/days';
 
 const longi: PanelType = { id: 1, name: 'Longi 450W', maxPowerW: 450, vmpV: 41.5, impA: 10.85, vocV: 49.5, iscA: 11.5 };
 const wiring = { pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2 };
-const reading = (payload: Record<string, number>): LatestReading => ({ id: 1, timestamp: new Date().toISOString(), payload });
+const reading = (readings: LatestReading['readings']): LatestReading => ({ id: 1, timestamp: new Date().toISOString(), payload: {}, readings });
 const TODAY = '2026-10-06';
 const render = (ui: ReactElement) => renderUi(<MemoryRouter>{ui}</MemoryRouter>);
 
@@ -21,7 +21,7 @@ describe('PvArrayTile', () => {
   const history = (pv: number[]) =>
     fakeServer((config) =>
       config.url === '/api/inverter/7/history'
-        ? { status: 200, data: { source: 'raw', bucketSeconds: 300, points: pv.map((PVPower, i) => ({ timestamp: `${TODAY}T1${i}:40:00`, values: { PVPower } })) } }
+        ? { status: 200, data: { source: 'raw', bucketSeconds: 300, points: pv.map((pvPower, i) => ({ timestamp: `${TODAY}T1${i}:40:00`, values: { pvPower } })) } }
         : { status: 404 },
     );
 
@@ -30,7 +30,7 @@ describe('PvArrayTile', () => {
     restore = server.restore;
 
     render(
-      <PvArrayTile profileId={7} profile={wiring} panelTypes={[longi]} reading={reading({ PVPower: 1404, PVVoltage: 118.2 })} today={TODAY} />,
+      <PvArrayTile profileId={7} profile={wiring} panelTypes={[longi]} reading={reading({ pvPower: 1404, pvVoltage: 118.2 })} today={TODAY} />,
     );
 
     const tile = screen.getByRole('region', { name: 'Solar now' });
@@ -39,7 +39,7 @@ describe('PvArrayTile', () => {
     expect(tile).toHaveTextContent('PV voltage118.2 VArray Vmp 125 V');
     expect(await screen.findByText('78% at 11:40')).toBeInTheDocument();
     expect(tile).toHaveTextContent('Today’s peak2.1 kW');
-    expect(server.sent[0].params).toMatchObject({ from: dayRange(TODAY).from, fields: 'PVPower' });
+    expect(server.sent[0].params).toMatchObject({ from: dayRange(TODAY).from, readings: 'pvPower' });
   });
 
   it('shows dashes for values the reading lacks', () => {
