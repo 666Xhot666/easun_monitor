@@ -153,4 +153,37 @@ describe('Readings log (e2e)', () => {
       await get(`/api/inverter/${profileId}/readings/export?${range(10)}`, strangerToken).expect(404);
     });
   });
+
+  describe('GET /api/inverter/:profileId/latest', () => {
+    it('serves the newest reading also in common terms', async () => {
+      await prisma.inverterLog.create({
+        data: {
+          inverterProfileId: profileId,
+          timestamp: new Date(),
+          payload: {
+            PVPower: 410,
+            BatteryVoltage: 26.1,
+            BatteryCurrentSigned: -12.6,
+            BatterySoc: 88,
+            OperationMode: 3,
+            FaultCode: 0,
+            WarningCode: 0,
+          },
+        },
+      });
+      const { body } = await request(app.getHttpServer())
+        .get(`/api/inverter/${profileId}/latest`)
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(body.payload.PVPower).toBe(410);
+      expect(body.readings).toEqual({
+        pvPower: 410,
+        batteryVoltage: 26.1,
+        batteryCurrent: -12.6,
+        batteryPower: -328.86,
+        batterySoc: 88,
+        state: 'off-grid',
+      });
+    });
+  });
 });

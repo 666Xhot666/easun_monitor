@@ -1,0 +1,20 @@
+{
+  "notes": [
+    "How the SMG-II's registers give the common readings the app shows (src/inverter/readings/common-readings.ts). A register name gives its value as is; a product multiplies registers. state is OperationMode's raw value as a common state, by position."
+  ],
+  "readings": {
+    "pvPower": "PVPower",
+    "pvVoltage": "PVVoltage",
+    "batteryVoltage": "BatteryVoltage",
+    "batteryCurrent": "BatteryCurrentSigned",
+    "batteryPower": { "product": ["BatteryVoltage", "BatteryCurrentSigned"] },
+    "batterySoc": "BatterySoc",
+    "gridVoltage": "MainsVoltage",
+    "gridPower": "AverageMainsPower",
+    "loadPower": "OutputActivePower"
+  },
+  "state": {
+    "from": "OperationMode",
+    "values": ["starting", "standby", "grid", "off-grid", "bypass", "charging", "fault"]
+  }
+}
