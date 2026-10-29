@@ -295,6 +295,10 @@ model InverterProfile {
   latitude  Float?
   longitude Float?
 
+  /// While true, the app writes nothing to the inverter (settings, fault
+  /// reset); it still reads. Set by an admin in the app.
+  writesLocked Boolean @default(false)
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

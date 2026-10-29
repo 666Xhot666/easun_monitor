@@ -86,6 +86,7 @@ const PROFILE_FIELDS = {
   pvMaxCurrentA: true,
   pvTiltDeg: true,
   pvFacingDeg: true,
+  writesLocked: true,
   latitude: true,
   longitude: true,
   householdId: true,

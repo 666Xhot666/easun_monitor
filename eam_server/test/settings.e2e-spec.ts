@@ -110,6 +110,32 @@ describe('Inverter settings (e2e)', () => {
     expect(logger.get(301, 1)).toEqual([0]);
   });
 
+  it('writes nothing while writes are locked, and again once unlocked', async () => {
+    const id = await pair();
+    const profile = await call('patch', `/api/inverter/profiles/${id}`)
+      .send({ writesLocked: true })
+      .expect(200);
+    expect(profile.body.writesLocked).toBe(true);
+
+    const refused = await call('patch', `/api/inverter/${id}/settings`)
+      .send({ changes: { OutputPriority: 0 } })
+      .expect(409);
+    expect(refused.body.message).toMatch(/locked/i);
+    await call('post', `/api/inverter/${id}/exit-fault-mode`).expect(409);
+    expect(writes).toBe(0);
+    expect(logger.get(301, 1)).toEqual([2]);
+    // Reading stays possible.
+    await call('get', `/api/inverter/${id}/settings`).expect(200);
+
+    await call('patch', `/api/inverter/profiles/${id}`)
+      .send({ writesLocked: false })
+      .expect(200);
+    await call('patch', `/api/inverter/${id}/settings`)
+      .send({ changes: { OutputPriority: 0 } })
+      .expect(200);
+    expect(logger.get(301, 1)).toEqual([0]);
+  });
+
   it('rejects invalid values before writing anything', async () => {
     const id = await pair();
     const bad = await call('patch', `/api/inverter/${id}/settings`)

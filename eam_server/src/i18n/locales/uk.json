@@ -229,6 +229,7 @@
     "loggerNotPrivate": "Адреса логера {{host}} не в приватній мережі. Вкажіть адресу логера в локальній мережі або задайте ALLOW_PUBLIC_LOGGER_HOSTS=true.",
     "loggerUnresolved": "Не вдалося визначити адресу логера {{host}}",
     "notInFaultMode": "Інвертор не в режимі несправності",
+    "writesLocked": "Запис в інвертор заблоковано в його налаштуваннях",
     "noReadingsYet": "Показників інвертора ще немає",
     "fromBeforeTo": "Початок має бути раніше за кінець",
     "readingsOrFields": "Задайте `readings` або `fields`, не обидва",
