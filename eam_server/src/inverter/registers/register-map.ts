@@ -7,7 +7,7 @@ import { MAX_BRIDGED_GAP } from '../constants.ts';
  *
  * The poller, the settings writer and the simulator all go through this
  * module, and the frontend receives its definitions as metadata, so a
- * register is described exactly once (see smg-ii.registers.ts).
+ * register is described exactly once (see devices/smg-ii/registers.json).
  *
  * No imports and only type-erasable TypeScript, so the simulator can load
  * it with Node's type stripping.
