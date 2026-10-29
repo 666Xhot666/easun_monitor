@@ -30,7 +30,7 @@ describe('ReaderServerClient', () => {
   it('asks which address to check, with its token', async () => {
     const address = {
       site: 'dnem',
-      city: 'м. Дніпро',
+      city: 'м. Тестове',
       street: 'вул. Тестова',
       house: '12а',
       enabled: true,
@@ -45,7 +45,7 @@ describe('ReaderServerClient', () => {
 
   it("uploads the site's streets", async () => {
     const { fetch, calls } = fakeFetch(json({ changed: true }));
-    await client(fetch).putStreets({ 'м. Дніпро': ['вул. Тестова'] });
+    await client(fetch).putStreets({ 'м. Тестове': ['вул. Тестова'] });
     expect(calls[0].url).toBe(
       'http://localhost:3000/api/outage/reader/streets',
     );
@@ -55,7 +55,7 @@ describe('ReaderServerClient', () => {
     );
     expect(JSON.parse(String(calls[0].init.body))).toEqual({
       site: 'dnem',
-      streets: { 'м. Дніпро': ['вул. Тестова'] },
+      streets: { 'м. Тестове': ['вул. Тестова'] },
     });
   });
 

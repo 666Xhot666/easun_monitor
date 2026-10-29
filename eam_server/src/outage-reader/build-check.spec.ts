@@ -16,7 +16,7 @@ const reading = (over: Partial<StreetReading> = {}): StreetReading => ({
   page: {
     ajaxUrl: 'https://www.dtek-dnem.com.ua/ua/ajax',
     csrfToken: 't',
-    streets: { 'м. Дніпро': ['вул. Тестова'] },
+    streets: { 'м. Тестове': ['вул. Тестова'] },
     weekly: {
       groupNames: { 'GPV5.2': 'Черга 5.2', 'GPV1.1': 'Черга 1.1' },
       groups: { 'GPV5.2': week(day({ 8: 'maybe' })), 'GPV1.1': week() },

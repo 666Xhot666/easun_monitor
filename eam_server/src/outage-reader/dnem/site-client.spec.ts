@@ -21,7 +21,7 @@ describe('DnemSiteClient', () => {
     expect(header(calls[0], 'user-agent')).toMatch(/Chrome\//);
     expect(header(calls[0], 'accept-language')).toMatch(/^uk/);
     expect(page.csrfToken).toBe('tok-1');
-    expect(page.streets).toEqual({ 'м. Дніпро': ['вул. Тестова'] });
+    expect(page.streets).toEqual({ 'м. Тестове': ['вул. Тестова'] });
   });
 
   it("asks for a street's houses with the page's cookies and token", async () => {
@@ -38,7 +38,7 @@ describe('DnemSiteClient', () => {
     );
     const client = new DnemSiteClient({ fetch });
     await client.loadPage();
-    await client.houses('м. Дніпро', 'вул. Тестова');
+    await client.houses('м. Тестове', 'вул. Тестова');
 
     const post = calls[1];
     expect(post.url).toBe(`${BASE}/ua/ajax`);
@@ -58,7 +58,7 @@ describe('DnemSiteClient', () => {
     ).toEqual({
       method: 'getHomeNum',
       'data[0][name]': 'city',
-      'data[0][value]': 'м. Дніпро',
+      'data[0][value]': 'м. Тестове',
       'data[1][name]': 'street',
       'data[1][value]': 'вул. Тестова',
       'data[2][name]': 'updateFact',
@@ -85,7 +85,7 @@ describe('DnemSiteClient', () => {
     );
     const client = new DnemSiteClient({ fetch });
     await client.loadPage();
-    expect(await client.houses('м. Дніпро', 'вул. Тестова')).toEqual({
+    expect(await client.houses('м. Тестове', 'вул. Тестова')).toEqual({
       '329': {
         groups: ['GPV5.2'],
         outage: {

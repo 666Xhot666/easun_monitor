@@ -6,10 +6,10 @@ import { runCheck, type CheckDeps, type ReaderState } from './run-check';
 import { ServerError, type ReaderSource } from './server-client';
 
 const day = () => Array.from({ length: 24 }, () => 'yes') as DaySlots;
-const STREETS = { 'м. Дніпро': ['вул. Тестова'] };
+const STREETS = { 'м. Тестове': ['вул. Тестова'] };
 const SOURCE: ReaderSource = {
   site: 'dnem',
-  city: 'м. Дніпро',
+  city: 'м. Тестове',
   street: 'вул. Тестова',
   house: '12а',
   enabled: true,

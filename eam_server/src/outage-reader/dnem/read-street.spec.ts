@@ -36,7 +36,7 @@ describe('DnemSiteClient in a browser', () => {
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
     const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
     await client.loadPage({ browser: true });
-    const houses = await client.houses('м. Дніпро', 'вул. Тестова');
+    const houses = await client.houses('м. Тестове', 'вул. Тестова');
 
     expect(houses['12'].groups).toEqual(['GPV5.2']);
     expect(calls).toEqual([]);
@@ -79,7 +79,7 @@ describe('readStreet', () => {
     const { fetch } = fakeFetch(html(PAGE), json(HOUSES));
     const browser = fakeBrowser([]);
     const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(false);
@@ -92,7 +92,7 @@ describe('readStreet', () => {
     const { fetch } = fakeFetch(html(CHALLENGE, 403));
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
     const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(true);
@@ -104,7 +104,7 @@ describe('readStreet', () => {
     const { fetch } = fakeFetch(html(PAGE), html('Bad Request', 400));
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
     const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       retry: noSleep,
     });
     expect(result.usedBrowser).toBe(true);
@@ -115,7 +115,7 @@ describe('readStreet', () => {
     const { fetch, calls } = fakeFetch();
     const browser = fakeBrowser([PAGE], housesAnswer(HOUSES));
     const client = new DnemSiteClient({ fetch, openBrowser: browser.open });
-    const result = await readStreet(client, 'м. Дніпро', 'вул. Тестова', {
+    const result = await readStreet(client, 'м. Тестове', 'вул. Тестова', {
       forceBrowser: true,
       retry: noSleep,
     });

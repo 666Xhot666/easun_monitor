@@ -10,11 +10,11 @@ import {
   sampleProfile,
 } from './helpers';
 
-const ADDRESS = { city: 'м. Дніпро', street: 'вул. Тестова', house: '12а' };
+const ADDRESS = { city: 'м. Тестове', street: 'вул. Тестова', house: '12а' };
 const STREETS = {
-  'м. Дніпро': ['вул. Тестова', 'пров. Ясний'],
-  'с. Філія': ['вул. Лісова'],
-  'м. Апостолове': ['вул. Центральна'],
+  'м. Тестове': ['вул. Тестова', 'пров. Тестовий'],
+  'с. Тестове': ['вул. Лісова'],
+  'м. Перше': ['вул. Центральна'],
 };
 
 describe('Outage schedule source (e2e)', () => {
@@ -243,13 +243,13 @@ describe('Outage schedule source (e2e)', () => {
       const cities = await call('get', '/api/outage/cities', reader).expect(
         200,
       );
-      expect(cities.body).toEqual(['м. Апостолове', 'м. Дніпро', 'с. Філія']);
+      expect(cities.body).toEqual(['м. Перше', 'м. Тестове', 'с. Тестове']);
       const streets = await call(
         'get',
-        `/api/outage/streets?city=${encodeURIComponent('м. Дніпро')}`,
+        `/api/outage/streets?city=${encodeURIComponent('м. Тестове')}`,
         reader,
       ).expect(200);
-      expect(streets.body).toEqual(['вул. Тестова', 'пров. Ясний']);
+      expect(streets.body).toEqual(['вул. Тестова', 'пров. Тестовий']);
       await call(
         'get',
         `/api/outage/streets?city=${encodeURIComponent('м. Нідеє')}`,
@@ -304,9 +304,9 @@ describe('Outage schedule source (e2e)', () => {
     it('rejects a list that is not cities with lists of streets', async () => {
       const token = await setUp();
       for (const streets of [
-        { 'м. Дніпро': 'вул. Тестова' },
-        { 'м. Дніпро': [1, 2] },
-        ['м. Дніпро'],
+        { 'м. Тестове': 'вул. Тестова' },
+        { 'м. Тестове': [1, 2] },
+        ['м. Тестове'],
       ]) {
         await call('put', '/api/outage/reader/streets', token)
           .send({ site: 'dnem', streets })

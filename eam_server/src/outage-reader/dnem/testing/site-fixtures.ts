@@ -25,7 +25,7 @@ export const preset = {
 };
 export const PAGE =
   '<html><head><meta name="ajaxUrl" content="/ua/ajax" /><meta name="csrf-token" content="tok-1"></head><body><script>\n' +
-  `DisconSchedule.streets = ${JSON.stringify({ 'м. Дніпро': ['вул. Тестова'] })}\n` +
+  `DisconSchedule.streets = ${JSON.stringify({ 'м. Тестове': ['вул. Тестова'] })}\n` +
   `DisconSchedule.preset = ${JSON.stringify(preset)}\n` +
   `DisconSchedule.fact = ${JSON.stringify({ data: [], update: '24.07.2026 08:30', today: 1791579600 })}</script></body></html>`;
 export const CHALLENGE =
