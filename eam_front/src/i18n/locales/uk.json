@@ -1060,6 +1060,28 @@
       "askTitle": "Створити новий токен агента?",
       "askConfirm": "Створити новий токен",
       "askBody": "Агент перестане надсилати звіти, доки не отримає новий токен."
+    },
+    "usage": {
+      "memory": "RAM {{value}}",
+      "cpu": "CPU {{value}} %",
+      "disk": "диск {{value}}"
+    },
+    "battery": {
+      "title": "Батарея",
+      "onMains": "Від мережі",
+      "onBattery": "Від батареї",
+      "health": "Стан {{percent}} %",
+      "healthHolds": "Стан {{percent}} %: вміщує {{full}} з {{design}}, як нова",
+      "cycles_one": "{{count}} цикл",
+      "cycles_few": "{{count}} цикли",
+      "cycles_many": "{{count}} циклів",
+      "cycles_other": "{{count}} циклу",
+      "status": {
+        "Charging": "заряджається",
+        "Discharging": "розряджається",
+        "Full": "повна",
+        "Not charging": "не заряджається"
+      }
     }
   },
   "wizard": {

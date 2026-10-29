@@ -11,7 +11,7 @@ import { bytes, rate, uptime } from './format';
 import FanPanel from './FanPanel';
 import NoticesPanel from './NoticesPanel';
 import ServerHistory from './ServerHistory';
-import type { HostSample, ServerStatus } from './types';
+import type { Battery, HostSample, ServerStatus, Usage } from './types';
 
 const REFRESH_MS = 30_000;
 const gb = (n: number) => `${num(n / 1e9, 1)} ${i18n.t('units.GB')}`;
@@ -199,14 +199,23 @@ export default function ServerPage({ now: fixedNow }: Props) {
           <Updates updates={sample.updates ?? null} now={now} />
         </Panel>
 
+        {sample.power && sample.power.batteries.length > 0 && (
+          <Panel title={t('server.battery.title')}>
+            <BatteryPanel onMains={sample.power.onMains} batteries={sample.power.batteries} />
+          </Panel>
+        )}
+
         <Panel title={t('server.system')}>
           <p>{t('server.up', { time: uptime(sample.uptimeSeconds) })}</p>
           {sample.services && sample.services.length > 0 && (
             <ul className="mt-2 divide-y divide-line">
               {sample.services.map((s) => (
-                <li key={s.name} className="flex justify-between py-1">
-                  <span className="font-mono text-xs">{s.name}</span>
-                  <span className={s.active ? 'text-good-ink' : 'text-crit-ink'}>{t(s.active ? 'server.running' : 'server.stopped')}</span>
+                <li key={s.name} className="py-1">
+                  <div className="flex justify-between">
+                    <span className="font-mono text-xs">{s.name}</span>
+                    <span className={s.active ? 'text-good-ink' : 'text-crit-ink'}>{t(s.active ? 'server.running' : 'server.stopped')}</span>
+                  </div>
+                  <UsageLine usage={s} />
                 </li>
               ))}
             </ul>
@@ -214,9 +223,12 @@ export default function ServerPage({ now: fixedNow }: Props) {
           {sample.containers && sample.containers.length > 0 && (
             <ul className="mt-2 divide-y divide-line">
               {sample.containers.map((c) => (
-                <li key={c.name} className="flex justify-between gap-2 py-1">
-                  <span className="font-mono text-xs">{c.name}</span>
-                  <span className={c.state === 'running' ? 'text-muted' : 'text-crit-ink'}>{c.status}</span>
+                <li key={c.name} className="py-1">
+                  <div className="flex justify-between gap-2">
+                    <span className="font-mono text-xs">{c.name}</span>
+                    <span className={c.state === 'running' ? 'text-muted' : 'text-crit-ink'}>{c.status}</span>
+                  </div>
+                  <UsageLine usage={c} />
                 </li>
               ))}
             </ul>
@@ -226,6 +238,57 @@ export default function ServerPage({ now: fixedNow }: Props) {
       <FanPanel owner={user?.server === 'OWNER'} />
       <NoticesPanel owner={user?.server === 'OWNER'} now={now} />
       <ServerHistory />
+    </>
+  );
+}
+
+/** "RAM 22 MB · CPU 0.6 % · disk 7.9 GB", leaving out what was not read; nothing when none was. */
+function UsageLine({ usage }: { usage: Usage }) {
+  const { t } = useTranslation();
+  const parts = [
+    usage.memoryBytes != null && t('server.usage.memory', { value: bytes(usage.memoryBytes) }),
+    usage.cpuPercent != null && t('server.usage.cpu', { value: num(usage.cpuPercent, 1) }),
+    usage.diskBytes != null && t('server.usage.disk', { value: bytes(usage.diskBytes) }),
+  ].filter((p): p is string => typeof p === 'string');
+  if (parts.length === 0) return null;
+  return <p className="mt-0.5 text-xs text-muted">{parts.join(' · ')}</p>;
+}
+
+const STATUSES = ['Charging', 'Discharging', 'Full', 'Not charging'];
+
+/** Whether the host runs on mains, and each battery's charge and health. */
+function BatteryPanel({ onMains, batteries }: { onMains: boolean | null; batteries: Battery[] }) {
+  const { t } = useTranslation();
+  const wh = (n: number) => withUnit(n, 'Wh', Number.isInteger(n) ? 0 : 1);
+  return (
+    <>
+      {onMains !== null && <p className={onMains ? '' : 'font-medium text-warn-ink'}>{t(onMains ? 'server.battery.onMains' : 'server.battery.onBattery')}</p>}
+      <ul className="mt-1 divide-y divide-line">
+        {batteries.map((b) => {
+          const status = b.status && STATUSES.includes(b.status) ? t(`server.battery.status.${b.status}`) : b.status;
+          const flow = b.powerW !== null && Math.abs(b.powerW) >= 0.1 && b.status !== 'Full' ? `, ${withUnit(Math.abs(b.powerW), 'W', 1)}` : '';
+          return (
+            <li key={b.name} className="py-1.5">
+              <p>
+                {b.percent !== null ? `${num(b.percent)} %` : b.name}
+                {status && ` · ${status}${flow}`}
+              </p>
+              {b.healthPercent !== null && (
+                <p className={b.healthPercent < 50 ? 'text-warn-ink' : 'text-muted'}>
+                  {b.fullWh !== null && b.designWh !== null
+                    ? t('server.battery.healthHolds', { percent: num(b.healthPercent), full: wh(b.fullWh), design: wh(b.designWh) })
+                    : t('server.battery.health', { percent: num(b.healthPercent) })}
+                </p>
+              )}
+              <p className="text-xs text-muted">
+                {[b.model ?? b.name, b.voltageV !== null && withUnit(b.voltageV, 'V', 2), b.cycles !== null && t('server.battery.cycles', { count: b.cycles })]
+                  .filter((p): p is string => typeof p === 'string')
+                  .join(' · ')}
+              </p>
+            </li>
+          );
+        })}
+      </ul>
     </>
   );
 }
