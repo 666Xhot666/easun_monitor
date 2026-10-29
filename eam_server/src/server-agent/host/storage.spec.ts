@@ -14,6 +14,8 @@ describe('storage', () => {
     const run: Run = async (command, args) => {
       expect(command).toBe('docker');
       if (args[0] === 'ps') {
+        // Docker shortens long volume names unless told not to.
+        expect(args).toContain('--no-trunc');
         return [
           'eam_server\t164kB (virtual 1.08GB)\t/home/u/app/eam_server,app_node_modules',
           'eam_db\t20.5kB (virtual 303MB)\tapp_db_data',

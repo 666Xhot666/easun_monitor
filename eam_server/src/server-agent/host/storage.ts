@@ -25,6 +25,7 @@ export async function readContainerDisk(
       run('docker', [
         'ps',
         '-a',
+        '--no-trunc',
         '--size',
         '--format',
         '{{.Names}}\t{{.Size}}\t{{.Mounts}}',
