@@ -32,13 +32,23 @@ describe('readServices', () => {
 describe('readContainers', () => {
   it("lists Docker's containers with their state", async () => {
     const run = answering({
-      'docker ps -a --format {{.Names}}\t{{.State}}\t{{.Status}}':
-        'eam_server\trunning\tUp 3 hours\neam_db\trunning\tUp 3 hours (healthy)\nold\texited\tExited (0) 2 days ago\n',
+      'docker ps -a --no-trunc --format {{.ID}}\t{{.Names}}\t{{.State}}\t{{.Status}}':
+        'a1\team_server\trunning\tUp 3 hours\nb2\team_db\trunning\tUp 3 hours (healthy)\nc3\told\texited\tExited (0) 2 days ago\n',
     });
     expect(await readContainers(run)).toEqual([
-      { name: 'eam_server', state: 'running', status: 'Up 3 hours' },
-      { name: 'eam_db', state: 'running', status: 'Up 3 hours (healthy)' },
-      { name: 'old', state: 'exited', status: 'Exited (0) 2 days ago' },
+      { id: 'a1', name: 'eam_server', state: 'running', status: 'Up 3 hours' },
+      {
+        id: 'b2',
+        name: 'eam_db',
+        state: 'running',
+        status: 'Up 3 hours (healthy)',
+      },
+      {
+        id: 'c3',
+        name: 'old',
+        state: 'exited',
+        status: 'Exited (0) 2 days ago',
+      },
     ]);
   });
 

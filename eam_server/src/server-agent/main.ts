@@ -1,7 +1,8 @@
 /**
  * The server agent: a native process reporting the host it runs on (CPU,
- * memory, disks, network, temperatures, fans, services, containers) to the
- * server once a cycle. Runs beside the server, like the BMS reader.
+ * memory, disks, network, temperatures, fans, batteries, and the services
+ * and containers with what each takes) to the server once a cycle. Runs
+ * beside the server, like the BMS reader.
  *
  *   npm run server-agent             report every cycle, forever
  *   npm run server-agent -- --once   one report, then exit
@@ -18,6 +19,7 @@ import { join } from 'node:path';
 import { loadEnvFiles } from '../bms-reader/env-files';
 import { formatLogLine } from '../serial-logger/log-line';
 import { Collector } from './collect';
+import { DISK_EVERY_MS } from './constants';
 import { serverAgentConfig } from './config';
 import type { FanSettings } from './fan/fan-control';
 import { FanController, type FanControlState } from './fan/fan-controller';
@@ -43,6 +45,7 @@ async function main(): Promise<void> {
   const collector = new Collector({
     services: config.services,
     updatesEveryMs: config.updatesEveryHours * 60 * 60_000,
+    diskEveryMs: DISK_EVERY_MS,
   });
   const fanDevice = config.fan ? FanDevice.find('/', config.fan.name) : null;
   if (config.fan && !fanDevice) {
