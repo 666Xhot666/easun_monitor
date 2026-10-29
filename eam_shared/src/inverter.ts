@@ -1,4 +1,4 @@
-import type { CommonSnapshot } from './commonReadings';
+import type { CommonSnapshot } from './readings';
 
 /** A stored poll result, as returned by GET /api/inverter/:profileId/latest. */
 export interface LatestReading {

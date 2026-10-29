@@ -4,7 +4,7 @@ import { currentLocale } from '../i18n';
 import { ChevronLeft, ChevronRight, SlidersHorizontal } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { formatRegisterValue } from '../inverter/format';
-import type { RegisterDefinition } from '../inverter/types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 import { dayLabel, dayRange, shiftDay, toDay, type Day } from './days';
 import type { BmsReading } from '../bms/types';
 import { Segmented } from '../ui';

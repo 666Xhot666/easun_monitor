@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import axios from '../lib/apiClient';
-import type { Language } from '../i18n/languages';
+import type { Language } from '@eam/shared/languages';
 import { currentLanguage } from '../i18n';
-import type { RegisterDefinition } from './types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 
 // The register map only changes with a server release, so it is fetched
 // once per page load and language and shared by every screen.

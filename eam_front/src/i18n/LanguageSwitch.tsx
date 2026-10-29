@@ -4,7 +4,7 @@ import axios from '../lib/apiClient';
 import { Segmented } from '../ui';
 import { applyLanguage } from '.';
 import { isLanguage } from './detect';
-import { LANGUAGE_NAMES, LANGUAGES, type Language } from './languages';
+import { LANGUAGE_NAMES, LANGUAGES, type Language } from '@eam/shared/languages';
 
 const OPTIONS = LANGUAGES.map((value) => ({ value, label: LANGUAGE_NAMES[value] }));
 

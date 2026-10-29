@@ -6,7 +6,7 @@ import { Info } from 'lucide-react';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
-import type { BatteryType, InverterProfile } from '../auth/types';
+import type { BatteryType, InverterProfile } from '@eam/shared/auth';
 import { useLiveData } from '../shell/LiveData';
 import { Button, Card, CardTitle, Segmented } from '../ui';
 import { Switch } from '../ui/Switch';

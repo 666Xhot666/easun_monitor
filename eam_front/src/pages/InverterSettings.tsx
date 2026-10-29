@@ -6,7 +6,7 @@ import { Check, CircleAlert, Info, RefreshCw, Search, TriangleAlert } from 'luci
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { decimalsFor, formatRegisterValue } from '../inverter/format';
-import type { PanelSetting, RegisterDefinition } from '../inverter/types';
+import type { PanelSetting, RegisterDefinition } from '@eam/shared/inverter';
 import { useRegisters } from '../inverter/useRegisters';
 import {
   collectChanges,

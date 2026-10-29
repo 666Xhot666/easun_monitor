@@ -1,6 +1,6 @@
 import i18n from '../i18n';
-import { num, unit } from '../i18n/format';
-import type { CommonReading, CommonSnapshot } from '../inverter/commonReadings';
+import { power, unit } from '../i18n/format';
+import type { CommonReading, CommonSnapshot } from '@eam/shared/readings';
 import { DEADBAND_W, GRID_PRESENT_MIN_V, IDLE_A } from './constants';
 
 const t = (key: string, options?: Record<string, unknown>) => i18n.t(key, options);
@@ -67,11 +67,7 @@ export function formatDuration(hours: number): string {
 }
 
 /** "2.84 kW" from 1000 W up, "620 W" below, "--" when unknown. */
-export function formatKw(watts: number | undefined): string {
-  if (watts === undefined || Number.isNaN(watts)) return '--';
-  const magnitude = Math.abs(watts);
-  return magnitude >= 1000 ? `${num(magnitude / 1000, 2)} ${unit('kW')}` : `${num(Math.round(magnitude))} ${unit('W')}`;
-}
+export const formatKw = power;
 
 export interface SceneValue {
   value: string;

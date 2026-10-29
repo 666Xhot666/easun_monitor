@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { plain, plainUnit } from '../i18n/format';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { COLD_VOC_MARGIN } from './constants';
 import { checkArray, computeArray, type ArrayWarning, type PanelType } from './pvArray';
 

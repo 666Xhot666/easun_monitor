@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { ApiErrorBody } from '../auth/types';
+import type { ApiErrorBody } from '@eam/shared/auth';
 
 /**
  * Nest's default HttpException body puts `message` as a plain string for a

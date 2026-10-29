@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { browserLanguage } from './detect';
-import en from './locales/en.json';
-import uk from './locales/uk.json';
+import en from '@eam/shared/i18n/en.json';
+import uk from '@eam/shared/i18n/uk.json';
 
 /** Every key, with plural suffixes folded into the base key. */
 function keys(catalog: object, prefix = ''): Set<string> {

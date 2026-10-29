@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { InternalAxiosRequestConfig } from 'axios';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
-import type { RegisterDefinition } from '../inverter/types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 import ReadingsBrowser from './ReadingsBrowser';
 import { dayRange } from './days';
 

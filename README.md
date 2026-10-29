@@ -14,6 +14,7 @@ are defined in [CONTEXT.md](CONTEXT.md).
 | --- | --- |
 | `eam_server` | NestJS + Prisma. Polls every paired inverter, stores readings in PostgreSQL, serves the API. |
 | `eam_front` | React + Vite dashboard: live values, history chart, settings page, setup wizard. |
+| `eam_shared` | What the apps share: API types and client, number and unit formatting, the texts in each language. Imported by `eam_front` as `@eam/shared`; the server keeps its own copy of the common reading names, checked against these by a test. |
 | `db` | PostgreSQL 16. Raw readings are kept forever; hourly rollups serve long ranges. |
 | `scripts/mock-inverter.ts` | Simulator of an SMG-II behind a Wi-Fi Plug Pro, for development. |
 

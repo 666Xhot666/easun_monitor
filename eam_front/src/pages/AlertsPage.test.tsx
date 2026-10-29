@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import i18n from '../i18n';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { LiveDataProvider } from '../shell/LiveData';
 import { fakeServer } from '../test/fakeServer';
 import AlertsPage from './AlertsPage';

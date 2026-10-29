@@ -20,7 +20,12 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+
+    /* Shared with the mobile app (vite.config.ts) */
+    "paths": { "@eam/shared/*": ["../eam_shared/src/*"] }
   },
-  "include": ["src"]
+  "include": ["src", "../eam_shared/src"],
+  // Vitest runs the shared tests (vite.config.ts); eam_shared has no node_modules to type them against.
+  "exclude": ["../eam_shared/src/**/*.test.ts"]
 }

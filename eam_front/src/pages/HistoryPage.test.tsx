@@ -1,8 +1,8 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { InverterProfile } from '../auth/types';
-import type { RegisterDefinition } from '../inverter/types';
+import type { InverterProfile } from '@eam/shared/auth';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 import { LiveDataProvider } from '../shell/LiveData';
 import { fakeServer } from '../test/fakeServer';
 import HistoryPage from './HistoryPage';

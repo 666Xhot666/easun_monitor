@@ -1,10 +1,10 @@
 import { createContext, useContext, type ReactNode } from 'react';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { useDeviceStatus, type DeviceStatus } from '../inverter/useDeviceStatus';
 import { DEFAULT_POLL_MS } from '../inverter/constants';
 import { useReading, type ReadingStatus } from '../inverter/useReading';
 import { useRegisters } from '../inverter/useRegisters';
-import type { LatestReading, RegisterDefinition } from '../inverter/types';
+import type { LatestReading, RegisterDefinition } from '@eam/shared/inverter';
 import { deriveSystemState, readingInFault, type SystemState } from './systemState';
 
 export interface LiveData {

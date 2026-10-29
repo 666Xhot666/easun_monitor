@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { dateLocale, unit, withUnit, type Unit } from '../i18n/format';
 import { format } from 'date-fns';
 import { Area, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import axios from '../lib/apiClient';
-import { HISTORY_RANGES, getRange, rangeQuery, type History, type HistoryRangeId } from './historyRange';
+import { HISTORY_RANGES, getRange, rangeQuery, type HistoryRangeId } from './historyRange';
 import { Segmented } from '../ui';
-import type { CommonReading } from '../inverter/commonReadings';
+import type { CommonReading } from '@eam/shared/readings';
+import { api } from '../lib/api';
 
 type Key = 'pv' | 'load' | 'grid' | 'battery' | 'soc' | 'bv' | 'pvv' | 'mains';
 
@@ -74,9 +74,7 @@ export default function PowerHistory({ profileId }: { profileId: number }) {
       setRows(null);
       setFailed(false);
       try {
-        const { data } = await axios.get<History>(`/api/inverter/${profileId}/history`, {
-          params: { ...rangeQuery(rangeId), readings: READINGS.join(',') },
-        });
+        const data = await api.history(profileId, { ...rangeQuery(rangeId), readings: READINGS });
         if (cancelled) return;
         setRows(
           data.points.map(({ timestamp, values }) => {

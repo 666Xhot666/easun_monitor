@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { fakeServer, type Reply } from '../test/fakeServer';
-import type { InverterProfile } from '../auth/types';
+import type { InverterProfile } from '@eam/shared/auth';
 import { LiveDataProvider } from '../shell/LiveData';
 import BatteryPage from './BatteryPage';
 

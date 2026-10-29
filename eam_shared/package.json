@@ -1,0 +1,7 @@
+{
+  "name": "@eam/shared",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Types, API client, formatting and texts shared by the EAM web app and the coming mobile app."
+}

@@ -1,9 +1,9 @@
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
 import { browserLanguage, isLanguage } from './detect';
-import { DEFAULT_LANGUAGE, LOCALES, STORAGE_KEY, type Language } from './languages';
-import en from './locales/en.json';
-import uk from './locales/uk.json';
+import { DEFAULT_LANGUAGE, LOCALES, STORAGE_KEY, type Language } from '@eam/shared/languages';
+import en from '@eam/shared/i18n/en.json';
+import uk from '@eam/shared/i18n/uk.json';
 
 function storedLanguage(): Language | null {
   try {

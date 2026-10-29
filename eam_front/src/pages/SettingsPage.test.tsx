@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AuthContext, type AuthContextValue } from '../auth/context';
-import type { HouseholdRole, InverterProfile } from '../auth/types';
+import type { HouseholdRole, InverterProfile } from '@eam/shared/auth';
 import { LiveDataProvider } from '../shell/LiveData';
 import { fakeServer } from '../test/fakeServer';
 import { ThemeProvider } from '../theme/useTheme';

@@ -6,7 +6,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useAuth } from '../auth/useAuth';
-import type { BatteryType, InverterProfile } from '../auth/types';
+import type { BatteryType, InverterProfile } from '@eam/shared/auth';
 import { UserRoundCheck } from 'lucide-react';
 import { BrandMark } from '../ui/BrandMark';
 import { POWER_PRESETS_W, VOLTAGE_PRESETS } from './constants';

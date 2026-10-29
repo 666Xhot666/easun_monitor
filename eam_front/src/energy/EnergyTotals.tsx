@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import i18n from '../i18n';
 import { num, unit } from '../i18n/format';
-import axios from '../lib/apiClient';
 import { dayRange, shiftDay, toDay, type Day } from '../readings/days';
 import { loadSources, selfSufficiency, type EnergyTotals as Totals } from './energyMix';
 import { FULL_COVERAGE, TOTALS_REFRESH_MS } from './constants';
+import { api } from '../lib/api';
 
 /** Decimals for an energy figure: 2 below 10 kWh, else 1. */
 const decimals = (kWh: number) => (kWh < 10 ? 2 : 1);
@@ -43,7 +43,7 @@ function useDayTotals(profileId: number, day: Day, refreshMs: number | null): To
     let cancelled = false;
     const load = async () => {
       try {
-        const { data } = await axios.get<Totals>(`/api/inverter/${profileId}/energy`, { params: dayRange(day) });
+        const data = await api.energy(profileId, dayRange(day));
         if (!cancelled) setTotals(data);
       } catch {
         if (!cancelled) setTotals(null);

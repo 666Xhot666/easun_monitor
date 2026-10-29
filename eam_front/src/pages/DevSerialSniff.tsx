@@ -4,7 +4,7 @@ import axios from '../lib/apiClient';
 import { extractErrorMessage } from '../lib/errors';
 import { useRegisters } from '../inverter/useRegisters';
 import { formatRegisterValue } from '../inverter/format';
-import type { RegisterDefinition } from '../inverter/types';
+import type { RegisterDefinition } from '@eam/shared/inverter';
 
 interface PortStatus {
   path: string;
