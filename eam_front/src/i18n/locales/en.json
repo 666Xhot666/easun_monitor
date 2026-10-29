@@ -747,7 +747,14 @@
     "removeIntro": "Removes {{name}} from EAM. Its recorded history is kept; the inverter and its logger are not changed.",
     "removeNamed": "Remove {{name}}…",
     "removeTitle": "Remove {{name}}?",
-    "removeBody": "EAM stops reading it. Its recorded history is kept."
+    "removeBody": "EAM stops reading it. Its recorded history is kept.",
+    "writes": {
+      "title": "Writes to the inverter",
+      "lock": "Lock writes to the inverter",
+      "locked": "Locked: the app reads the inverter but changes nothing on it, neither settings nor a fault reset.",
+      "open": "The app can change the inverter's settings and reset a fault. Lock it to make the app read-only towards the inverter.",
+      "saveFailed": "Couldn’t change the lock."
+    }
   },
   "solar": {
     "array": "Array",

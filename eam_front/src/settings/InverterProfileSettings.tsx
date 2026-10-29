@@ -9,6 +9,7 @@ import { useAuth } from '../auth/useAuth';
 import type { BatteryType, InverterProfile } from '../auth/types';
 import { useLiveData } from '../shell/LiveData';
 import { Button, Card, CardTitle, Segmented } from '../ui';
+import { Switch } from '../ui/Switch';
 import { Dialog } from '../ui/Dialog';
 import { POWER_PRESETS, VOLTAGES } from './constants';
 
@@ -92,6 +93,23 @@ export default function InverterProfileSettings() {
   const canRemove = (user?.inverterProfiles.length ?? 0) > 1;
   const changes = changedFields(profile, form);
   const dirty = changes !== null && Object.keys(changes).length > 0;
+
+  const [locking, setLocking] = useState(false);
+  const [lockError, setLockError] = useState('');
+
+  /** Saved at once, apart from the form: it guards the inverter, not the profile. */
+  async function setWritesLocked(writesLocked: boolean) {
+    setLocking(true);
+    setLockError('');
+    try {
+      await axios.patch(`/api/inverter/profiles/${profile.id}`, { writesLocked });
+      await refreshUser();
+    } catch (e) {
+      setLockError(extractErrorMessage(e, t('profile.writes.saveFailed')));
+    } finally {
+      setLocking(false);
+    }
+  }
 
   const update = (patch: Partial<Form>) => {
     setForm((f) => ({ ...f, ...patch }));
@@ -236,6 +254,21 @@ export default function InverterProfileSettings() {
             </span>
           </p>
         </div>
+      </Card>
+
+      <Card>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <CardTitle>{t('profile.writes.title')}</CardTitle>
+            <p className="mt-2 text-sm text-muted">{t(profile.writesLocked ? 'profile.writes.locked' : 'profile.writes.open')}</p>
+          </div>
+          <Switch label={t('profile.writes.lock')} on={profile.writesLocked} disabled={locking} onChange={(on) => void setWritesLocked(on)} />
+        </div>
+        {lockError && (
+          <p role="alert" className="mt-2 text-sm text-crit-ink">
+            {lockError}
+          </p>
+        )}
       </Card>
 
       <div className="flex flex-wrap items-center justify-end gap-3">

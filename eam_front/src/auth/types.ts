@@ -28,6 +28,8 @@ export interface InverterProfile {
   /** Where the installation is, for the weather; rounded to 0.1 degree. */
   latitude: number | null;
   longitude: number | null;
+  /** While true, the app writes nothing to the inverter (settings, fault reset). */
+  writesLocked: boolean;
   householdId: number;
   /** The user's role in this inverter's household: readers cannot change anything. */
   role: HouseholdRole;

@@ -12,7 +12,7 @@ const profile: InverterProfile = {
   batteryNominalVoltage: 24, batteryCapacityAh: 100, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: 1, pvPanelsInSeries: 3, pvStrings: 2,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null, writesLocked: false,
   householdId: 1, role: 'ADMIN', createdAt: '', updatedAt: '',
 };
 const longi = { id: 1, name: 'Longi 450W', maxPowerW: 450, vmpV: 41.5, impA: 10.85, vocV: 49.5, iscA: 11.5 };
