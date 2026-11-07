@@ -24,3 +24,6 @@ export const MAX_CELL_V = 5;
 export const MAX_CELLS = 32;
 /** Balance-wire resistance per cell; healthy leads read tens of mΩ. */
 export const MAX_WIRE_RESISTANCE_OHM = 10;
+/** A settings report: at most this many flat settings, named in camelCase. */
+export const MAX_SETTINGS = 100;
+export const SETTING_NAME = /^[a-z][A-Za-z0-9]{0,63}$/;

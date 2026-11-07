@@ -2,37 +2,147 @@
   "description": "JK BMS settings frame (type 0x01), JK02_32S: where each setting sits. type: u32 or i32 little-endian, or flag (u32, non-zero = on); value = raw / divisor.",
   "fields": [
     { "name": "smartSleepV", "offset": 6, "type": "u32", "divisor": 1000 },
-    { "name": "cellUndervoltageProtectionV", "offset": 10, "type": "u32", "divisor": 1000 },
-    { "name": "cellUndervoltageRecoveryV", "offset": 14, "type": "u32", "divisor": 1000 },
-    { "name": "cellOvervoltageProtectionV", "offset": 18, "type": "u32", "divisor": 1000 },
-    { "name": "cellOvervoltageRecoveryV", "offset": 22, "type": "u32", "divisor": 1000 },
-    { "name": "balanceTriggerDeltaV", "offset": 26, "type": "u32", "divisor": 1000 },
+    {
+      "name": "cellUndervoltageProtectionV",
+      "offset": 10,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "cellUndervoltageRecoveryV",
+      "offset": 14,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "cellOvervoltageProtectionV",
+      "offset": 18,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "cellOvervoltageRecoveryV",
+      "offset": 22,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "balanceTriggerDeltaV",
+      "offset": 26,
+      "type": "u32",
+      "divisor": 1000
+    },
     { "name": "socFullV", "offset": 30, "type": "u32", "divisor": 1000 },
     { "name": "socEmptyV", "offset": 34, "type": "u32", "divisor": 1000 },
     { "name": "cellChargeV", "offset": 38, "type": "u32", "divisor": 1000 },
     { "name": "cellFloatV", "offset": 42, "type": "u32", "divisor": 1000 },
     { "name": "powerOffV", "offset": 46, "type": "u32", "divisor": 1000 },
-    { "name": "maxChargeCurrentA", "offset": 50, "type": "u32", "divisor": 1000 },
-    { "name": "chargeOvercurrentDelayS", "offset": 54, "type": "u32", "divisor": 1 },
-    { "name": "chargeOvercurrentRecoveryS", "offset": 58, "type": "u32", "divisor": 1 },
-    { "name": "maxDischargeCurrentA", "offset": 62, "type": "u32", "divisor": 1000 },
-    { "name": "dischargeOvercurrentDelayS", "offset": 66, "type": "u32", "divisor": 1 },
-    { "name": "dischargeOvercurrentRecoveryS", "offset": 70, "type": "u32", "divisor": 1 },
-    { "name": "shortCircuitRecoveryS", "offset": 74, "type": "u32", "divisor": 1 },
-    { "name": "maxBalanceCurrentA", "offset": 78, "type": "u32", "divisor": 1000 },
-    { "name": "chargeOvertemperatureC", "offset": 82, "type": "i32", "divisor": 10 },
-    { "name": "chargeOvertemperatureRecoveryC", "offset": 86, "type": "i32", "divisor": 10 },
-    { "name": "dischargeOvertemperatureC", "offset": 90, "type": "i32", "divisor": 10 },
-    { "name": "dischargeOvertemperatureRecoveryC", "offset": 94, "type": "i32", "divisor": 10 },
-    { "name": "chargeUndertemperatureC", "offset": 98, "type": "i32", "divisor": 10 },
-    { "name": "chargeUndertemperatureRecoveryC", "offset": 102, "type": "i32", "divisor": 10 },
-    { "name": "mosfetOvertemperatureC", "offset": 106, "type": "i32", "divisor": 10 },
-    { "name": "mosfetOvertemperatureRecoveryC", "offset": 110, "type": "i32", "divisor": 10 },
+    {
+      "name": "maxChargeCurrentA",
+      "offset": 50,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "chargeOvercurrentDelayS",
+      "offset": 54,
+      "type": "u32",
+      "divisor": 1
+    },
+    {
+      "name": "chargeOvercurrentRecoveryS",
+      "offset": 58,
+      "type": "u32",
+      "divisor": 1
+    },
+    {
+      "name": "maxDischargeCurrentA",
+      "offset": 62,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "dischargeOvercurrentDelayS",
+      "offset": 66,
+      "type": "u32",
+      "divisor": 1
+    },
+    {
+      "name": "dischargeOvercurrentRecoveryS",
+      "offset": 70,
+      "type": "u32",
+      "divisor": 1
+    },
+    {
+      "name": "shortCircuitRecoveryS",
+      "offset": 74,
+      "type": "u32",
+      "divisor": 1
+    },
+    {
+      "name": "maxBalanceCurrentA",
+      "offset": 78,
+      "type": "u32",
+      "divisor": 1000
+    },
+    {
+      "name": "chargeOvertemperatureC",
+      "offset": 82,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "chargeOvertemperatureRecoveryC",
+      "offset": 86,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "dischargeOvertemperatureC",
+      "offset": 90,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "dischargeOvertemperatureRecoveryC",
+      "offset": 94,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "chargeUndertemperatureC",
+      "offset": 98,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "chargeUndertemperatureRecoveryC",
+      "offset": 102,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "mosfetOvertemperatureC",
+      "offset": 106,
+      "type": "i32",
+      "divisor": 10
+    },
+    {
+      "name": "mosfetOvertemperatureRecoveryC",
+      "offset": 110,
+      "type": "i32",
+      "divisor": 10
+    },
     { "name": "cellCount", "offset": 114, "type": "u32", "divisor": 1 },
     { "name": "chargeEnabled", "offset": 118, "type": "flag" },
     { "name": "dischargeEnabled", "offset": 122, "type": "flag" },
     { "name": "balancerEnabled", "offset": 126, "type": "flag" },
-    { "name": "nominalCapacityAh", "offset": 130, "type": "u32", "divisor": 1000 },
+    {
+      "name": "nominalCapacityAh",
+      "offset": 130,
+      "type": "u32",
+      "divisor": 1000
+    },
     { "name": "balanceStartV", "offset": 138, "type": "u32", "divisor": 1000 }
   ]
 }

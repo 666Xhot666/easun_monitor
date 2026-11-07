@@ -9,6 +9,7 @@ import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { hashIngestToken } from './ingest-token';
 import type { BmsReading } from './reading';
+import type { BmsSettingsReport } from './settings-report';
 import { TelegramAlerts } from '../telegram/telegram-alerts';
 import { BmsLatest, type LatestBmsReading } from './bms-latest';
 import {
@@ -108,6 +109,35 @@ export class BmsIngestService {
     }
     recent.push(nowMs);
     this.recentPosts.set(deviceId, recent);
+  }
+
+  /**
+   * Keeps the BMS's settings as last reported. The reader sends them once
+   * per connect; a report older than the stored one (a late retry) is ignored.
+   */
+  async storeSettings(
+    deviceId: number,
+    report: BmsSettingsReport,
+    now = new Date(),
+  ): Promise<void> {
+    this.limitRate(deviceId, now.getTime());
+    const at = new Date(report.timestamp);
+    if (at.getTime() > now.getTime() + MAX_FUTURE_MS) {
+      throw new BadRequestException(
+        'The settings are timestamped in the future: check the producer clock',
+      );
+    }
+    const { protocol, decoderVersion, settings } = report;
+    await this.prisma.bmsDevice.updateMany({
+      where: {
+        id: deviceId,
+        OR: [{ settingsAt: null }, { settingsAt: { lte: at } }],
+      },
+      data: {
+        settings: { protocol, decoderVersion, settings },
+        settingsAt: at,
+      },
+    });
   }
 
   latestFor(deviceId: number): LatestBmsReading | null {
