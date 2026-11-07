@@ -1,4 +1,11 @@
-import { bmsAlerts, inverterAlerts, type InverterAlertState } from './alerts';
+import {
+  bmsAlerts,
+  cellLowAlerts,
+  cellLowThreshold,
+  inverterAlerts,
+  type CellLowState,
+  type InverterAlertState,
+} from './alerts';
 
 const LOW_SOC = 20;
 
@@ -71,6 +78,17 @@ describe('inverterAlerts', () => {
     ]);
   });
 
+  it("judges a low battery by the BMS's charge when there is one, not the inverter's voltage guess", () => {
+    // Under a heavy load the inverter guesses 26 % while the BMS knows 48 %.
+    const first = inverterAlerts(undefined, { BatterySoc: 80 }, LOW_SOC, 80);
+    const loaded = inverterAlerts(first.state, { BatterySoc: 26 }, LOW_SOC, 48);
+    expect(loaded.messages).toEqual([]);
+    const sag = inverterAlerts(loaded.state, { BatterySoc: 15 }, LOW_SOC, 47);
+    expect(sag.messages).toEqual([]);
+    const low = inverterAlerts(sag.state, { BatterySoc: 60 }, LOW_SOC, 19.6);
+    expect(low.messages).toEqual([{ key: 'batteryLow', params: { soc: 20 } }]);
+  });
+
   it('ignores values a reading does not carry', () => {
     expect(
       run([
@@ -104,5 +122,95 @@ describe('bmsAlerts', () => {
       state: [],
       messages: [{ key: 'bmsAlarmsCleared' }],
     });
+  });
+});
+
+describe('cellLowAlerts', () => {
+  const LIMITS = { thresholdV: 3.0, holdMs: 10_000, recoverV: 0.05 };
+  const reading = (atS: number, cellMinV: number, gridUp = false) => ({
+    atMs: atS * 1000,
+    gridUp,
+    cellMinV,
+    cellMinIndex: 4,
+    packVoltageV: 24.1,
+    currentA: -75.4,
+    stateOfChargePct: 31,
+  });
+  /** Feeds readings in order; returns the messages of each step. */
+  const run = (readings: ReturnType<typeof reading>[]) => {
+    let state: CellLowState | undefined;
+    return readings.map((r) => {
+      const result = cellLowAlerts(state, r, LIMITS);
+      state = result.state;
+      return result.messages;
+    });
+  };
+  const alert = {
+    key: 'bmsCellLow',
+    params: { cell: 4, cellMv: 2980, packV: 24.1, currentA: 75.4, soc: 31 },
+  };
+
+  it('reports a cell staying under the limit while off-grid, once', () => {
+    expect(
+      run([
+        reading(0, 3.1),
+        reading(1, 2.98),
+        reading(6, 2.98),
+        reading(11, 2.98),
+        reading(20, 2.97),
+      ]),
+    ).toEqual([[], [], [], [alert], []]);
+  });
+
+  it('ignores a dip shorter than the hold time', () => {
+    expect(
+      run([
+        reading(0, 2.98),
+        reading(5, 3.02),
+        reading(9, 2.98),
+        reading(15, 2.98),
+      ]),
+    ).toEqual([[], [], [], []]);
+  });
+
+  it('reports again only after the cell recovered past the limit plus the margin', () => {
+    const steps = run([
+      reading(0, 2.98),
+      reading(10, 2.98),
+      reading(20, 3.03),
+      reading(30, 2.98),
+      reading(40, 2.98),
+      reading(50, 3.06),
+      reading(60, 2.98),
+      reading(70, 2.98),
+    ]);
+    expect(steps.map((m) => m.length)).toEqual([0, 1, 0, 0, 0, 0, 0, 1]);
+  });
+
+  it('stays quiet while the grid is up: then the inverter does not run on the battery', () => {
+    expect(run([reading(0, 2.9, true), reading(20, 2.9, true)])).toEqual([
+      [],
+      [],
+    ]);
+  });
+});
+
+describe('cellLowThreshold', () => {
+  const settings = {
+    cellUndervoltageRecoveryV: 2.9,
+    cellUndervoltageProtectionV: 2.6,
+  };
+
+  it("defaults to a little above the BMS's own undervoltage recovery", () => {
+    expect(cellLowThreshold(null, settings)).toBeCloseTo(3.0, 6);
+  });
+
+  it("takes the device's own limit when one is set", () => {
+    expect(cellLowThreshold(3.1, settings)).toBe(3.1);
+  });
+
+  it('has none until the BMS has told its limits: the chemistry is not guessed', () => {
+    expect(cellLowThreshold(null, null)).toBeNull();
+    expect(cellLowThreshold(null, { maxChargeCurrentA: 48 })).toBeNull();
   });
 });

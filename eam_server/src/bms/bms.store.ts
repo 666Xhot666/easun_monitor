@@ -9,7 +9,8 @@ import {
   type SeriesTables,
 } from '../telemetry/time-series';
 import type { BmsReading } from './reading';
-import { ROLLUP_INTERVAL_MS } from './constants';
+import { PAIR_MAX_GAP_MS, ROLLUP_INTERVAL_MS } from './constants';
+import type { VoltagePair } from './wiring-drop';
 
 export const BMS_SERIES: SeriesTables = {
   raw: 'bms_logs',
@@ -61,6 +62,50 @@ export class BmsStore {
       id: row.id,
       timestamp: row.timestamp,
       reading: row.payload as unknown as BmsReading,
+    }));
+  }
+
+  /**
+   * Stored BMS readings of [from, to) paired with the inverter reading
+   * nearest in time (within PAIR_MAX_GAP_MS), for comparing the two
+   * voltages. The inverter's values come from its registers of the given
+   * names. Oldest first.
+   */
+  async voltagePairs(
+    bmsDeviceId: number,
+    inverterProfileId: number,
+    registers: { voltage: string; current: string },
+    from: Date,
+    to: Date,
+  ): Promise<(VoltagePair & { at: Date })[]> {
+    const gap = `${PAIR_MAX_GAP_MS} milliseconds`;
+    const rows = await this.prisma.$queryRaw<
+      { at: Date; bv: number; ba: number; iv: number; ia: number }[]
+    >`
+      SELECT b.timestamp AS at,
+        (b.payload->>'packVoltageV')::float AS bv,
+        (b.payload->>'currentA')::float AS ba,
+        (i.payload->>${registers.voltage})::float AS iv,
+        (i.payload->>${registers.current})::float AS ia
+      FROM bms_logs b
+      CROSS JOIN LATERAL (
+        SELECT payload FROM inverter_logs
+        WHERE "inverterProfileId" = ${inverterProfileId}
+          AND timestamp BETWEEN b.timestamp - ${gap}::interval AND b.timestamp + ${gap}::interval
+        ORDER BY abs(extract(epoch FROM timestamp - b.timestamp))
+        LIMIT 1
+      ) i
+      WHERE b."bmsDeviceId" = ${bmsDeviceId}
+        AND b.timestamp >= ${from} AND b.timestamp < ${to}
+        AND b.payload ? 'packVoltageV' AND b.payload ? 'currentA'
+        AND i.payload ? ${registers.voltage} AND i.payload ? ${registers.current}
+      ORDER BY b.timestamp`;
+    return rows.map((r) => ({
+      at: r.at,
+      bmsVoltageV: r.bv,
+      bmsCurrentA: r.ba,
+      inverterVoltageV: r.iv,
+      inverterCurrentA: r.ia,
     }));
   }
 

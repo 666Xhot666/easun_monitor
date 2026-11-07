@@ -262,6 +262,9 @@ model InverterProfile {
   batteryNominalVoltage Float
   batteryCapacityAh     Float
   batteryType           BatteryType @default(LIFEPO4)
+  /// The battery level (%) the low-battery alert fires at: by the BMS's
+  /// charge while a BMS reports, else by the inverter's own.
+  lowSocAlertPct        Int         @default(20)
 
   /// Optional overrides — when omitted, the frontend/backend fall back to
   /// sane chemistry-based defaults rather than requiring the user to know
@@ -416,6 +419,9 @@ model BmsDevice {
   settings         Json?
   /// When the BMS sent those settings (the reader's timestamp).
   settingsAt       DateTime?
+  /// The lowest-cell voltage this BMS is alerted at while off-grid. Null: a
+  /// little above the BMS's own undervoltage recovery (from its settings).
+  cellLowAlertV    Float?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

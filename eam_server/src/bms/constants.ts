@@ -27,3 +27,18 @@ export const MAX_WIRE_RESISTANCE_OHM = 10;
 /** A settings report: at most this many flat settings, named in camelCase. */
 export const MAX_SETTINGS = 100;
 export const SETTING_NAME = /^[a-z][A-Za-z0-9]{0,63}$/;
+
+/** Wiring drop: a BMS and an inverter reading pair up only when their currents agree this closely (the larger wins). */
+export const PAIR_CURRENT_TOLERANCE = { amperes: 5, fraction: 0.2 };
+/** The pairs' currents must span at least this much before resistance and offset can be told apart. */
+export const MIN_CURRENT_SPAN_A = 30;
+/** Wiring drop: an inverter reading pairs with a BMS reading at most this far apart. */
+export const PAIR_MAX_GAP_MS = 2_000;
+export const DEFAULT_WIRING_DAYS = 30;
+export const MAX_WIRING_DAYS = 366;
+/** Wiring drop: one fit per this many days, to show a trend. */
+export const WIRING_TREND_DAYS = 7;
+export const DAY_MS = 24 * 60 * 60_000;
+/** Limits of a BMS device's low-cell alert voltage. */
+export const MIN_CELL_LOW_ALERT_V = 2;
+export const MAX_CELL_LOW_ALERT_V = 4.5;

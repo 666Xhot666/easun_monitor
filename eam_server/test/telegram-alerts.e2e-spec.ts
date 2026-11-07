@@ -21,6 +21,7 @@ describe('Telegram alerts (e2e)', () => {
   let telegram: FakeTelegram;
   let alerts: TelegramAlerts;
   let profile: { id: number; name: string; householdId: number };
+  let ownerToken: string;
 
   beforeAll(async () => {
     telegram = new FakeTelegram();
@@ -31,6 +32,7 @@ describe('Telegram alerts (e2e)', () => {
     alerts = app.get(TelegramAlerts);
     await resetDatabase(app);
     const token = await registerUser(app, 'owner@example.com');
+    ownerToken = token;
     profile = (
       await request(app.getHttpServer())
         .post('/api/inverter/setup')
@@ -160,8 +162,8 @@ describe('Telegram alerts (e2e)', () => {
         lastSeenAt: now,
       },
     });
-    await alerts.onBmsReading(device.id, []);
-    await alerts.onBmsReading(device.id, ['Cell overvoltage']);
+    await alerts.onBmsReading(device.id, { alarms: [] });
+    await alerts.onBmsReading(device.id, { alarms: ['Cell overvoltage'] });
     await alerts.checkOffline(new Date(now.getTime() + 5 * MINUTE));
     await prisma.bmsDevice.update({
       where: { id: device.id },
@@ -176,6 +178,157 @@ describe('Telegram alerts (e2e)', () => {
       `${profile.name} (Pack): BMS reader silent since 03:00`,
       `${profile.name} (Pack): BMS reader back online after 1 h 10 min`,
     ]);
+  });
+
+  it("judges a low battery by the BMS's charge, not the inverter's voltage guess", async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'soc',
+        inverterProfileId: profile.id,
+      },
+    });
+    await alerts.onReading(profile.id, { BatterySoc: 80, MainsVoltage: 0 });
+    telegram.sent = [];
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 48 });
+    // A heavy load: the inverter guesses 15 %, the BMS knows 48 %.
+    await alerts.onReading(profile.id, { BatterySoc: 15 });
+    expect(telegram.sent).toEqual([]);
+
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 19 });
+    await alerts.onReading(profile.id, { BatterySoc: 60 });
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([`${profile.name} (Pack): Battery low: 19 %`]);
+  });
+
+  it('reports a cell sagging under the limit while off-grid', async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'cell',
+        settings: {
+          protocol: 'JK02_32S',
+          decoderVersion: 'jk-ble/2',
+          settings: { cellUndervoltageRecoveryV: 2.9 },
+        },
+        inverterProfileId: profile.id,
+      },
+    });
+    await alerts.onReading(profile.id, { MainsVoltage: 0, BatterySoc: 60 });
+    telegram.sent = [];
+    const sag = {
+      alarms: [],
+      cellMinV: 2.98,
+      cellMinIndex: 4,
+      packVoltageV: 24.1,
+      currentA: -75.4,
+      stateOfChargePct: 31,
+    };
+    const t0 = new Date('2026-11-07T17:00:00Z');
+    await alerts.onBmsReading(device.id, sag, t0);
+    await alerts.onBmsReading(device.id, sag, new Date(t0.getTime() + 5_000));
+    expect(telegram.sent).toEqual([]);
+    await alerts.onBmsReading(device.id, sag, new Date(t0.getTime() + 11_000));
+
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([
+      `${profile.name} (Pack): Lowest cell C4 at 2980 mV off-grid: pack 24.1 V, 75.4 A out, charge 31 %`,
+    ]);
+  });
+
+  it("alerts a low cell only once the BMS has told its limits, or at the device's own limit", async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'limit',
+        inverterProfileId: profile.id,
+      },
+    });
+    await alerts.onReading(profile.id, { MainsVoltage: 0, BatterySoc: 60 });
+    telegram.sent = [];
+    const sag = {
+      alarms: [],
+      cellMinV: 3.05,
+      cellMinIndex: 2,
+      packVoltageV: 24.5,
+      currentA: -60,
+      stateOfChargePct: 35,
+    };
+    const t0 = new Date('2026-11-07T18:00:00Z');
+    await alerts.onBmsReading(device.id, sag, t0);
+    await alerts.onBmsReading(device.id, sag, new Date(t0.getTime() + 11_000));
+    expect(telegram.sent).toEqual([]);
+
+    await request(app.getHttpServer())
+      .patch(`/api/inverter/profiles/${profile.id}/bms/${device.id}`)
+      .set('Authorization', `Bearer ${ownerToken}`)
+      .send({ cellLowAlertV: 3.1 })
+      .expect(200);
+    const t1 = new Date(t0.getTime() + 60_000);
+    await alerts.onBmsReading(device.id, sag, t1);
+    await alerts.onBmsReading(device.id, sag, new Date(t1.getTime() + 11_000));
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([
+      `${profile.name} (Pack): Lowest cell C2 at 3050 mV off-grid: pack 24.5 V, 60 A out, charge 35 %`,
+    ]);
+  });
+
+  it("alerts a low battery at the inverter's own level", async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'level',
+        inverterProfileId: profile.id,
+      },
+    });
+    const patch = (lowSocAlertPct: number) =>
+      request(app.getHttpServer())
+        .patch(`/api/inverter/profiles/${profile.id}`)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send({ lowSocAlertPct })
+        .expect(200);
+    await patch(30);
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 80 });
+    await alerts.onReading(profile.id, { BatterySoc: 80 });
+    telegram.sent = [];
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 29 });
+    await alerts.onReading(profile.id, { BatterySoc: 60 });
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([`${profile.name} (Pack): Battery low: 29 %`]);
+    await patch(20);
+  });
+
+  it('checks the alert levels it is given', async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'check',
+        inverterProfileId: profile.id,
+      },
+    });
+    const patch = (path: string, body: object) =>
+      request(app.getHttpServer())
+        .patch(path)
+        .set('Authorization', `Bearer ${ownerToken}`)
+        .send(body);
+    for (const lowSocAlertPct of [0, 100, 12.5, null])
+      await patch(`/api/inverter/profiles/${profile.id}`, {
+        lowSocAlertPct,
+      }).expect(400);
+    const bms = `/api/inverter/profiles/${profile.id}/bms/${device.id}`;
+    for (const cellLowAlertV of [1.5, 5, 'x'])
+      await patch(bms, { cellLowAlertV }).expect(400);
+    const { body } = await patch(bms, { cellLowAlertV: null }).expect(200);
+    expect(body.cellLowAlertV).toBeNull();
   });
 
   it("sends each linked chat an evening summary of its households' inverters, once a day", async () => {

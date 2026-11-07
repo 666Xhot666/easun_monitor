@@ -62,7 +62,6 @@ All configuration is in `.env` (see `.env.example` for every option):
 | `ALLOW_PUBLIC_LOGGER_HOSTS` | false | Only LAN, loopback and link-local loggers are allowed unless true. |
 | `ALLOW_REGISTRATION` | false | Allow more accounts after the first (sign-up with a household invite works regardless). |
 | `TELEGRAM_BOT_TOKEN` | | Bot token from @BotFather; the Telegram bot is off without it. |
-| `TELEGRAM_LOW_SOC` | 20 | Battery level (%) that triggers a low-battery alert. |
 | `TELEGRAM_SUMMARY_TIME` | 21:00 | When the daily evening summary is sent. |
 | `TIME_ZONE` | UTC | Time zone for the summary time and for "today" in `/energy`. |
 | `JWT_EXPIRES_IN` | 15m | Access-token lifetime; sessions renew from a refresh cookie. |
@@ -117,8 +116,12 @@ no public address needed).
   pressing one updates the same message.
 - **Alerts** go to the linked chats of every member of the inverter's
   household: new faults and warnings, faults cleared, grid lost and restored,
-  battery at or below `TELEGRAM_LOW_SOC` (again after it recovers 5 points),
-  BMS alarms, and a logger or BMS reader silent for 5 minutes and back.
+  battery at or below the inverter's low-battery level (set per inverter,
+  default 20 %; again after it recovers 5 points; judged by the BMS's charge
+  while a BMS reports, else the inverter's), BMS alarms, the lowest cell under
+  the BMS device's low-cell voltage for 10 s while off-grid (set per device;
+  by default 0.1 V above the BMS's own undervoltage recovery), and a logger
+  or BMS reader silent for 5 minutes and back.
   After a server restart the first reading is the baseline.
 - **Evening summary:** the day's energy per inverter at
   `TELEGRAM_SUMMARY_TIME`.

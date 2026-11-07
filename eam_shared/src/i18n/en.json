@@ -761,7 +761,9 @@
       "locked": "Locked: the app reads the inverter but changes nothing on it, neither settings nor a fault reset.",
       "open": "The app can change the inverter's settings and reset a fault. Lock it to make the app read-only towards the inverter.",
       "saveFailed": "Couldn’t change the lock."
-    }
+    },
+    "lowSocAlert": "Low battery alert at (%)",
+    "lowSocAlertHint": "Judged by the BMS's charge while a BMS reports, else by the inverter's estimate."
   },
   "solar": {
     "array": "Array",
@@ -884,7 +886,12 @@
     "removeAsk": "Remove {{name}}?",
     "makeToken": "Make a new token",
     "tokenWarning": "The reader stops working until it uses the new one.",
-    "removeWarning": "EAM stops taking its readings. Its stored readings are deleted too."
+    "removeWarning": "EAM stops taking its readings. Its stored readings are deleted too.",
+    "cellLow": "Low cell alert (V)",
+    "saveCellLow": "Save low cell alert",
+    "cellLowDefault": "Default {{default}}: {{margin}} above the BMS's undervoltage recovery ({{recovery}}). Alerted while off-grid, after 10 s. Leave empty for the default.",
+    "cellLowNone": "No low-cell alert until the BMS has sent its settings, unless you set a voltage here.",
+    "cellLowFailed": "Could not save the low cell alert."
   },
   "outageSetup": {
     "waitingNext": "Waiting for the reader's next check.",
@@ -1240,5 +1247,21 @@
       "cellCount": "Cell count",
       "nominalCapacityAh": "Nominal capacity"
     }
+  },
+  "wiring": {
+    "title": "Battery voltage at the inverter",
+    "intro": "Compared with the BMS: the inverter measures the battery through the cables and connections between them, and reads a little off even with no current.",
+    "resistance": "Path resistance",
+    "resistanceSub": "cables, lugs, fuse or breaker",
+    "offset": "Inverter offset",
+    "offsetSub": "with no current",
+    "samples": "Readings compared",
+    "samplesSub": "last {{days}} days",
+    "dischargingAt": "While discharging at",
+    "readsLower": "Inverter reads lower by",
+    "cutoffAt": "Cut-off {{cutoff}} on the inverter = battery at",
+    "weeks": "By week",
+    "weekFrom": "From {{date}}",
+    "none": "Not enough readings yet: it needs both light and heavy current, at least 30 A apart, while the inverter and the BMS both report."
   }
 }

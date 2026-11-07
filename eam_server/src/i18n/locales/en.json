@@ -22,6 +22,7 @@
     "batteryLow": "Battery low: {{soc}} %",
     "bmsAlarm": "BMS alarm: {{alarm}}",
     "bmsAlarmsCleared": "BMS alarms cleared",
+    "bmsCellLow": "Lowest cell C{{cell}} at {{cellMv}} mV off-grid: pack {{packV}} V, {{currentA}} A out, charge {{soc}} %",
     "loggerDown": "Logger not answering since {{sinceAt}}",
     "loggerBack": "Logger back online after {{downMs}}",
     "bmsSilent": "BMS reader silent since {{sinceAt}}",

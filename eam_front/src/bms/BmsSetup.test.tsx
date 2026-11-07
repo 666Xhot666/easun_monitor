@@ -15,6 +15,7 @@ const device = (overrides: Partial<BmsDevice> = {}): BmsDevice => ({
   createdAt: '2026-10-06T10:00:00.000Z',
   inverterProfileId: 7,
   useForEnergyFlow: false,
+  cellLowAlertV: null,
   ...overrides,
 });
 
@@ -118,6 +119,43 @@ describe('BmsSetup', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Add BMS' }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent('name should not be empty');
+  });
+
+  it("sets the low-cell alert voltage, by default a little above the BMS's own undervoltage recovery", async () => {
+    let saved: number | null = null;
+    const server = renderSetup((method, url, body) => {
+      if (method === 'patch') {
+        saved = (body as { cellLowAlertV: number | null }).cellLowAlertV;
+        return { status: 200, data: device({ cellLowAlertV: saved }) };
+      }
+      if (url.endsWith('/settings'))
+        return { status: 200, data: { protocol: 'JK02_32S', decoderVersion: 'jk-ble/2', receivedAt: '', settings: { cellUndervoltageRecoveryV: 2.9 } } };
+      return { status: 200, data: [device({ cellLowAlertV: saved })] };
+    });
+    restore = server.restore;
+    const user = userEvent.setup();
+
+    const row = await screen.findByRole('listitem', { name: 'House battery' });
+    expect(await within(row).findByText(/Default 3\.00 V: 0\.1 V above the BMS's undervoltage recovery \(2\.90 V\)/)).toBeInTheDocument();
+    const field = within(row).getByLabelText('Low cell alert (V)');
+    expect(field).toHaveValue(null);
+
+    await user.type(field, '3.1');
+    await user.click(within(row).getByRole('button', { name: 'Save low cell alert' }));
+    expect(JSON.parse(server.sent.filter((c) => c.method === 'patch').at(-1)?.data)).toEqual({ cellLowAlertV: 3.1 });
+
+    await user.clear(within(row).getByLabelText('Low cell alert (V)'));
+    await user.click(within(row).getByRole('button', { name: 'Save low cell alert' }));
+    expect(JSON.parse(server.sent.filter((c) => c.method === 'patch').at(-1)?.data)).toEqual({ cellLowAlertV: null });
+  });
+
+  it('says there is no low-cell alert until the BMS has sent its limits', async () => {
+    restore = renderSetup((_method, url) =>
+      url.endsWith('/settings') ? { status: 404 } : { status: 200, data: [device()] },
+    ).restore;
+
+    const row = await screen.findByRole('listitem', { name: 'House battery' });
+    expect(await within(row).findByText(/No low-cell alert until the BMS has sent its settings/)).toBeInTheDocument();
   });
 
   it('switches the energy flow over to the BMS values', async () => {

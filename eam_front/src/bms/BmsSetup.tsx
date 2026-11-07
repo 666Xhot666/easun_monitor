@@ -10,6 +10,7 @@ import { Button, Segmented } from '../ui';
 import { CopyButton } from '../ui/CopyButton';
 import { Switch } from '../ui/Switch';
 import { Dialog } from '../ui/Dialog';
+import CellLowAlertField from './CellLowAlertField';
 
 const SOURCES: { value: BmsDevice['sourceType']; label: string }[] = [
   { value: 'mac-ble', label: 'bmsSetup.sources.mac-ble' },
@@ -78,6 +79,12 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
     }, t('bmsSetup.flowFailed'));
   };
 
+  const setCellLowAlert = (device: BmsDevice, cellLowAlertV: number | null) => {
+    void act(async () => {
+      await axios.patch(`/api/inverter/profiles/${profileId}/bms/${device.id}`, { cellLowAlertV });
+    }, t('bmsSetup.cellLowFailed'));
+  };
+
   const remove = (device: BmsDevice) => {
     void act(async () => {
       await axios.delete(`/api/inverter/profiles/${profileId}/bms/${device.id}`);
@@ -120,6 +127,9 @@ export default function BmsSetup({ profileId, now = Date.now, readOnly = false }
                 />
                 {t('bmsSetup.useOnOverview')}
               </label>
+              {!readOnly && (
+                <CellLowAlertField profileId={profileId} device={device} disabled={busy} onSave={(v) => setCellLowAlert(device, v)} />
+              )}
               {!readOnly && (
                 <p className="mt-2 text-xs text-muted">
                   {t('bmsSetup.signHint')}

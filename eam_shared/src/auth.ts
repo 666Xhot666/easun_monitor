@@ -30,6 +30,8 @@ export interface InverterProfile {
   longitude: number | null;
   /** While true, the app writes nothing to the inverter (settings, fault reset). */
   writesLocked: boolean;
+  /** The battery level (%) the low-battery alert fires at. */
+  lowSocAlertPct: number;
   householdId: number;
   /** The user's role in this inverter's household: readers cannot change anything. */
   role: HouseholdRole;

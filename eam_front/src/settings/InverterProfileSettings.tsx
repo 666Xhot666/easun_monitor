@@ -29,6 +29,7 @@ interface Form {
   batteryNominalVoltage: string;
   batteryType: BatteryType;
   batteryCapacityAh: string;
+  lowSocAlertPct: string;
 }
 
 const toForm = (p: InverterProfile): Form => {
@@ -42,6 +43,7 @@ const toForm = (p: InverterProfile): Form => {
     batteryNominalVoltage: String(p.batteryNominalVoltage),
     batteryType: p.batteryType,
     batteryCapacityAh: String(p.batteryCapacityAh),
+    lowSocAlertPct: String(p.lowSocAlertPct),
   };
 };
 
@@ -56,8 +58,10 @@ function changedFields(profile: InverterProfile, form: Form): Partial<InverterPr
     batteryNominalVoltage: Number(form.batteryNominalVoltage),
     batteryType: form.batteryType,
     batteryCapacityAh: Number(form.batteryCapacityAh),
+    lowSocAlertPct: Number(form.lowSocAlertPct),
   };
   if (!next.name || !next.ipAddress || !(next.port! > 0) || !(ratedPowerWatts > 0) || !(next.batteryCapacityAh! > 0)) return null;
+  if (!Number.isInteger(next.lowSocAlertPct) || next.lowSocAlertPct! < 1 || next.lowSocAlertPct! > 99) return null;
   return Object.fromEntries(
     Object.entries(next).filter(([key, value]) => profile[key as keyof InverterProfile] !== value),
   ) as Partial<InverterProfile>;
@@ -231,7 +235,7 @@ export default function InverterProfileSettings() {
               />
             </div>
           </div>
-          <div className="max-w-60">
+          <div className="grid max-w-xl gap-4 sm:grid-cols-2">
             <Field label={t('profile.capacity')} htmlFor="profile-capacity">
               <input
                 id="profile-capacity"
@@ -240,6 +244,18 @@ export default function InverterProfileSettings() {
                 className={input}
                 value={form.batteryCapacityAh}
                 onChange={(e) => update({ batteryCapacityAh: e.target.value })}
+              />
+            </Field>
+            <Field label={t('profile.lowSocAlert')} htmlFor="profile-low-soc" hint={t('profile.lowSocAlertHint')}>
+              <input
+                id="profile-low-soc"
+                type="number"
+                min={1}
+                max={99}
+                step={1}
+                className={input}
+                value={form.lowSocAlertPct}
+                onChange={(e) => update({ lowSocAlertPct: e.target.value })}
               />
             </Field>
           </div>

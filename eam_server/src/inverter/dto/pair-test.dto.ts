@@ -1,4 +1,11 @@
-import { IsInt, IsOptional, IsString, Matches, Max, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Matches,
+  Max,
+  Min,
+} from 'class-validator';
 import {
   HOST_ADDRESS_MESSAGE,
   HOST_ADDRESS_PATTERN,
