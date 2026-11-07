@@ -20,6 +20,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import type { Response } from 'express';
 import { ReadingsQueryDto } from '../inverter/dto/readings-query.dto';
 import { HistoryQueryDto } from '../inverter/dto/history-query.dto';
+import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
+import { WiringQueryDto } from './dto/wiring-query.dto';
+import { fitWiringDrop, type WiringFit } from './wiring-drop';
 import { ReadingsExportQueryDto } from '../inverter/dto/readings-export-query.dto';
 import { BmsCsv } from './bms-csv';
 import { languageOr } from '../i18n/languages';
@@ -38,7 +41,9 @@ import {
   DEFAULT_HISTORY_SPAN_MS,
   MAX_EXPORT_SPAN_MS,
   MAX_HISTORY_SPAN_MS,
+  DAY_MS,
   STALE_AFTER_MS,
+  WIRING_TREND_DAYS,
 } from './constants';
 
 /** Everything about a device but its token hash. */
@@ -186,6 +191,54 @@ export class BmsDevicesController {
       ...(row.settings as object),
       receivedAt: row.settingsAt.toISOString(),
     };
+  }
+
+  /**
+   * How the inverter's battery voltage relates to the BMS's, fitted over the
+   * last `days`: path resistance and calibration offset, overall and per
+   * week. A fit is null until the currents spread enough to tell them apart.
+   */
+  @Get(':bmsId/wiring')
+  async wiring(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @Query() query: WiringQueryDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
+    const voltage = SMG_II_READINGS.source('batteryVoltage');
+    const current = SMG_II_READINGS.source('batteryCurrent');
+    if (
+      !voltage ||
+      !current ||
+      !('register' in voltage) ||
+      !('register' in current)
+    )
+      return { overall: null, weeks: [] };
+    const to = new Date();
+    const from = new Date(to.getTime() - query.days * DAY_MS);
+    const pairs = await this.store.voltagePairs(
+      bmsId,
+      profileId,
+      { voltage: voltage.register, current: current.register },
+      from,
+      to,
+    );
+    const overall = fitWiringDrop(pairs);
+    if (!overall) return { overall: null, weeks: [] };
+    const weeks: { from: string; fit: WiringFit }[] = [];
+    for (
+      let start = from.getTime();
+      start < to.getTime();
+      start += WIRING_TREND_DAYS * DAY_MS
+    ) {
+      const end = start + WIRING_TREND_DAYS * DAY_MS;
+      const fit = fitWiringDrop(
+        pairs.filter((p) => p.at.getTime() >= start && p.at.getTime() < end),
+      );
+      if (fit) weeks.push({ from: new Date(start).toISOString(), fit });
+    }
+    return { overall, weeks };
   }
 
   /** Averaged history over a range, like the inverter's history. */

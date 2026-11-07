@@ -349,6 +349,63 @@ describe('BMS devices (e2e)', () => {
     });
   });
 
+  describe('how the inverter reads the battery voltage', () => {
+    const wiringPath = (bmsId: number, days = 30) =>
+      `/api/inverter/profiles/${profileId}/bms/${bmsId}/wiring?days=${days}`;
+
+    /** BMS and inverter logs a second apart: the inverter reads 0.23 V low behind 12.5 mΩ. */
+    const seed = async (bmsId: number, start: Date, currents: number[]) => {
+      await prisma.inverterLog.deleteMany();
+      for (const [i, currentA] of currents.entries()) {
+        const at = new Date(start.getTime() + i * 60_000);
+        const batteryV = 26;
+        await prisma.bmsLog.create({
+          data: {
+            bmsDeviceId: bmsId,
+            timestamp: at,
+            payload: { packVoltageV: batteryV, currentA },
+          },
+        });
+        await prisma.inverterLog.create({
+          data: {
+            inverterProfileId: profileId,
+            timestamp: new Date(at.getTime() + 1_000),
+            payload: {
+              BatteryVoltage:
+                Math.round((batteryV - 0.23 + 0.0125 * currentA) * 100) / 100,
+              BatteryCurrentSigned: currentA,
+            },
+          },
+        });
+      }
+    };
+
+    it('gives the path resistance and the offset, over the range and per week', async () => {
+      const { device } = await addDevice();
+      await seed(
+        device.id,
+        new Date(Date.now() - 3 * 86_400_000),
+        [-76, -45, -14, -6, 5, 23, 42],
+      );
+
+      const { body } = await call('get', wiringPath(device.id)).expect(200);
+      expect(body.overall).toMatchObject({ samples: 7 });
+      expect(body.overall.resistanceOhm).toBeCloseTo(0.0125, 3);
+      expect(body.overall.offsetV).toBeCloseTo(-0.23, 2);
+      expect(body.weeks).toHaveLength(1);
+      expect(body.weeks[0].fit.samples).toBe(7);
+    });
+
+    it('has no fit until the currents spread enough, and checks the range', async () => {
+      const { device } = await addDevice();
+      await seed(device.id, new Date(Date.now() - 86_400_000), [-6, -4, 3]);
+      const { body } = await call('get', wiringPath(device.id)).expect(200);
+      expect(body).toEqual({ overall: null, weeks: [] });
+      await call('get', wiringPath(device.id, 400)).expect(400);
+      await call('get', wiringPath(device.id), strangerToken).expect(404);
+    });
+  });
+
   describe("the BMS's settings", () => {
     /** What the reader posts: the decoded real settings frame. */
     const settingsReport = (at: Date, overrides: object = {}) => ({
