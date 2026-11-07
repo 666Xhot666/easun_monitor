@@ -74,3 +74,18 @@ export interface BmsSettingsReport {
   /** Setting name → value in V, A, s, °C or Ah; switches as booleans. */
   settings: Record<string, number | boolean>;
 }
+
+/** How the inverter's battery voltage relates to the BMS's: inverter = battery + offsetV + resistanceOhm × current (+ charging). */
+export interface WiringFit {
+  resistanceOhm: number;
+  offsetV: number;
+  samples: number;
+  minCurrentA: number;
+  maxCurrentA: number;
+}
+
+/** GET .../bms/:bmsId/wiring: fitted over the last days, and per week. */
+export interface BmsWiring {
+  overall: WiringFit | null;
+  weeks: { from: string; fit: WiringFit }[];
+}

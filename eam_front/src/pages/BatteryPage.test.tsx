@@ -71,11 +71,20 @@ describe('BatteryPage', () => {
                   settings: { maxChargeCurrentA: 48 },
                 },
               }
-            : { status: 200, data: { source: 'raw', bucketSeconds: 300, points: [] } },
+            : url === '/api/inverter/profiles/7/bms/3/wiring'
+              ? {
+                  status: 200,
+                  data: { overall: { resistanceOhm: 0.0125, offsetV: -0.23, samples: 1040, minCurrentA: -78, maxCurrentA: 43 }, weeks: [] },
+                }
+              : url === '/api/inverter/7/settings'
+                ? { status: 200, data: { values: { BatteryLowVoltageProtectionOffGrid: 23.5 }, readAt: new Date().toISOString() } }
+                : { status: 200, data: { source: 'raw', bucketSeconds: 300, points: [] } },
     ).restore;
 
     expect(await screen.findByText('House battery · as its BMS reports it')).toBeInTheDocument();
     expect(await screen.findByText('48 A')).toBeInTheDocument();
+    expect(await screen.findByText('Cut-off 23.5 V on the inverter = battery at')).toBeInTheDocument();
+    expect(screen.getByTestId('wiring-resistance')).toHaveTextContent('12.5 mΩ');
     expect(screen.getByRole('heading', { name: 'BMS settings' })).toBeInTheDocument();
     expect(await screen.findByTestId('bms-soc')).toHaveTextContent('88%');
     expect(await screen.findByText('No stored BMS readings in this range.')).toBeInTheDocument();

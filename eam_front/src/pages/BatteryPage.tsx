@@ -4,13 +4,15 @@ import { BatteryMedium } from 'lucide-react';
 import BmsHistoryCharts from '../bms/BmsHistoryCharts';
 import BmsLivePanel from '../bms/BmsLivePanel';
 import BmsSettingsPanel from '../bms/BmsSettingsPanel';
+import BmsWiringPanel from '../bms/BmsWiringPanel';
 import { useBmsDevices } from '../bms/useBmsDevices';
 import { useBmsLatest } from '../bms/useBmsLatest';
 import { useBmsSettings } from '../bms/useBmsSettings';
+import { useBmsWiring, useInverterCutoff } from '../bms/useBmsWiring';
 import { useLiveData } from '../shell/LiveData';
 import { EmptyState, PageHeader } from '../ui';
 
-/** The battery as its BMS reports it: live values, cells, status, history and the BMS's own settings (read-only). */
+/** The battery as its BMS reports it: live values, cells, status, history, how the inverter reads it, and the BMS's own settings (read-only). */
 export default function BatteryPage() {
   const { t } = useTranslation();
   const { profile, isAdmin } = useLiveData();
@@ -19,6 +21,8 @@ export default function BatteryPage() {
   const device = devices?.[0] ?? null;
   const latest = useBmsLatest(profile.id, device?.id ?? null);
   const bmsSettings = useBmsSettings(profile.id, device?.id ?? null);
+  const wiring = useBmsWiring(profile.id, device?.id ?? null);
+  const cutoffV = useInverterCutoff(profile.id);
   const settingsHref = `/dashboard/${profile.id}/settings/battery-monitor`;
 
   return (
@@ -45,6 +49,7 @@ export default function BatteryPage() {
         <div className="space-y-4">
           <BmsLivePanel latest={latest} settingsHref={isAdmin ? settingsHref : undefined} />
           <BmsHistoryCharts profileId={profile.id} bmsId={device.id} />
+          {wiring && <BmsWiringPanel wiring={wiring} cutoffV={cutoffV} />}
           <BmsSettingsPanel report={bmsSettings} />
         </div>
       )}

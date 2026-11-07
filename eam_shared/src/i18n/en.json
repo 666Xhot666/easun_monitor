@@ -1240,5 +1240,21 @@
       "cellCount": "Cell count",
       "nominalCapacityAh": "Nominal capacity"
     }
+  },
+  "wiring": {
+    "title": "Battery voltage at the inverter",
+    "intro": "Compared with the BMS: the inverter measures the battery through the cables and connections between them, and reads a little off even with no current.",
+    "resistance": "Path resistance",
+    "resistanceSub": "cables, lugs, fuse or breaker",
+    "offset": "Inverter offset",
+    "offsetSub": "with no current",
+    "samples": "Readings compared",
+    "samplesSub": "last {{days}} days",
+    "dischargingAt": "While discharging at",
+    "readsLower": "Inverter reads lower by",
+    "cutoffAt": "Cut-off {{cutoff}} on the inverter = battery at",
+    "weeks": "By week",
+    "weekFrom": "From {{date}}",
+    "none": "Not enough readings yet: it needs both light and heavy current, at least 30 A apart, while the inverter and the BMS both report."
   }
 }
