@@ -17,7 +17,7 @@ import {
 } from './constants';
 
 /** Bumped whenever decoding changes, so stored readings say which decoder made them. */
-export const DECODER_VERSION = 'jk-ble/1';
+export const DECODER_VERSION = 'jk-ble/2';
 
 export type SessionEvent =
   /** Every valid frame, raw, for the capture files. */

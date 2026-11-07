@@ -35,12 +35,26 @@ export interface BmsReading {
   /** packVoltageV x currentA, same sign as the current. */
   powerW: number | null;
   stateOfChargePct: number | null;
+  /** State of health, as the BMS estimates it. */
+  stateOfHealthPct: number | null;
   remainingCapacityAh: number | null;
   nominalCapacityAh: number | null;
   cycleCount: number | null;
+  /** Charge the pack has moved over its life ("cycle capacity" in the JK app). */
+  totalCycleCapacityAh: number | null;
+  /** How long the BMS has been running, in seconds. */
+  runTimeSeconds: number | null;
 
   /** Voltages of the enabled cells, cell 1 first. */
   cellVoltagesV: number[];
+  /** Balance-wire resistance of each enabled cell, cell 1 first. */
+  cellWireResistancesOhm: number[];
+  /**
+   * Cell statistics. JK02_32S: as the BMS reports them, which is what its
+   * display shows (they are sampled apart from cellVoltagesV and now and
+   * then disagree with them). JK02_24S: computed from cellVoltagesV, until
+   * its fields are confirmed on a real unit.
+   */
   cellMinV: number | null;
   cellMaxV: number | null;
   cellAverageV: number | null;

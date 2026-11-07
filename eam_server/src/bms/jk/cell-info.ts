@@ -51,6 +51,59 @@ const round = (value: number, decimals: number) => {
   return Math.round(value * f) / f;
 };
 
+interface CellStats {
+  cellAverageV: number | null;
+  cellDeltaV: number | null;
+  cellMinIndex: number | null;
+  cellMaxIndex: number | null;
+}
+
+/** The BMS's own figures: average, delta (58, 60) and 0-based max/min cell (62, 63). */
+function reportedCellStats(
+  frame: Buffer,
+  cellOffset: number,
+  cells: number[],
+): CellStats {
+  if (cells.length === 0) {
+    return {
+      cellAverageV: null,
+      cellDeltaV: null,
+      cellMinIndex: null,
+      cellMaxIndex: null,
+    };
+  }
+  const index = (byte: number) => (byte < cells.length ? byte + 1 : null);
+  return {
+    cellAverageV: frame.readUInt16LE(58 + cellOffset) / 1000,
+    cellDeltaV: frame.readUInt16LE(60 + cellOffset) / 1000,
+    cellMaxIndex: index(frame[62 + cellOffset]),
+    cellMinIndex: index(frame[63 + cellOffset]),
+  };
+}
+
+/** Figures computed from the cell voltages, for variants not yet confirmed. */
+function computedCellStats(cells: number[]): CellStats {
+  let cellMinIndex: number | null = null;
+  let cellMaxIndex: number | null = null;
+  cells.forEach((v, i) => {
+    if (v > 0 && (cellMinIndex === null || v < cells[cellMinIndex - 1]))
+      cellMinIndex = i + 1;
+    if (cellMaxIndex === null || v > cells[cellMaxIndex - 1])
+      cellMaxIndex = i + 1;
+  });
+  const live = cells.filter((v) => v > 0);
+  const min = cellMinIndex === null ? null : cells[cellMinIndex - 1];
+  const max = cellMaxIndex === null ? null : cells[cellMaxIndex - 1];
+  return {
+    cellAverageV: live.length
+      ? round(live.reduce((a, b) => a + b, 0) / live.length, 4)
+      : null,
+    cellDeltaV: min === null || max === null ? null : round(max - min, 3),
+    cellMinIndex,
+    cellMaxIndex,
+  };
+}
+
 export function decodeCellInfo(
   frame: Buffer,
   protocol: BmsProtocol,
@@ -73,19 +126,19 @@ export function decodeCellInfo(
     cellVoltagesV.push(frame.readUInt16LE(6 + i * 2) / 1000);
   }
 
-  let cellMinIndex: number | null = null;
-  let cellMaxIndex: number | null = null;
-  cellVoltagesV.forEach((v, i) => {
-    if (v > 0 && (cellMinIndex === null || v < cellVoltagesV[cellMinIndex - 1]))
-      cellMinIndex = i + 1;
-    if (cellMaxIndex === null || v > cellVoltagesV[cellMaxIndex - 1])
-      cellMaxIndex = i + 1;
-  });
-  const live = cellVoltagesV.filter((v) => v > 0);
+  // Wire resistance per cell (64 + cellOffset), in mΩ.
+  const cellWireResistancesOhm = cellVoltagesV.map(
+    (_, i) => frame.readUInt16LE(64 + cellOffset + i * 2) / 1000,
+  );
+
+  const stats = is32
+    ? reportedCellStats(frame, cellOffset, cellVoltagesV)
+    : computedCellStats(cellVoltagesV);
+  const { cellMinIndex, cellMaxIndex } = stats;
   const cellMinV =
-    cellMinIndex === null ? null : cellVoltagesV[cellMinIndex - 1];
+    cellMinIndex === null ? null : (cellVoltagesV[cellMinIndex - 1] ?? null);
   const cellMaxV =
-    cellMaxIndex === null ? null : cellVoltagesV[cellMaxIndex - 1];
+    cellMaxIndex === null ? null : (cellVoltagesV[cellMaxIndex - 1] ?? null);
 
   const packVoltageV = frame.readUInt32LE(118 + o) / 1000;
   const currentA = frame.readInt32LE(126 + o) / 1000;
@@ -117,19 +170,18 @@ export function decodeCellInfo(
     currentA,
     powerW: round(packVoltageV * currentA, 3),
     stateOfChargePct: frame[141 + o],
+    stateOfHealthPct: frame[158 + o],
     remainingCapacityAh: frame.readUInt32LE(142 + o) / 1000,
     nominalCapacityAh: frame.readUInt32LE(146 + o) / 1000,
     cycleCount: frame.readUInt32LE(150 + o),
+    totalCycleCapacityAh: frame.readUInt32LE(154 + o) / 1000,
+    runTimeSeconds: frame.readUInt32LE(162 + o),
     cellVoltagesV,
+    cellWireResistancesOhm,
     cellMinV,
     cellMaxV,
-    cellAverageV: live.length
-      ? round(live.reduce((a, b) => a + b, 0) / live.length, 4)
-      : null,
-    cellDeltaV:
-      cellMinV === null || cellMaxV === null
-        ? null
-        : round(cellMaxV - cellMinV, 3),
+    cellAverageV: stats.cellAverageV,
+    cellDeltaV: stats.cellDeltaV,
     cellMinIndex,
     cellMaxIndex,
     temperaturesC,

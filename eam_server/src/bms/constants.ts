@@ -22,3 +22,5 @@ export const MAX_PACK_V = 150;
 export const MAX_CURRENT_A = 1000;
 export const MAX_CELL_V = 5;
 export const MAX_CELLS = 32;
+/** Balance-wire resistance per cell; healthy leads read tens of mΩ. */
+export const MAX_WIRE_RESISTANCE_OHM = 10;

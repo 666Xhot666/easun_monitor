@@ -18,7 +18,7 @@ describe('decodeCellInfo, JK02_32S', () => {
     expect(r).toMatchObject({ cellMinIndex: 11, cellMaxIndex: 1 });
     expect(r.cellMinV).toBeCloseTo(3.216, 3);
     expect(r.cellMaxV).toBeCloseTo(3.246, 3);
-    expect(r.cellDeltaV).toBeCloseTo(0.03, 3);
+    expect(r.cellDeltaV).toBeCloseTo(0.031, 3); // the BMS's figure; the cells give 0.030
     expect(r.packVoltageV).toBeCloseTo(51.689, 3);
     expect(r.currentA).toBe(0);
     expect(r.powerW).toBe(0);
@@ -50,7 +50,7 @@ describe('decodeCellInfo, JK02_32S', () => {
       cellMinIndex: 13,
       cellMaxIndex: 16,
     });
-    expect(r.cellDeltaV).toBeCloseTo(0.017, 3);
+    expect(r.cellDeltaV).toBeCloseTo(0.016, 3); // the BMS's figure; the cells give 0.017
   });
 
   it('decodes a discharging current as negative (v19)', () => {
@@ -82,6 +82,73 @@ describe('decodeCellInfo, JK02_32S', () => {
     const r = decodeCellInfo(frame, 'JK02_32S');
     expect(r.alarmMask).toBe((1 << 11) | (1 << 5) | (1 << 3));
     expect(r.alarms).toEqual(['Battery pack overvoltage', 'Cell undervoltage']);
+  });
+});
+
+describe('decodeCellInfo, JK02_32S, what the BMS reports beyond the cells', () => {
+  it("takes average, delta and the min/max cell from the BMS's own fields", () => {
+    const r = decodeCellInfo(
+      referenceFrame('CELL_INFO_REAL_PB2A16S20P_19U'),
+      'JK02_32S',
+    );
+    expect(r.cellVoltagesV).toEqual([
+      3.445, 3.447, 3.451, 3.443, 3.449, 3.443, 3.446, 3.449,
+    ]);
+    expect(r.cellAverageV).toBe(3.447);
+    expect(r.cellDeltaV).toBe(0.008);
+    expect(r).toMatchObject({ cellMaxIndex: 3, cellMinIndex: 4 });
+    expect(r.cellMaxV).toBe(3.451);
+    expect(r.cellMinV).toBe(3.443);
+  });
+
+  it("keeps the BMS's figures when they differ from the cell voltages", () => {
+    // The BMS samples its statistics apart from the voltages it sends; about
+    // one frame in ten disagrees, and the BMS's own display shows its figures.
+    const r = decodeCellInfo(
+      referenceFrame('CELL_INFO_JK02_32S_V19'),
+      'JK02_32S',
+    );
+    expect(r.cellDeltaV).toBe(0.006);
+    expect(r.cellAverageV).toBe(3.377);
+    expect(r).toMatchObject({ cellMaxIndex: 1, cellMinIndex: 10 });
+  });
+
+  it('decodes wire resistance per cell, SOH, cycle capacity and run time', () => {
+    const r = decodeCellInfo(
+      referenceFrame('CELL_INFO_REAL_PB2A16S20P_19U'),
+      'JK02_32S',
+    );
+    expect(r.cellWireResistancesOhm).toEqual([
+      0.07, 0.068, 0.07, 0.067, 0.07, 0.068, 0.07, 0.068,
+    ]);
+    expect(r.stateOfHealthPct).toBe(100);
+    expect(r.totalCycleCapacityAh).toBe(1489.001);
+    expect(r.runTimeSeconds).toBe(8_791_797);
+  });
+
+  it('matches the run time and SOH the reference lists (v19)', () => {
+    const r = decodeCellInfo(
+      referenceFrame('CELL_INFO_JK02_32S_V19'),
+      'JK02_32S',
+    );
+    expect(r).toMatchObject({
+      runTimeSeconds: 3_609_276,
+      stateOfHealthPct: 100,
+    });
+    expect(r.cellWireResistancesOhm).toHaveLength(16);
+  });
+});
+
+describe('decodeCellInfo, JK02_24S, what the BMS reports beyond the cells', () => {
+  it('matches the run time and SOH the reference lists (v10)', () => {
+    const r = decodeCellInfo(
+      referenceFrame('CELL_INFO_JK02_24S_V10'),
+      'JK02_24S',
+    );
+    expect(r).toMatchObject({ runTimeSeconds: 269_340, stateOfHealthPct: 100 });
+    expect(r.totalCycleCapacityAh).toBe(13.561);
+    expect(r.cellWireResistancesOhm).toHaveLength(24);
+    expect(r.cellWireResistancesOhm[0]).toBe(0.1);
   });
 });
 
