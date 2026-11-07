@@ -898,12 +898,13 @@
         "Off",
         "On"
       ],
-      "description": "Turns the inverter off or on remotely. No panel program.",
+      "description": "Turns the inverter's AC output off or on remotely; the vendor app's output ON/OFF switch writes this register. No panel program.",
       "risk": "Remote shutdown turns off the inverter's AC output: everything it powers loses power until it is turned back on.",
       "optionDescriptions": [
         "Remote shutdown: the AC output turns off.",
         "Remote turn-on."
-      ]
+      ],
+      "note": "Tested 2026-11-07: 0 turned the AC output off at once (the inverter went to Charging and kept charging from the grid), 1 turned it back on within about 1 s. Turning the output off in the vendor app changed this register from 1 to 0."
     },
     {
       "name": "OutputControl",
@@ -916,9 +917,9 @@
         "Off",
         "On"
       ],
-      "description": "Turns the inverter's AC output off or on. The vendor's app shows it as the main output switch; it may overlap with the remote switch.",
-      "risk": "Off turns off the inverter's AC output: everything it powers loses power until it is turned back on.",
-      "note": "Not in the protocol PDF (460 is listed as reserved); read from the device in a Modbus capture, matching the vendor app's output ON/OFF toggle."
+      "description": "Purpose unknown. It reads 0 whether the AC output is on or off, and the inverter refuses writing 1. The vendor app's output switch is the remote switch (420), not this register.",
+      "risk": "Its effect is unknown: writing it might turn off the inverter's AC output or do something else. Do not write it until its purpose is known.",
+      "note": "Not in the protocol PDF (460 is listed as reserved). First taken for the vendor app's output toggle from a Modbus capture; tested 2026-11-07: it read 0 with the output on, writing 1 was refused (Modbus exception 3), and the vendor app's toggle changed 420 instead."
     },
     {
       "name": "ExitFaultMode",
