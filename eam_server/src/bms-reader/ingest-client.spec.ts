@@ -1,4 +1,5 @@
 import type { BmsReading } from '../bms/reading';
+import type { BmsSettingsReport } from '../bms/settings-report';
 import { IngestClient } from './ingest-client';
 
 const reading = (at: number, soc = 50) =>
@@ -13,7 +14,7 @@ function client(replies: () => Reply, maxQueue = 60) {
   const posted: {
     url: string;
     auth: string;
-    body: { timestamp: string; stateOfChargePct: number };
+    body: { timestamp: string; stateOfChargePct?: number; settings?: object };
   }[] = [];
   const events: string[] = [];
   const fetchFn = jest.fn(async (url: string, init: RequestInit) => {
@@ -95,5 +96,44 @@ describe('IngestClient', () => {
     expect(fetchFn).toHaveBeenCalledTimes(3);
     expect(posted.map((p) => p.body.stateOfChargePct)).toEqual([2]);
     expect(events).toEqual([expect.stringMatching(/rejected.*400/)]);
+  });
+
+  const settings = (at: number, maxChargeCurrentA: number) =>
+    ({
+      timestamp: new Date(at).toISOString(),
+      protocol: 'JK02_32S',
+      decoderVersion: 'jk-ble/2',
+      settings: { maxChargeCurrentA },
+    }) as BmsSettingsReport;
+
+  it("posts the BMS's settings next to the ingest endpoint, with the device token", async () => {
+    const { ingest, posted } = client(() => 202);
+    ingest.offerSettings(settings(0, 48));
+    await jest.advanceTimersByTimeAsync(0);
+    expect(posted).toEqual([
+      {
+        url: 'http://server:3000/api/bms/ingest/settings',
+        auth: 'Bearer secret-token',
+        body: expect.objectContaining({ settings: { maxChargeCurrentA: 48 } }),
+      },
+    ]);
+  });
+
+  it('while the server is down, keeps only the newest settings, then sends them before readings', async () => {
+    let down = true;
+    const { ingest, posted } = client(() => (down ? 'network' : 202));
+    ingest.offerSettings(settings(0, 40));
+    ingest.offer(reading(1000, 7));
+    ingest.offerSettings(settings(2000, 48));
+    await jest.advanceTimersByTimeAsync(5_000);
+    down = false;
+    await jest.advanceTimersByTimeAsync(30_000);
+    expect(posted.map((p) => p.url.split('/').pop())).toEqual([
+      'settings',
+      'ingest',
+    ]);
+    expect(posted[0].body).toMatchObject({
+      settings: { maxChargeCurrentA: 48 },
+    });
   });
 });

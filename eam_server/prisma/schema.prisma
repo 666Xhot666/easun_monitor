@@ -411,6 +411,11 @@ model BmsDevice {
   /// of the inverter's estimate. Off until the owner has confirmed the
   /// current's sign on the real unit (docs/bms-first-run.md, step 7).
   useForEnergyFlow Boolean   @default(false)
+  /// The BMS's own settings, read-only, as the reader last decoded them:
+  /// { protocol, decoderVersion, settings }. Null until a settings frame arrives.
+  settings         Json?
+  /// When the BMS sent those settings (the reader's timestamp).
+  settingsAt       DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -485,7 +490,7 @@ model TelegramLinkCode {
 /// silent logger or BMS reader. Recorded when it is detected (and sent to
 /// Telegram, when linked), so the Alerts page can show the history.
 model AlertEvent {
-  id     Int      @id @default(autoincrement())
+  id   Int      @id @default(autoincrement())
   /// fault | warning | grid | battery | connection
   kind   String
   /// In English; shown as is when there is no key (alerts kept before keys).
@@ -609,7 +614,7 @@ model OutageCheck {
 
 /// A version of one group's weekly pattern; a new row only when it changes.
 model OutageWeeklyPattern {
-  id     Int      @id @default(autoincrement())
+  id   Int      @id @default(autoincrement())
   group  String
   /// { "1" (Monday) .. "7": [24 slot statuses] }
   days   Json

@@ -102,7 +102,7 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
           <div className="mt-3 h-3 overflow-hidden rounded-full bg-surface-2">
             <div className="h-full rounded-full bg-batt" style={{ width: `${soc ?? 0}%` }} />
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-5">
+          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-line pt-4 sm:grid-cols-4 lg:grid-cols-7">
             <Stat testId="bms-voltage" label={t('battery.packVoltage')} value={reading.packVoltageV == null ? '--' : withUnit(reading.packVoltageV, 'V', 2)} />
             <Stat
               testId="bms-current"
@@ -123,6 +123,13 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
               sub={reading.nominalCapacityAh == null ? undefined : t('battery.ofCapacity', { capacity: `${reading.nominalCapacityAh} ${unit('Ah')}` })}
             />
             <Stat testId="bms-cycles" label={t('battery.cycles')} value={reading.cycleCount == null ? '--' : String(reading.cycleCount)} />
+            <Stat
+              testId="bms-cycle-capacity"
+              label={t('battery.cycleCapacity')}
+              value={reading.totalCycleCapacityAh == null ? '--' : withUnit(Math.round(reading.totalCycleCapacityAh), 'Ah')}
+              sub={reading.totalCycleCapacityAh == null ? undefined : t('battery.cycleCapacitySub')}
+            />
+            <Stat testId="bms-soh" label={t('battery.soh')} value={reading.stateOfHealthPct == null ? '--' : `${reading.stateOfHealthPct}%`} />
           </div>
         </section>
 
@@ -144,6 +151,7 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
                 const n = i + 1;
                 const extreme = cellExtreme(reading, n);
                 const diff = reading.cellAverageV == null ? null : Math.round((v - reading.cellAverageV) * 1000);
+                const wire = reading.cellWireResistancesOhm?.[i];
                 return (
                   <li
                     key={n}
@@ -164,6 +172,7 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
                         {Math.abs(diff)} mV
                       </span>
                     )}
+                    {wire != null && <span className="text-[11px] text-muted tabular-nums">{Math.round(wire * 1000)} mΩ</span>}
                     <span className="mt-1 h-[3px] overflow-hidden rounded bg-line">
                       <span className="block h-full bg-batt" style={{ width: `${cellPct(v)}%` }} />
                     </span>
@@ -207,6 +216,12 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
               label={t('battery.dischargeMosfet')}
               value={onOff(reading.dischargeMosfetOn)}
             />
+            <p className="flex justify-between border-t border-line py-2.5">
+              <span>{t('battery.runTime')}</span>
+              <span data-testid="bms-run-time" className="font-semibold tabular-nums">
+                {runTime(reading.runTimeSeconds)}
+              </span>
+            </p>
             <p className="mt-3 text-xs text-muted">{t('battery.temperatures')}</p>
             {reading.temperaturesC.map((temp) => (
               <p key={temp.name} className="flex justify-between py-0.5">
@@ -242,3 +257,9 @@ export default function BmsLivePanel({ latest, settingsHref }: BmsLivePanelProps
 }
 
 const onOff = (on: boolean | null) => (on === true ? i18n.t('battery.on') : on === false ? i18n.t('battery.off') : '--');
+
+const runTime = (seconds: number | null | undefined) => {
+  if (seconds == null) return '--';
+  const hours = Math.floor(seconds / 3600);
+  return i18n.t('battery.runTimeValue', { days: Math.floor(hours / 24), hours: hours % 24 });
+};

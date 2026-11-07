@@ -16,7 +16,13 @@ import {
 } from 'class-validator';
 import { BMS_PROTOCOLS, type BmsProtocol } from '../jk/variants';
 import { BMS_SOURCES, type BmsReading, type BmsSource } from '../reading';
-import { MAX_CELLS, MAX_CELL_V, MAX_CURRENT_A, MAX_PACK_V } from '../constants';
+import {
+  MAX_CELLS,
+  MAX_CELL_V,
+  MAX_CURRENT_A,
+  MAX_PACK_V,
+  MAX_WIRE_RESISTANCE_OHM,
+} from '../constants';
 
 class BmsTemperatureDto {
   @IsString()
@@ -95,6 +101,32 @@ export class BmsReadingDto implements BmsReading {
   @Min(0, { each: true })
   @Max(MAX_CELL_V, { each: true })
   cellVoltagesV!: number[];
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  stateOfHealthPct!: number | null;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100_000_000)
+  totalCycleCapacityAh!: number | null;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(0xffffffff)
+  runTimeSeconds!: number | null;
+
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(MAX_CELLS)
+  @IsNumber({}, { each: true })
+  @Min(0, { each: true })
+  @Max(MAX_WIRE_RESISTANCE_OHM, { each: true })
+  cellWireResistancesOhm!: number[];
 
   @IsOptional()
   @IsNumber()

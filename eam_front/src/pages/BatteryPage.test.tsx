@@ -33,7 +33,7 @@ describe('BatteryPage', () => {
   let restore = () => {};
   afterEach(() => restore());
 
-  it("shows the BMS's live values and its history", async () => {
+  it("shows the BMS's live values, its history and its settings, read-only", async () => {
     restore = renderPage((url) =>
       url === '/api/inverter/profiles/7/bms'
         ? { status: 200, data: [device] }
@@ -61,10 +61,22 @@ describe('BatteryPage', () => {
                 },
               },
             }
-          : { status: 200, data: { source: 'raw', bucketSeconds: 300, points: [] } },
+          : url === '/api/inverter/profiles/7/bms/3/settings'
+            ? {
+                status: 200,
+                data: {
+                  protocol: 'JK02_32S',
+                  decoderVersion: 'jk-ble/2',
+                  receivedAt: new Date().toISOString(),
+                  settings: { maxChargeCurrentA: 48 },
+                },
+              }
+            : { status: 200, data: { source: 'raw', bucketSeconds: 300, points: [] } },
     ).restore;
 
     expect(await screen.findByText('House battery · as its BMS reports it')).toBeInTheDocument();
+    expect(await screen.findByText('48 A')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'BMS settings' })).toBeInTheDocument();
     expect(await screen.findByTestId('bms-soc')).toHaveTextContent('88%');
     expect(await screen.findByText('No stored BMS readings in this range.')).toBeInTheDocument();
   });

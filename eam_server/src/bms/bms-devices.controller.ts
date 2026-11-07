@@ -168,6 +168,26 @@ export class BmsDevicesController {
     };
   }
 
+  /** The BMS's own settings as last reported: read-only, nothing here changes them. */
+  @Get(':bmsId/settings')
+  async settings(
+    @Param('profileId', ParseIntPipe) profileId: number,
+    @Param('bmsId', ParseIntPipe) bmsId: number,
+    @CurrentUser() user: AuthenticatedUser,
+  ) {
+    await this.requireOwnedDevice(profileId, bmsId, user.userId, 'read');
+    const row = await this.prisma.bmsDevice.findUnique({
+      where: { id: bmsId },
+      select: { settings: true, settingsAt: true },
+    });
+    if (!row?.settings || !row.settingsAt)
+      throw new NotFoundException(localized('noBmsSettings'));
+    return {
+      ...(row.settings as object),
+      receivedAt: row.settingsAt.toISOString(),
+    };
+  }
+
   /** Averaged history over a range, like the inverter's history. */
   /** Stored readings of a range, newest first, a page at a time. */
   @Get(':bmsId/readings')

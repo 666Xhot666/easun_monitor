@@ -31,10 +31,17 @@ export interface BmsReading {
   currentA: number | null;
   powerW: number | null;
   stateOfChargePct: number | null;
+  /** The fields from here to cellWireResistancesOhm are missing on readings stored before the BMS reported them. */
+  stateOfHealthPct?: number | null;
   remainingCapacityAh: number | null;
   nominalCapacityAh: number | null;
   cycleCount: number | null;
+  /** Charge the pack has moved over its life. */
+  totalCycleCapacityAh?: number | null;
+  runTimeSeconds?: number | null;
   cellVoltagesV: number[];
+  /** Balance-wire resistance per cell, cell 1 first. */
+  cellWireResistancesOhm?: number[];
   cellMinV: number | null;
   cellMaxV: number | null;
   cellAverageV: number | null;
@@ -56,4 +63,14 @@ export interface BmsLatest {
   reading: BmsReading;
   ageSeconds: number;
   status: 'live' | 'stale';
+}
+
+/** GET .../bms/:bmsId/settings: the BMS's own settings as last reported, read-only. */
+export interface BmsSettingsReport {
+  protocol: string;
+  decoderVersion: string;
+  /** When the BMS sent them (ISO 8601). */
+  receivedAt: string;
+  /** Setting name → value in V, A, s, °C or Ah; switches as booleans. */
+  settings: Record<string, number | boolean>;
 }

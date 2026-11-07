@@ -3,6 +3,7 @@ import request from 'supertest';
 import { App } from 'supertest/types';
 import { createHash } from 'node:crypto';
 import { decodeCellInfo } from '../src/bms/jk/cell-info';
+import { decodeSettings } from '../src/bms/jk/settings';
 import { referenceFrame } from '../src/bms/jk/testing/reference-frames';
 import type { BmsReading } from '../src/bms/reading';
 import { BmsStore } from '../src/bms/bms.store';
@@ -345,6 +346,99 @@ describe('BMS devices (e2e)', () => {
         `${base(device.id)}/history?from=${new Date(t0).toISOString()}`,
         strangerToken,
       ).expect(404);
+    });
+  });
+
+  describe("the BMS's settings", () => {
+    /** What the reader posts: the decoded real settings frame. */
+    const settingsReport = (at: Date, overrides: object = {}) => ({
+      timestamp: at.toISOString(),
+      protocol: 'JK02_32S',
+      decoderVersion: 'jk-ble/2',
+      settings: decodeSettings(
+        referenceFrame('SETTINGS_REAL_PB2A16S20P_19U'),
+        'JK02_32S',
+      ),
+      ...overrides,
+    });
+    const postSettings = (deviceToken: string | null, body: unknown) => {
+      const req = request(app.getHttpServer()).post('/api/bms/ingest/settings');
+      return (
+        deviceToken === null
+          ? req
+          : req.set('Authorization', `Bearer ${deviceToken}`)
+      ).send(body as object);
+    };
+    const settingsPath = (bmsId: number) =>
+      `/api/inverter/profiles/${profileId}/bms/${bmsId}/settings`;
+
+    it('are 404 until the reader has sent them', async () => {
+      const { device } = await addDevice();
+      await call('get', settingsPath(device.id)).expect(404);
+    });
+
+    it('takes them from the device token and shows them read-only', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      const at = new Date(Date.now() - 5_000);
+      await postSettings(null, settingsReport(at)).expect(401);
+      await postSettings(deviceToken, settingsReport(at)).expect(202);
+
+      const { body } = await call('get', settingsPath(device.id)).expect(200);
+      expect(body).toMatchObject({
+        receivedAt: at.toISOString(),
+        protocol: 'JK02_32S',
+        settings: {
+          cellOvervoltageProtectionV: 3.6,
+          cellChargeV: 3.45,
+          maxChargeCurrentA: 48,
+          chargeUndertemperatureC: 2,
+          balancerEnabled: true,
+          nominalCapacityAh: 102,
+        },
+      });
+      await call('get', settingsPath(device.id), strangerToken).expect(404);
+    });
+
+    it('keeps the newest when an older report arrives late', async () => {
+      const { device, token: deviceToken } = await addDevice();
+      const newer = new Date(Date.now() - 1_000);
+      const older = new Date(Date.now() - 60_000);
+      await postSettings(
+        deviceToken,
+        settingsReport(newer, {
+          settings: { maxChargeCurrentA: 40, chargeEnabled: true },
+        }),
+      ).expect(202);
+      await postSettings(
+        deviceToken,
+        settingsReport(older, { settings: { maxChargeCurrentA: 30 } }),
+      ).expect(202);
+      const { body } = await call('get', settingsPath(device.id)).expect(200);
+      expect(body.settings).toEqual({
+        maxChargeCurrentA: 40,
+        chargeEnabled: true,
+      });
+    });
+
+    it('rejects settings that are not flat numbers and switches', async () => {
+      const { token: deviceToken } = await addDevice();
+      const at = new Date();
+      for (const settings of [
+        { nested: { a: 1 } },
+        { name: 'text' },
+        { 'bad key': 1 },
+        Object.fromEntries(Array.from({ length: 101 }, (_, i) => [`k${i}`, i])),
+        [],
+      ]) {
+        await postSettings(
+          deviceToken,
+          settingsReport(at, { settings }),
+        ).expect(400);
+      }
+      await postSettings(
+        deviceToken,
+        settingsReport(new Date(Date.now() + 120_000)),
+      ).expect(400);
     });
   });
 
