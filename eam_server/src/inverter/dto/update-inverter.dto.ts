@@ -11,12 +11,17 @@ import {
   MinLength,
   Max,
   IsString,
+  ValidateIf,
 } from 'class-validator';
 import {
   HOST_ADDRESS_MESSAGE,
   HOST_ADDRESS_PATTERN,
 } from '../../common/validators/host-address';
 import { BatteryType } from '../../generated/prisma/enums';
+import {
+  MAX_LOW_SOC_ALERT_PCT,
+  MIN_LOW_SOC_ALERT_PCT,
+} from '../../alerts/constants';
 
 /**
  * Every field optional — a PATCH only needs to send what actually
@@ -66,6 +71,16 @@ export class UpdateInverterDto {
   @IsNumber()
   @IsPositive()
   lowBatteryCutoffVoltage?: number;
+
+  /**
+   * The battery level (%) this inverter's low-battery alert fires at.
+   */
+  // Not nullable: null fails the checks below instead of being skipped.
+  @ValidateIf((o: UpdateInverterDto) => o.lowSocAlertPct !== undefined)
+  @IsInt()
+  @Min(MIN_LOW_SOC_ALERT_PCT)
+  @Max(MAX_LOW_SOC_ALERT_PCT)
+  lowSocAlertPct?: number;
 
   @IsOptional()
   @IsNumber()

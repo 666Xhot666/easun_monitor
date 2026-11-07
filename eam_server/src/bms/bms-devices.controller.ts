@@ -54,6 +54,7 @@ export const BMS_DEVICE_FIELDS = {
   bluetoothId: true,
   lastSeenAt: true,
   useForEnergyFlow: true,
+  cellLowAlertV: true,
   createdAt: true,
   inverterProfileId: true,
 } as const;

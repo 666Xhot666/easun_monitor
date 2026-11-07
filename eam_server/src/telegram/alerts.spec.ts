@@ -1,6 +1,7 @@
 import {
   bmsAlerts,
   cellLowAlerts,
+  cellLowThreshold,
   inverterAlerts,
   type CellLowState,
   type InverterAlertState,
@@ -191,5 +192,25 @@ describe('cellLowAlerts', () => {
       [],
       [],
     ]);
+  });
+});
+
+describe('cellLowThreshold', () => {
+  const settings = {
+    cellUndervoltageRecoveryV: 2.9,
+    cellUndervoltageProtectionV: 2.6,
+  };
+
+  it("defaults to a little above the BMS's own undervoltage recovery", () => {
+    expect(cellLowThreshold(null, settings)).toBeCloseTo(3.0, 6);
+  });
+
+  it("takes the device's own limit when one is set", () => {
+    expect(cellLowThreshold(3.1, settings)).toBe(3.1);
+  });
+
+  it('has none until the BMS has told its limits: the chemistry is not guessed', () => {
+    expect(cellLowThreshold(null, null)).toBeNull();
+    expect(cellLowThreshold(null, { maxChargeCurrentA: 48 })).toBeNull();
   });
 });

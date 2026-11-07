@@ -1,5 +1,4 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
 import { Interval } from '@nestjs/schedule';
 import type { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -12,8 +11,8 @@ import { languageOr, type Language } from '../i18n/languages';
 import {
   bmsAlerts,
   cellLowAlerts,
+  cellLowThreshold,
   inverterAlerts,
-  type CellLowLimits,
   type CellLowState,
   type InverterAlertState,
 } from './alerts';
@@ -25,7 +24,6 @@ import {
   BMS_SOC_FRESH_MS,
   CELL_LOW_HOLD_MS,
   CELL_LOW_RECOVER_V,
-  DEFAULT_CELL_LOW_V,
   DEFAULT_LOW_SOC,
   OFFLINE_AFTER_MS,
 } from './constants';
@@ -38,21 +36,14 @@ import {
 @Injectable()
 export class TelegramAlerts {
   private readonly logger = new Logger(TelegramAlerts.name);
-  private readonly lowSoc: number;
   private readonly inverterState = new Map<number, InverterAlertState>();
   private readonly bmsState = new Map<number, string[]>();
-  /** Per BMS device: its inverter and name, looked up once. */
-  private readonly bmsDevices = new Map<
-    number,
-    { profileId: number; name: string }
-  >();
   /** Per inverter: the BMS's latest charge, and which BMS. */
   private readonly bmsSoc = new Map<
     number,
     { soc: number; atMs: number; name: string }
   >();
   private readonly cellLow = new Map<number, CellLowState>();
-  private readonly cellLimits: CellLowLimits;
   /** Loggers that are down: since when, and whether that was reported. */
   private readonly loggerDown = new Map<
     number,
@@ -65,17 +56,7 @@ export class TelegramAlerts {
     private readonly prisma: PrismaService,
     private readonly bot: TelegramBot,
     private readonly notifications: NotificationSettingsService,
-    config: ConfigService,
-  ) {
-    const configured = Number(config.get<string>('TELEGRAM_LOW_SOC'));
-    this.lowSoc = configured > 0 ? configured : DEFAULT_LOW_SOC;
-    const cellLowV = Number(config.get<string>('BMS_CELL_LOW_V'));
-    this.cellLimits = {
-      thresholdV: cellLowV > 0 ? cellLowV : DEFAULT_CELL_LOW_V,
-      holdMs: CELL_LOW_HOLD_MS,
-      recoverV: CELL_LOW_RECOVER_V,
-    };
-  }
+  ) {}
 
   async onReading(
     profileId: number,
@@ -83,10 +64,15 @@ export class TelegramAlerts {
   ): Promise<void> {
     const bms = this.bmsSoc.get(profileId);
     const fresh = bms && Date.now() - bms.atMs <= BMS_SOC_FRESH_MS ? bms : null;
+    // Read on each reading, so a changed level applies at once.
+    const profile = await this.prisma.inverterProfile.findUnique({
+      where: { id: profileId },
+      select: { lowSocAlertPct: true },
+    });
     const { state, messages } = inverterAlerts(
       this.inverterState.get(profileId),
       reading,
-      this.lowSoc,
+      profile?.lowSocAlertPct ?? DEFAULT_LOW_SOC,
       fresh?.soc,
     );
     this.inverterState.set(profileId, state);
@@ -132,8 +118,17 @@ export class TelegramAlerts {
     reading: Partial<BmsReading>,
     now = new Date(),
   ): Promise<void> {
-    const device = await this.bmsDevice(deviceId);
-    if (!device) return;
+    const row = await this.prisma.bmsDevice.findUnique({
+      where: { id: deviceId },
+      select: {
+        name: true,
+        inverterProfileId: true,
+        cellLowAlertV: true,
+        settings: true,
+      },
+    });
+    if (!row) return;
+    const device = { profileId: row.inverterProfileId, name: row.name };
     const { state, messages } = bmsAlerts(
       this.bmsState.get(deviceId),
       reading.alarms ?? [],
@@ -147,38 +142,37 @@ export class TelegramAlerts {
         name: device.name,
       });
 
-    const cell = cellLowAlerts(
-      this.cellLow.get(deviceId),
-      {
-        atMs: now.getTime(),
-        gridUp: this.inverterState.get(device.profileId)?.gridUp,
-        cellMinV: reading.cellMinV ?? null,
-        cellMinIndex: reading.cellMinIndex ?? null,
-        packVoltageV: reading.packVoltageV ?? null,
-        currentA: reading.currentA ?? null,
-        stateOfChargePct: reading.stateOfChargePct ?? null,
-      },
-      this.cellLimits,
+    const report = row.settings as {
+      settings?: Record<string, unknown>;
+    } | null;
+    const thresholdV = cellLowThreshold(
+      row.cellLowAlertV,
+      report?.settings ?? null,
     );
+    const cell =
+      thresholdV === null
+        ? { state: { reported: false }, messages: [] }
+        : cellLowAlerts(
+            this.cellLow.get(deviceId),
+            {
+              atMs: now.getTime(),
+              gridUp: this.inverterState.get(device.profileId)?.gridUp,
+              cellMinV: reading.cellMinV ?? null,
+              cellMinIndex: reading.cellMinIndex ?? null,
+              packVoltageV: reading.packVoltageV ?? null,
+              currentA: reading.currentA ?? null,
+              stateOfChargePct: reading.stateOfChargePct ?? null,
+            },
+            {
+              thresholdV,
+              holdMs: CELL_LOW_HOLD_MS,
+              recoverV: CELL_LOW_RECOVER_V,
+            },
+          );
     this.cellLow.set(deviceId, cell.state);
 
     for (const message of [...messages, ...cell.messages])
       await this.toHousehold(device.profileId, message, device.name);
-  }
-
-  private async bmsDevice(
-    deviceId: number,
-  ): Promise<{ profileId: number; name: string } | null> {
-    const known = this.bmsDevices.get(deviceId);
-    if (known) return known;
-    const row = await this.prisma.bmsDevice.findUnique({
-      where: { id: deviceId },
-      select: { name: true, inverterProfileId: true },
-    });
-    if (!row) return null;
-    const device = { profileId: row.inverterProfileId, name: row.name };
-    this.bmsDevices.set(deviceId, device);
-    return device;
   }
 
   @Interval(60_000)

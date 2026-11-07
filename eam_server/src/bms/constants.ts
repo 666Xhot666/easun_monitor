@@ -39,3 +39,6 @@ export const MAX_WIRING_DAYS = 366;
 /** Wiring drop: one fit per this many days, to show a trend. */
 export const WIRING_TREND_DAYS = 7;
 export const DAY_MS = 24 * 60 * 60_000;
+/** Limits of a BMS device's low-cell alert voltage. */
+export const MIN_CELL_LOW_ALERT_V = 2;
+export const MAX_CELL_LOW_ALERT_V = 4.5;

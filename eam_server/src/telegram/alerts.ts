@@ -1,7 +1,11 @@
 import type { AlertMessage } from '../alerts/alert-message';
 import { SMG_II_READINGS } from '../inverter/readings/smg-ii.readings';
 import { activeBits } from '../inverter/registers/register-map';
-import { GRID_PRESENT_V, RECOVER_POINTS } from './constants';
+import {
+  CELL_LOW_ABOVE_RECOVERY_V,
+  GRID_PRESENT_V,
+  RECOVER_POINTS,
+} from './constants';
 
 function isNumber(value: unknown): value is number {
   return typeof value === 'number' && !Number.isNaN(value);
@@ -177,4 +181,19 @@ export function cellLowAlerts(
       },
     ],
   };
+}
+
+/**
+ * The lowest-cell voltage a BMS device is alerted at: its own limit when
+ * set, else a little above the BMS's undervoltage recovery voltage (from
+ * the settings it reported), so the alert comes before the BMS protects.
+ * Null while neither is known: the cells' chemistry is not guessed.
+ */
+export function cellLowThreshold(
+  deviceLimitV: number | null,
+  bmsSettings: Record<string, unknown> | null,
+): number | null {
+  if (isNumber(deviceLimitV)) return deviceLimitV;
+  const recovery = bmsSettings?.cellUndervoltageRecoveryV;
+  return isNumber(recovery) ? recovery + CELL_LOW_ABOVE_RECOVERY_V : null;
 }
