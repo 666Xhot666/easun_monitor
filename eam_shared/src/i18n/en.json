@@ -1192,5 +1192,53 @@
     "bypass": "Bypass",
     "charging": "Charging",
     "fault": "Fault"
+  },
+  "bmsSettings": {
+    "title": "BMS settings",
+    "readOnly": "As set on the BMS. Read-only here; change them in the BMS's own app.",
+    "received": "Received {{time}}",
+    "none": "The BMS sends its settings when the reader connects; none have arrived yet.",
+    "groups": {
+      "cellVoltages": "Cell voltages",
+      "charging": "Charging and balancing",
+      "currents": "Currents",
+      "temperatures": "Temperatures",
+      "pack": "Pack"
+    },
+    "labels": {
+      "cellOvervoltageProtectionV": "Cell overvoltage protection",
+      "cellOvervoltageRecoveryV": "Cell overvoltage recovery",
+      "cellUndervoltageProtectionV": "Cell undervoltage protection",
+      "cellUndervoltageRecoveryV": "Cell undervoltage recovery",
+      "powerOffV": "Power-off voltage",
+      "smartSleepV": "Smart sleep voltage",
+      "socFullV": "Voltage at 100% SOC",
+      "socEmptyV": "Voltage at 0% SOC",
+      "cellChargeV": "Charge voltage (per cell)",
+      "cellFloatV": "Float voltage (per cell)",
+      "balancerEnabled": "Balancer",
+      "balanceStartV": "Balancing starts at",
+      "balanceTriggerDeltaV": "Balancing cell difference",
+      "maxBalanceCurrentA": "Max balance current",
+      "chargeEnabled": "Charge",
+      "maxChargeCurrentA": "Max charge current",
+      "chargeOvercurrentDelayS": "Charge overcurrent delay",
+      "chargeOvercurrentRecoveryS": "Charge overcurrent recovery",
+      "dischargeEnabled": "Discharge",
+      "maxDischargeCurrentA": "Max discharge current",
+      "dischargeOvercurrentDelayS": "Discharge overcurrent delay",
+      "dischargeOvercurrentRecoveryS": "Discharge overcurrent recovery",
+      "shortCircuitRecoveryS": "Short-circuit recovery",
+      "chargeOvertemperatureC": "Charge overtemperature protection",
+      "chargeOvertemperatureRecoveryC": "Charge overtemperature recovery",
+      "dischargeOvertemperatureC": "Discharge overtemperature protection",
+      "dischargeOvertemperatureRecoveryC": "Discharge overtemperature recovery",
+      "chargeUndertemperatureC": "Charge undertemperature protection",
+      "chargeUndertemperatureRecoveryC": "Charge undertemperature recovery",
+      "mosfetOvertemperatureC": "MOSFET overtemperature protection",
+      "mosfetOvertemperatureRecoveryC": "MOSFET overtemperature recovery",
+      "cellCount": "Cell count",
+      "nominalCapacityAh": "Nominal capacity"
+    }
   }
 }

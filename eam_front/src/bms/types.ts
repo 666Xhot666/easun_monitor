@@ -64,3 +64,13 @@ export interface BmsLatest {
   ageSeconds: number;
   status: 'live' | 'stale';
 }
+
+/** GET .../bms/:bmsId/settings: the BMS's own settings as last reported, read-only. */
+export interface BmsSettingsReport {
+  protocol: string;
+  decoderVersion: string;
+  /** When the BMS sent them (ISO 8601). */
+  receivedAt: string;
+  /** Setting name → value in V, A, s, °C or Ah; switches as booleans. */
+  settings: Record<string, number | boolean>;
+}

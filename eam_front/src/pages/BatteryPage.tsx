@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { BatteryMedium } from 'lucide-react';
 import BmsHistoryCharts from '../bms/BmsHistoryCharts';
 import BmsLivePanel from '../bms/BmsLivePanel';
+import BmsSettingsPanel from '../bms/BmsSettingsPanel';
 import { useBmsDevices } from '../bms/useBmsDevices';
 import { useBmsLatest } from '../bms/useBmsLatest';
+import { useBmsSettings } from '../bms/useBmsSettings';
 import { useLiveData } from '../shell/LiveData';
 import { EmptyState, PageHeader } from '../ui';
 
-/** The battery as its BMS reports it: live values, cells, status and history. */
+/** The battery as its BMS reports it: live values, cells, status, history and the BMS's own settings (read-only). */
 export default function BatteryPage() {
   const { t } = useTranslation();
   const { profile, isAdmin } = useLiveData();
@@ -16,6 +18,7 @@ export default function BatteryPage() {
   // One BMS per inverter for now; the data model allows more.
   const device = devices?.[0] ?? null;
   const latest = useBmsLatest(profile.id, device?.id ?? null);
+  const bmsSettings = useBmsSettings(profile.id, device?.id ?? null);
   const settingsHref = `/dashboard/${profile.id}/settings/battery-monitor`;
 
   return (
@@ -42,6 +45,7 @@ export default function BatteryPage() {
         <div className="space-y-4">
           <BmsLivePanel latest={latest} settingsHref={isAdmin ? settingsHref : undefined} />
           <BmsHistoryCharts profileId={profile.id} bmsId={device.id} />
+          <BmsSettingsPanel report={bmsSettings} />
         </div>
       )}
     </>

@@ -1,0 +1,62 @@
+{
+  "groups": [
+    {
+      "id": "cellVoltages",
+      "fields": [
+        { "name": "cellOvervoltageProtectionV", "unit": "V", "decimals": 3 },
+        { "name": "cellOvervoltageRecoveryV", "unit": "V", "decimals": 3 },
+        { "name": "cellUndervoltageProtectionV", "unit": "V", "decimals": 3 },
+        { "name": "cellUndervoltageRecoveryV", "unit": "V", "decimals": 3 },
+        { "name": "powerOffV", "unit": "V", "decimals": 3 },
+        { "name": "smartSleepV", "unit": "V", "decimals": 3 },
+        { "name": "socFullV", "unit": "V", "decimals": 3 },
+        { "name": "socEmptyV", "unit": "V", "decimals": 3 }
+      ]
+    },
+    {
+      "id": "charging",
+      "fields": [
+        { "name": "cellChargeV", "unit": "V", "decimals": 3 },
+        { "name": "cellFloatV", "unit": "V", "decimals": 3 },
+        { "name": "balancerEnabled", "unit": "flag" },
+        { "name": "balanceStartV", "unit": "V", "decimals": 3 },
+        { "name": "balanceTriggerDeltaV", "unit": "V", "decimals": 3 },
+        { "name": "maxBalanceCurrentA", "unit": "A", "decimals": 1 }
+      ]
+    },
+    {
+      "id": "currents",
+      "fields": [
+        { "name": "chargeEnabled", "unit": "flag" },
+        { "name": "maxChargeCurrentA", "unit": "A", "decimals": 0 },
+        { "name": "chargeOvercurrentDelayS", "unit": "s", "decimals": 0 },
+        { "name": "chargeOvercurrentRecoveryS", "unit": "s", "decimals": 0 },
+        { "name": "dischargeEnabled", "unit": "flag" },
+        { "name": "maxDischargeCurrentA", "unit": "A", "decimals": 0 },
+        { "name": "dischargeOvercurrentDelayS", "unit": "s", "decimals": 0 },
+        { "name": "dischargeOvercurrentRecoveryS", "unit": "s", "decimals": 0 },
+        { "name": "shortCircuitRecoveryS", "unit": "s", "decimals": 0 }
+      ]
+    },
+    {
+      "id": "temperatures",
+      "fields": [
+        { "name": "chargeOvertemperatureC", "unit": "°C", "decimals": 1 },
+        { "name": "chargeOvertemperatureRecoveryC", "unit": "°C", "decimals": 1 },
+        { "name": "dischargeOvertemperatureC", "unit": "°C", "decimals": 1 },
+        { "name": "dischargeOvertemperatureRecoveryC", "unit": "°C", "decimals": 1 },
+        { "name": "chargeUndertemperatureC", "unit": "°C", "decimals": 1 },
+        { "name": "chargeUndertemperatureRecoveryC", "unit": "°C", "decimals": 1 },
+        { "name": "mosfetOvertemperatureC", "unit": "°C", "decimals": 1 },
+        { "name": "mosfetOvertemperatureRecoveryC", "unit": "°C", "decimals": 1 }
+      ]
+    },
+    {
+      "id": "pack",
+      "fields": [
+        { "name": "cellCount", "unit": "count" },
+        { "name": "nominalCapacityAh", "unit": "Ah", "decimals": 0 }
+      ]
+    }
+  ]
+}

@@ -1212,5 +1212,53 @@
     "bypass": "Байпас",
     "charging": "Заряджання",
     "fault": "Несправність"
+  },
+  "bmsSettings": {
+    "title": "Налаштування BMS",
+    "readOnly": "Як встановлено в BMS. Тільки для читання; змінюйте їх у власному застосунку BMS.",
+    "received": "Отримано {{time}}",
+    "none": "BMS надсилає свої налаштування, коли читач підключається; їх ще не отримано.",
+    "groups": {
+      "cellVoltages": "Напруга комірок",
+      "charging": "Заряджання та балансування",
+      "currents": "Струми",
+      "temperatures": "Температури",
+      "pack": "Батарея"
+    },
+    "labels": {
+      "cellOvervoltageProtectionV": "Захист від перенапруги комірки",
+      "cellOvervoltageRecoveryV": "Відновлення після перенапруги комірки",
+      "cellUndervoltageProtectionV": "Захист від низької напруги комірки",
+      "cellUndervoltageRecoveryV": "Відновлення після низької напруги комірки",
+      "powerOffV": "Напруга вимкнення",
+      "smartSleepV": "Напруга сну",
+      "socFullV": "Напруга при 100% SOC",
+      "socEmptyV": "Напруга при 0% SOC",
+      "cellChargeV": "Напруга заряджання (на комірку)",
+      "cellFloatV": "Напруга підтримки (на комірку)",
+      "balancerEnabled": "Балансувальник",
+      "balanceStartV": "Балансування починається при",
+      "balanceTriggerDeltaV": "Різниця напруги комірок для балансування",
+      "maxBalanceCurrentA": "Максимальний струм балансування",
+      "chargeEnabled": "Заряджання",
+      "maxChargeCurrentA": "Максимальний струм заряджання",
+      "chargeOvercurrentDelayS": "Затримка захисту від надструму заряджання",
+      "chargeOvercurrentRecoveryS": "Відновлення після надструму заряджання",
+      "dischargeEnabled": "Розряд",
+      "maxDischargeCurrentA": "Максимальний струм розряду",
+      "dischargeOvercurrentDelayS": "Затримка захисту від надструму розряду",
+      "dischargeOvercurrentRecoveryS": "Відновлення після надструму розряду",
+      "shortCircuitRecoveryS": "Відновлення після короткого замикання",
+      "chargeOvertemperatureC": "Захист від перегріву при заряджанні",
+      "chargeOvertemperatureRecoveryC": "Відновлення після перегріву при заряджанні",
+      "dischargeOvertemperatureC": "Захист від перегріву при розряді",
+      "dischargeOvertemperatureRecoveryC": "Відновлення після перегріву при розряді",
+      "chargeUndertemperatureC": "Захист від переохолодження при заряджанні",
+      "chargeUndertemperatureRecoveryC": "Відновлення після переохолодження при заряджанні",
+      "mosfetOvertemperatureC": "Захист MOSFET від перегріву",
+      "mosfetOvertemperatureRecoveryC": "Відновлення MOSFET після перегріву",
+      "cellCount": "Кількість комірок",
+      "nominalCapacityAh": "Номінальна ємність"
+    }
   }
 }
