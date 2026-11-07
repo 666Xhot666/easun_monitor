@@ -1,3 +1,4 @@
+import { REQUEST_TIMEOUT_MS } from './constants';
 /** Injection token for the Telegram client; null when no bot token is set. */
 export const TELEGRAM_CLIENT = Symbol('TELEGRAM_CLIENT');
 
@@ -80,17 +81,24 @@ const messageFields = (options?: MessageOptions) => ({
 
 /** The Bot API over HTTPS. */
 export class HttpTelegramClient implements TelegramClient {
-  constructor(private readonly token: string) {}
+  constructor(
+    private readonly token: string,
+    private readonly fetchFn: typeof fetch = fetch,
+  ) {}
 
   getUpdates(
     offset: number,
     timeoutSeconds: number,
   ): Promise<TelegramUpdate[]> {
-    return this.call<TelegramUpdate[]>('getUpdates', {
-      offset,
-      timeout: timeoutSeconds,
-      allowed_updates: ['message', 'callback_query'],
-    });
+    return this.call<TelegramUpdate[]>(
+      'getUpdates',
+      {
+        offset,
+        timeout: timeoutSeconds,
+        allowed_updates: ['message', 'callback_query'],
+      },
+      timeoutSeconds * 1000 + REQUEST_TIMEOUT_MS,
+    );
   }
 
   async sendMessage(
@@ -166,24 +174,53 @@ export class HttpTelegramClient implements TelegramClient {
     });
   }
 
-  private call<T>(method: string, body: object): Promise<T> {
-    return this.request<T>(method, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+  private call<T>(
+    method: string,
+    body: object,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  ): Promise<T> {
+    return this.request<T>(
+      method,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      },
+      timeoutMs,
+    );
   }
 
-  private async request<T>(method: string, init: RequestInit): Promise<T> {
-    const response = await fetch(
-      `https://api.telegram.org/bot${this.token}/${method}`,
-      init,
+  private async request<T>(
+    method: string,
+    init: RequestInit,
+    timeoutMs = REQUEST_TIMEOUT_MS,
+  ): Promise<T> {
+    let response: Response | undefined;
+    let json: { ok: boolean; result: T; description?: string };
+    // Without a timeout a dropped connection can hang for minutes; it covers
+    // reading the body too, not only the headers.
+    const controller = new AbortController();
+    const timer = setTimeout(
+      () => controller.abort(new DOMException('No answer', 'TimeoutError')),
+      timeoutMs,
     );
-    const json = (await response.json()) as {
-      ok: boolean;
-      result: T;
-      description?: string;
-    };
+    try {
+      response = await this.fetchFn(
+        `https://api.telegram.org/bot${this.token}/${method}`,
+        { ...init, signal: controller.signal },
+      );
+      json = (await response.json()) as typeof json;
+    } catch {
+      // The token is part of the URL: say only what failed, never the URL.
+      const why = controller.signal.aborted
+        ? 'no answer'
+        : response
+          ? `unreadable answer (${response.status})`
+          : 'not reachable';
+      throw new Error(`Telegram ${method}: ${why}`);
+    } finally {
+      clearTimeout(timer);
+    }
     // The token is part of the URL: never put the URL in an error.
     if (!json.ok)
       throw new Error(

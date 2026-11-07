@@ -28,3 +28,5 @@ export const BMS_SOC_FRESH_MS = 30_000;
 export const CELL_LOW_ABOVE_RECOVERY_V = 0.1;
 export const CELL_LOW_HOLD_MS = 10_000;
 export const CELL_LOW_RECOVER_V = 0.05;
+/** A Bot API request without an answer in this long fails (a long poll gets its poll time on top). */
+export const REQUEST_TIMEOUT_MS = 15_000;

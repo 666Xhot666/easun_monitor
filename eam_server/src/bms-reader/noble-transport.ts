@@ -95,7 +95,7 @@ export async function connectBms(
     (resolve, reject) => {
       const timer = setTimeout(() => {
         ble.removeListener('discover', onDiscover);
-        void ble.stopScanningAsync();
+        void ble.stopScanningAsync().catch(() => undefined);
         reject(
           new Error(
             `No BMS ${target.id ? `with id ${target.id}` : `named ${target.name}*`} found in ${timeoutMs / 1000} s`,
@@ -109,10 +109,19 @@ export async function connectBms(
         if (!matches) return;
         clearTimeout(timer);
         ble.removeListener('discover', onDiscover);
-        void ble.stopScanningAsync().then(() => resolve(p));
+        // Connect even if stopping the scan failed.
+        void ble
+          .stopScanningAsync()
+          .catch(() => undefined)
+          .then(() => resolve(p));
       };
       ble.on('discover', onDiscover);
-      void ble.startScanningAsync([], false);
+      // A failed scan ends this attempt; the reconnect loop tries again.
+      ble.startScanningAsync([], false).catch((error: unknown) => {
+        clearTimeout(timer);
+        ble.removeListener('discover', onDiscover);
+        reject(error instanceof Error ? error : new Error(String(error)));
+      });
     },
   );
 
