@@ -31,10 +31,17 @@ export interface BmsReading {
   currentA: number | null;
   powerW: number | null;
   stateOfChargePct: number | null;
+  /** The fields from here to cellWireResistancesOhm are missing on readings stored before the BMS reported them. */
+  stateOfHealthPct?: number | null;
   remainingCapacityAh: number | null;
   nominalCapacityAh: number | null;
   cycleCount: number | null;
+  /** Charge the pack has moved over its life. */
+  totalCycleCapacityAh?: number | null;
+  runTimeSeconds?: number | null;
   cellVoltagesV: number[];
+  /** Balance-wire resistance per cell, cell 1 first. */
+  cellWireResistancesOhm?: number[];
   cellMinV: number | null;
   cellMaxV: number | null;
   cellAverageV: number | null;

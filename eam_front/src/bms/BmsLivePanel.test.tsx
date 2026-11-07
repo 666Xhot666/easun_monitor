@@ -39,6 +39,33 @@ const reading: BmsReading = {
 const live: BmsLatest = { reading, ageSeconds: 3, status: 'live' };
 
 describe('BmsLivePanel', () => {
+  it('shows state of health, the charge the pack has moved and how long the BMS has run', () => {
+    const more: BmsReading = { ...reading, stateOfHealthPct: 100, totalCycleCapacityAh: 1489.001, runTimeSeconds: 8_791_797 };
+    render(<BmsLivePanel latest={{ ...live, reading: more }} />);
+
+    expect(screen.getByTestId('bms-soh')).toHaveTextContent('100%');
+    expect(screen.getByTestId('bms-cycle-capacity')).toHaveTextContent(/1,?489 Ah/);
+    expect(screen.getByTestId('bms-run-time')).toHaveTextContent('101 d 18 h');
+  });
+
+  it("shows each cell's wire resistance", () => {
+    const more: BmsReading = { ...reading, cellWireResistancesOhm: [0.07, 0.068, 0.07, 0.067, 0.07, 0.068, 0.07, 0.068] };
+    render(<BmsLivePanel latest={{ ...live, reading: more }} />);
+
+    const cells = within(screen.getByRole('list', { name: 'Cell voltages' })).getAllByRole('listitem');
+    expect(cells[0]).toHaveTextContent('70 mΩ');
+    expect(cells[3]).toHaveTextContent('67 mΩ');
+  });
+
+  it('shows dashes for readings stored before the BMS reported these', () => {
+    render(<BmsLivePanel latest={live} />);
+
+    expect(screen.getByTestId('bms-soh')).toHaveTextContent('--');
+    expect(screen.getByTestId('bms-cycle-capacity')).toHaveTextContent('--');
+    expect(screen.getByTestId('bms-run-time')).toHaveTextContent('--');
+    expect(screen.queryByText(/mΩ/)).not.toBeInTheDocument();
+  });
+
   it('shows state of charge, pack voltage, current and power', () => {
     render(<BmsLivePanel latest={live} />);
 
