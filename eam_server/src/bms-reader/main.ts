@@ -126,6 +126,13 @@ async function run(config: ReturnType<typeof readerConfig>): Promise<void> {
             );
           }
         },
+        onSettings: (report) => {
+          capture.event('settings', JSON.stringify(report.settings));
+          log(
+            `BMS settings received (${Object.keys(report.settings).length} values)`,
+          );
+          ingest?.offerSettings(report);
+        },
         onEvent: (event) => {
           if (event.kind === 'frame') {
             capture.frame(event.frameType, event.hex);

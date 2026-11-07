@@ -1,8 +1,9 @@
 import type { BmsReading } from '../bms/reading';
+import type { BmsSettingsReport } from '../bms/settings-report';
 import { INGEST_RETRY_FIRST_MS, INGEST_RETRY_MAX_MS } from './constants';
 
 export interface IngestClientOptions {
-  /** The server's ingest endpoint (BMS_INGEST_URL). */
+  /** The server's ingest endpoint (BMS_INGEST_URL); settings go to <url>/settings. */
   url: string;
   /** This BMS device's ingest token (BMS_INGEST_TOKEN). */
   token: string;
@@ -23,6 +24,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
  */
 export class IngestClient {
   private readonly queue: BmsReading[] = [];
+  /** The newest settings not yet delivered; a newer report replaces it. */
+  private pendingSettings: BmsSettingsReport | null = null;
   private lastQueuedAt: number | null = null;
   private sending = false;
   private readonly fetch: typeof fetch;
@@ -44,16 +47,43 @@ export class IngestClient {
     void this.pump();
   }
 
+  /** Settings are sent before queued readings, and only the newest is kept. */
+  offerSettings(report: BmsSettingsReport): void {
+    this.pendingSettings = report;
+    void this.pump();
+  }
+
+  private next(): { what: string; url: string; body: object } | null {
+    if (this.pendingSettings) {
+      return {
+        what: `settings of ${this.pendingSettings.timestamp}`,
+        url: `${this.options.url.replace(/\/+$/, '')}/settings`,
+        body: this.pendingSettings,
+      };
+    }
+    const reading = this.queue[0];
+    if (!reading) return null;
+    return {
+      what: `reading of ${reading.timestamp}`,
+      url: this.options.url,
+      body: reading,
+    };
+  }
+
+  private done(body: object): void {
+    if (this.pendingSettings === body) this.pendingSettings = null;
+    else if (this.queue[0] === body) this.queue.shift();
+  }
+
   private async pump(): Promise<void> {
     if (this.sending) return;
     this.sending = true;
     let delay = INGEST_RETRY_FIRST_MS;
     try {
-      while (this.queue.length > 0) {
-        const reading = this.queue[0];
+      for (let item = this.next(); item; item = this.next()) {
         let status: number;
         try {
-          status = await this.post(reading);
+          status = await this.post(item.url, item.body);
         } catch (error) {
           status = 0;
           this.options.onEvent(
@@ -70,10 +100,10 @@ export class IngestClient {
           continue;
         }
         // Delivered, already stored (409), or rejected for good (other 4xx).
-        if (this.queue[0] === reading) this.queue.shift();
+        this.done(item.body);
         if (status >= 400 && status !== 409) {
           this.options.onEvent(
-            `Server rejected the reading of ${reading.timestamp} (${status}); dropped`,
+            `Server rejected the ${item.what} (${status}); dropped`,
           );
         }
         delay = INGEST_RETRY_FIRST_MS;
@@ -83,14 +113,14 @@ export class IngestClient {
     }
   }
 
-  private async post(reading: BmsReading): Promise<number> {
-    const response = await this.fetch(this.options.url, {
+  private async post(url: string, body: object): Promise<number> {
+    const response = await this.fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.options.token}`,
       },
-      body: JSON.stringify(reading),
+      body: JSON.stringify(body),
     });
     return response.status;
   }

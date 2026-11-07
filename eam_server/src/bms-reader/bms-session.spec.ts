@@ -1,7 +1,8 @@
 import { CELL_INFO, DEVICE_INFO, buildRequest } from '../bms/jk/requests';
 import { referenceFrame } from '../bms/jk/testing/reference-frames';
 import type { BmsReading } from '../bms/reading';
-import { BmsSession, type SessionEvent } from './bms-session';
+import type { BmsSettingsReport } from '../bms/settings-report';
+import { BmsSession, DECODER_VERSION, type SessionEvent } from './bms-session';
 import type { BleConnection } from './noble-connection';
 
 class FakeConnection implements BleConnection {
@@ -47,7 +48,9 @@ function startSession(
   const connection = new FakeConnection();
   const readings: BmsReading[] = [];
   const events: SessionEvent[] = [];
+  const settings: BmsSettingsReport[] = [];
   const session = new BmsSession(connection, {
+    onSettings: (report) => settings.push(report),
     protocol,
     source: 'mac-ble',
     now: () => Date.now(),
@@ -55,7 +58,7 @@ function startSession(
     onEvent: (event) => events.push(event),
   });
   const ended = session.run(signal);
-  return { connection, readings, events, ended };
+  return { connection, readings, events, settings, ended };
 }
 
 describe('BmsSession', () => {
@@ -158,6 +161,31 @@ describe('BmsSession', () => {
         detail: expect.stringMatching(/10\.07.*JK02_24S.*JK02_32S/),
       }),
     );
+  });
+
+  it("hands on the BMS's settings when its settings frame arrives", async () => {
+    const { connection, settings } = startSession('JK02_32S');
+    await jest.advanceTimersByTimeAsync(0);
+    connection.notify(referenceFrame('SETTINGS_REAL_PB2A16S20P_19U'));
+    expect(settings).toEqual([
+      expect.objectContaining({
+        timestamp: new Date(NOW).toISOString(),
+        protocol: 'JK02_32S',
+        decoderVersion: DECODER_VERSION,
+        settings: expect.objectContaining({ maxChargeCurrentA: 48 }),
+      }),
+    ]);
+  });
+
+  it('records settings it cannot decode for this variant, without stopping', async () => {
+    const { connection, settings, events } = startSession('JK02_24S');
+    await jest.advanceTimersByTimeAsync(0);
+    connection.notify(referenceFrame('SETTINGS_REAL_PB2A16S20P_19U'));
+    expect(settings).toEqual([]);
+    expect(events).toContainEqual({
+      kind: 'decode-error',
+      detail: expect.stringMatching(/JK02_24S settings layout/),
+    });
   });
 
   it('records checksum failures without stopping', async () => {

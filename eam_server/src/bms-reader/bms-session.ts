@@ -5,9 +5,11 @@ import {
   variantForSoftware,
 } from '../bms/jk/device-info';
 import { FrameAssembler } from '../bms/jk/frame-assembler';
+import { decodeSettings, SETTINGS_FRAME } from '../bms/jk/settings';
 import { CELL_INFO, DEVICE_INFO, buildRequest } from '../bms/jk/requests';
 import type { BmsProtocol } from '../bms/jk/variants';
 import type { BmsReading, BmsSource } from '../bms/reading';
+import type { BmsSettingsReport } from '../bms/settings-report';
 import type { BleConnection } from './noble-connection';
 import {
   CELL_INFO_ASK_MS,
@@ -37,6 +39,8 @@ export interface SessionOptions {
   source: BmsSource;
   now: () => number;
   onReading: (reading: BmsReading) => void;
+  /** The BMS's settings, from the settings frame it sends after connecting. */
+  onSettings?: (report: BmsSettingsReport) => void;
   onEvent: (event: SessionEvent) => void;
 }
 
@@ -161,6 +165,14 @@ export class BmsSession {
         });
       } else if (frameType === DEVICE_INFO_FRAME) {
         this.reportDeviceInfo(frame);
+      } else if (frameType === SETTINGS_FRAME) {
+        const settings = decodeSettings(frame, this.options.protocol);
+        this.options.onSettings?.({
+          timestamp: new Date(this.options.now()).toISOString(),
+          protocol: this.options.protocol,
+          decoderVersion: DECODER_VERSION,
+          settings,
+        });
       }
     } catch (error) {
       this.options.onEvent({
