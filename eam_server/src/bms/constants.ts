@@ -27,3 +27,8 @@ export const MAX_WIRE_RESISTANCE_OHM = 10;
 /** A settings report: at most this many flat settings, named in camelCase. */
 export const MAX_SETTINGS = 100;
 export const SETTING_NAME = /^[a-z][A-Za-z0-9]{0,63}$/;
+
+/** Wiring drop: a BMS and an inverter reading pair up only when their currents agree this closely (the larger wins). */
+export const PAIR_CURRENT_TOLERANCE = { amperes: 5, fraction: 0.2 };
+/** The pairs' currents must span at least this much before resistance and offset can be told apart. */
+export const MIN_CURRENT_SPAN_A = 30;
