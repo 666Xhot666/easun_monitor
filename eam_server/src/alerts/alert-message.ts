@@ -28,6 +28,7 @@ const KINDS: Record<string, AlertKind> = {
   batteryLow: 'battery',
   bmsAlarm: 'warning',
   bmsAlarmsCleared: 'warning',
+  bmsCellLow: 'battery',
   loggerDown: 'connection',
   loggerBack: 'connection',
   bmsSilent: 'connection',

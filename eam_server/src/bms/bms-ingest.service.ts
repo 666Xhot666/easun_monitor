@@ -67,7 +67,7 @@ export class BmsIngestService {
     }
     if (this.latest.set(deviceId, reading, now)) {
       void this.alerts
-        .onBmsReading(deviceId, reading.alarms ?? [])
+        .onBmsReading(deviceId, reading, now)
         .catch(() => undefined);
     }
     await this.prisma.bmsDevice.update({

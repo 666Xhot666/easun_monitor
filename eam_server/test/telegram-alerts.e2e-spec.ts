@@ -160,8 +160,8 @@ describe('Telegram alerts (e2e)', () => {
         lastSeenAt: now,
       },
     });
-    await alerts.onBmsReading(device.id, []);
-    await alerts.onBmsReading(device.id, ['Cell overvoltage']);
+    await alerts.onBmsReading(device.id, { alarms: [] });
+    await alerts.onBmsReading(device.id, { alarms: ['Cell overvoltage'] });
     await alerts.checkOffline(new Date(now.getTime() + 5 * MINUTE));
     await prisma.bmsDevice.update({
       where: { id: device.id },
@@ -175,6 +175,61 @@ describe('Telegram alerts (e2e)', () => {
       `${profile.name} (Pack): BMS alarm: Cell overvoltage`,
       `${profile.name} (Pack): BMS reader silent since 03:00`,
       `${profile.name} (Pack): BMS reader back online after 1 h 10 min`,
+    ]);
+  });
+
+  it("judges a low battery by the BMS's charge, not the inverter's voltage guess", async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'soc',
+        inverterProfileId: profile.id,
+      },
+    });
+    await alerts.onReading(profile.id, { BatterySoc: 80, MainsVoltage: 0 });
+    telegram.sent = [];
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 48 });
+    // A heavy load: the inverter guesses 15 %, the BMS knows 48 %.
+    await alerts.onReading(profile.id, { BatterySoc: 15 });
+    expect(telegram.sent).toEqual([]);
+
+    await alerts.onBmsReading(device.id, { alarms: [], stateOfChargePct: 19 });
+    await alerts.onReading(profile.id, { BatterySoc: 60 });
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([`${profile.name} (Pack): Battery low: 19 %`]);
+  });
+
+  it('reports a cell sagging under the limit while off-grid', async () => {
+    const device = await prisma.bmsDevice.create({
+      data: {
+        name: 'Pack',
+        sourceType: 'mac-ble',
+        tokenHash: 'cell',
+        inverterProfileId: profile.id,
+      },
+    });
+    await alerts.onReading(profile.id, { MainsVoltage: 0, BatterySoc: 60 });
+    telegram.sent = [];
+    const sag = {
+      alarms: [],
+      cellMinV: 2.98,
+      cellMinIndex: 4,
+      packVoltageV: 24.1,
+      currentA: -75.4,
+      stateOfChargePct: 31,
+    };
+    const t0 = new Date('2026-11-07T17:00:00Z');
+    await alerts.onBmsReading(device.id, sag, t0);
+    await alerts.onBmsReading(device.id, sag, new Date(t0.getTime() + 5_000));
+    expect(telegram.sent).toEqual([]);
+    await alerts.onBmsReading(device.id, sag, new Date(t0.getTime() + 11_000));
+
+    expect(
+      telegram.sent.filter((m) => m.chatId === '1').map((m) => m.text),
+    ).toEqual([
+      `${profile.name} (Pack): Lowest cell C4 at 2980 mV off-grid: pack 24.1 V, 75.4 A out, charge 31 %`,
     ]);
   });
 
