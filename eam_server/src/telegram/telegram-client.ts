@@ -195,8 +195,10 @@ export class HttpTelegramClient implements TelegramClient {
     init: RequestInit,
     timeoutMs = REQUEST_TIMEOUT_MS,
   ): Promise<T> {
-    let response: Response;
-    // Without a timeout a dropped connection can hang for minutes.
+    let response: Response | undefined;
+    let json: { ok: boolean; result: T; description?: string };
+    // Without a timeout a dropped connection can hang for minutes; it covers
+    // reading the body too, not only the headers.
     const controller = new AbortController();
     const timer = setTimeout(
       () => controller.abort(new DOMException('No answer', 'TimeoutError')),
@@ -207,18 +209,18 @@ export class HttpTelegramClient implements TelegramClient {
         `https://api.telegram.org/bot${this.token}/${method}`,
         { ...init, signal: controller.signal },
       );
+      json = (await response.json()) as typeof json;
     } catch {
       // The token is part of the URL: say only what failed, never the URL.
-      const why = controller.signal.aborted ? 'no answer' : 'not reachable';
+      const why = controller.signal.aborted
+        ? 'no answer'
+        : response
+          ? `unreadable answer (${response.status})`
+          : 'not reachable';
       throw new Error(`Telegram ${method}: ${why}`);
     } finally {
       clearTimeout(timer);
     }
-    const json = (await response.json()) as {
-      ok: boolean;
-      result: T;
-      description?: string;
-    };
     // The token is part of the URL: never put the URL in an error.
     if (!json.ok)
       throw new Error(

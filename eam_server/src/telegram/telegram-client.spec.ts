@@ -30,6 +30,30 @@ describe('HttpTelegramClient', () => {
     await expect(sent).rejects.not.toThrow(/secret/);
   });
 
+  it('also gives up when the answer starts but its body never finishes', async () => {
+    const stalledBody = jest.fn((_url: string, init: RequestInit) =>
+      Promise.resolve({
+        status: 200,
+        json: () =>
+          new Promise((_resolve, reject) => {
+            init.signal?.addEventListener('abort', () =>
+              reject(
+                new DOMException('The operation was aborted', 'TimeoutError'),
+              ),
+            );
+          }),
+      } as unknown as Response),
+    );
+    const client = new HttpTelegramClient(
+      '123:secret',
+      stalledBody as unknown as typeof fetch,
+    );
+    const sent = client.sendMessage('42', 'hi');
+    const failed = expect(sent).rejects.toThrow(/sendMessage: no answer/);
+    await jest.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS);
+    await failed;
+  });
+
   it('waits for a long poll the poll time plus the usual margin', async () => {
     const client = new HttpTelegramClient(
       '123:secret',
