@@ -10,6 +10,8 @@ export interface BmsDevice {
   inverterProfileId: number;
   /** The energy flow shows this BMS's live battery values instead of the inverter's. */
   useForEnergyFlow: boolean;
+  /** Lowest-cell voltage alerted at while off-grid; null: a little above the BMS's own undervoltage recovery. */
+  cellLowAlertV: number | null;
 }
 
 export interface BmsTemperature {

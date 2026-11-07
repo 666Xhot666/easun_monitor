@@ -8,3 +8,5 @@ export const INVERTER_CUTOFF_SETTING = 'BatteryLowVoltageProtectionOffGrid';
 export const WIRING_CURRENTS_A = [25, 50, 75, 100];
 /** Days back the wiring card fits over (the server's default). */
 export const DEFAULT_WIRING_DAYS = 30;
+/** The low-cell alert defaults to this far above the BMS's undervoltage recovery (the server's CELL_LOW_ABOVE_RECOVERY_V). */
+export const CELL_LOW_ABOVE_RECOVERY_V = 0.1;

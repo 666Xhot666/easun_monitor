@@ -13,7 +13,7 @@ const profile: InverterProfile = {
   batteryNominalVoltage: 48, batteryCapacityAh: 200, batteryType: 'LIFEPO4',
   lowBatteryCutoffVoltage: null, bulkChargeVoltage: null, floatChargeVoltage: null,
   pvPanelTypeId: null, pvPanelsInSeries: null, pvStrings: null,
-  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null, writesLocked: false,
+  pvMaxVocV: null, pvMpptMinV: null, pvMpptMaxV: null, pvMaxPowerW: null, pvMaxCurrentA: null, pvTiltDeg: null, pvFacingDeg: null, latitude: null, longitude: null, writesLocked: false, lowSocAlertPct: 20,
   householdId: 5, role: 'ADMIN', createdAt: '', updatedAt: '',
 };
 
@@ -68,6 +68,19 @@ describe('InverterProfileSettings', () => {
     expect(JSON.parse(patch?.data)).toEqual({ name: 'Cabin', batteryNominalVoltage: 24 });
     expect(auth.refreshUser).toHaveBeenCalled();
     expect(await screen.findByText('Saved.')).toBeInTheDocument();
+  });
+
+  it('saves the battery level the low-battery alert fires at', async () => {
+    const { server } = renderTab();
+    restore = server.restore;
+    const user = userEvent.setup();
+
+    expect(screen.getByLabelText('Low battery alert at (%)')).toHaveValue(20);
+    await user.clear(screen.getByLabelText('Low battery alert at (%)'));
+    await user.type(screen.getByLabelText('Low battery alert at (%)'), '25');
+    await user.click(screen.getByRole('button', { name: 'Save profile' }));
+
+    expect(JSON.parse(server.sent.find((c) => c.method === 'patch')?.data)).toEqual({ lowSocAlertPct: 25 });
   });
 
   it('locks writes to the inverter at once, apart from the profile form', async () => {
